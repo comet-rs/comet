@@ -10,3 +10,6 @@ members = [
     "simple_outbounds",
     "router"
 ]
+
+[patch.crates-io]
+tokio = { path = "./tokio/tokio" }

@@ -1,0 +1,3 @@
+[submodule "tokio"]
+	path = tokio
+	url = https://gitlab.com/Sayori-Studio/v2ray/tokio.git

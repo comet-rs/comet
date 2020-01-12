@@ -1,0 +1,17 @@
+[package]
+name = "socks5"
+version = "0.1.0"
+authors = ["htdocscat <comet@email.com>"]
+edition = "2018"
+
+[dependencies]
+tokio = { version = "0.2", features = ["full"] }
+common = { path = "../common" }
+transport = { path = "../transport" }
+settings = { path = "../settings" }
+log = "0.4.0"
+env_logger = "0.7.1"
+async-std = "1.4.0"
+futures = "0.3"
+async-trait = "0.1.22"
+anyhow = "1.0"

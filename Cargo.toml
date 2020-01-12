@@ -1,0 +1,12 @@
+[workspace]
+
+members = [
+    "app",
+    "socks5",
+    "common",
+    "transport",
+    "settings",
+    "vmess",
+    "simple_outbounds",
+    "router"
+]

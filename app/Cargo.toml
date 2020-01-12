@@ -1,0 +1,20 @@
+[package]
+name = "app"
+version = "0.1.0"
+authors = ["htdocscat <comet@email.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "0.2", features = ["full"] }
+clap = "2.33.0"
+log = "0.4.0"
+env_logger = "0.7.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+
+socks5 = { path = "../socks5" }
+common = { path = "../common" }
+settings = { path="../settings" }

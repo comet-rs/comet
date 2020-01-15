@@ -3,8 +3,10 @@ use clap::{App, Arg};
 use env_logger::Env;
 use log::info;
 use std::fs;
+use tokio::signal;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::from_env(Env::default().default_filter_or("debug")).init();
     let matches = App::new("Ko Ko Da Yo ~")
         .version(env!("CARGO_PKG_VERSION"))
@@ -31,7 +33,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         settings::load_file(path)?
     };
 
-    run(settings)?;
+    run(settings).await?;
+
+    signal::ctrl_c().await?;
+    info!("Ctrl-C received, exiting...");
 
     Ok(())
 }

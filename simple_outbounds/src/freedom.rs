@@ -7,5 +7,7 @@ pub struct FreedomOutbound;
 
 #[async_trait]
 impl OutboundProtocol for FreedomOutbound {
-    async fn connect<'a>(&self, conn: AcceptedConnection<'a>) -> Result<OutboundConnection<'a>> {}
+    async fn connect<'a>(&self, conn: AcceptedConnection<'a>) -> Result<OutboundConnection<'a>> {
+        // Ok(OutboundConnection::new(conn))
+    }
 }

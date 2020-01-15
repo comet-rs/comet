@@ -1,41 +1,36 @@
-use crate::sniffer::sniff;
+use crate::inbound::InboundTransport;
 use anyhow::Result;
-use common::connection::{AcceptedConnection, InboundConnection};
-use common::protocol::InboundProtocol;
+use async_trait::async_trait;
+use common::connection::InboundConnection;
 use common::RWPair;
 use log::info;
+use settings::inbound::InboundSettings;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
 pub struct InboundTcpTransport {
     listener: TcpListener,
-    protocol: Box<dyn InboundProtocol>,
 }
 
 impl InboundTcpTransport {
-    pub async fn listen<P: InboundProtocol + 'static>(
-        addr: SocketAddr,
-        protocol: P,
-    ) -> Result<Self> {
-        Ok(InboundTcpTransport {
-            listener: TcpListener::bind(addr).await?,
-            protocol: Box::new(protocol),
-        })
+    pub async fn listen(settings: &InboundSettings) -> Result<Self> {
+        let addr = SocketAddr::new(settings.listen, settings.port);
+        let ret = InboundTcpTransport {
+            listener: TcpListener::bind(&addr).await?,
+        };
+        info!("TCP listening: {}", addr);
+        Ok(ret)
     }
+}
 
-    pub async fn accept(&mut self) -> Result<AcceptedConnection<'static>> {
+#[async_trait]
+impl InboundTransport for InboundTcpTransport {
+    async fn accept(&mut self) -> Result<InboundConnection<'static>> {
         let (socket, addr) = self.listener.accept().await?;
-        info!("Accepted {}", addr);
-        let conn = InboundConnection {
+        info!("{} accepted from {}", self.listener.local_addr()?, addr);
+        Ok(InboundConnection {
             addr: addr,
             conn: RWPair::new(socket),
-        };
-        let mut handled = self.protocol.accept(conn).await?;
-        let (cached_payload, sniff_result) = sniff(&mut handled.conn).await?;
-        handled.sniffer_data = Some(cached_payload);
-        handled.sniffed_dest = sniff_result;
-        info!("Handled {:?}", handled);
-
-        Ok(handled)
+        })
     }
 }

@@ -1,0 +1,9 @@
+[package]
+name = "dns"
+version = "0.1.0"
+authors = ["htdocscat <comet@email.com>"]
+edition = "2018"
+
+[dependencies]
+trust-dns-proto = "0.18.1"
+async-trait = "0.1.22"

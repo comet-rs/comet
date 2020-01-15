@@ -1,4 +1,4 @@
-use common::NetworkType;
+use common::StreamType;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -17,7 +17,7 @@ impl Default for SecurityType {
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct StreamSettings {
     #[serde(default)]
-    pub network: NetworkType,
+    pub network: StreamType,
     #[serde(default)]
     pub security: SecurityType,
 }

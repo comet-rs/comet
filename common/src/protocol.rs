@@ -3,7 +3,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait InboundProtocol {
+pub trait InboundProtocol: Sync {
     async fn accept<'a>(&self, conn: InboundConnection<'a>) -> Result<AcceptedConnection<'a>>;
 }
 

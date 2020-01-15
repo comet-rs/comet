@@ -29,11 +29,10 @@ impl SocketAddress {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all(deserialize = "lowercase"))]
-pub enum NetworkType {
+pub enum StreamType {
     Tcp,
-    Udp,
 }
-impl Default for NetworkType {
+impl Default for StreamType {
     fn default() -> Self {
         Self::Tcp
     }

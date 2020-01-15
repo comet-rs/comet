@@ -39,3 +39,9 @@ impl<'conn> AcceptedConnection<'conn> {
 pub struct OutboundConnection<'conn> {
     pub conn: RWPair<'conn>,
 }
+
+impl<'conn> OutboundConnection<'conn> {
+    pub fn new(conn: RWPair<'conn>) -> Self {
+        OutboundConnection { conn: conn }
+    }
+}

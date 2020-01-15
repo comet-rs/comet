@@ -8,7 +8,8 @@ members = [
     "settings",
     "vmess",
     "simple_outbounds",
-    "router"
+    "router",
+    "dns"
 ]
 
 [patch.crates-io]

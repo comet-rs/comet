@@ -8,12 +8,12 @@ use tokio::net::TcpStream;
 
 pub struct OutboundTcpTransport;
 
-#[cfg(target_os = "android")]
-async fn protect(unconnected: &std::net::TcpStream) -> io::Result<()> {
-    use std::os::unix::io::AsRawFd;
-    let fd = unconnected.as_raw_fd();
-    Ok(())
-}
+// #[cfg(target_os = "android")]
+// async fn protect(unconnected: &std::net::TcpStream) -> io::Result<()> {
+//     use std::os::unix::io::AsRawFd;
+//     let fd = unconnected.as_raw_fd();
+//     Ok(())
+// }
 
 #[async_trait]
 impl OutboundTransport for OutboundTcpTransport {
@@ -24,8 +24,8 @@ impl OutboundTransport for OutboundTcpTransport {
         }?;
         let unconnected = builder.to_tcp_stream()?;
 
-        #[cfg(target_os = "android")]
-        protect(&unconnected).await?;
+        // #[cfg(target_os = "android")]
+        // protect(&unconnected).await?;
 
         let stream = TcpStream::connect_std(unconnected, &addr).await?;
         Ok(RWPair::new(stream))

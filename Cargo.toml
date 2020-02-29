@@ -9,7 +9,8 @@ members = [
     "vmess",
     "simple_outbounds",
     "router",
-    "dns"
+    "dns",
+    "android_lib"
 ]
 
 [patch.crates-io]

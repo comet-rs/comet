@@ -18,3 +18,6 @@ log = "0.4.0"
 pnet = "0.25.0"
 nix = "0.17.0"
 smallvec="1.2.0"
+common = { path = "../common" }
+transport = { path = "../transport" }
+dns = { path = "../dns" }

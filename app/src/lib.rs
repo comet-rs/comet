@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::info;
 use settings::Settings;
 use tokio::stream::StreamExt;
-mod manager;
+pub mod manager;
 
 pub struct GlobalContext {}
 

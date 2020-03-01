@@ -5,5 +5,8 @@ authors = ["htdocscat <comet@email.com>"]
 edition = "2018"
 
 [dependencies]
-trust-dns-proto = "0.18.1"
+trust-dns-proto = "0.19.3"
 async-trait = "0.1.22"
+anyhow = "1.0"
+log = "0.4.0"
+tokio = { version = "0.2", features = ["full"] }

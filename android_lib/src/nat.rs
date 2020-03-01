@@ -1,69 +1,31 @@
+use crate::proxy::ProxyPorts;
+use crate::proxy::start_proxy;
+use anyhow::{anyhow, Result};
+use log::{error, info, trace};
+use pnet::packet;
+use pnet::packet::tcp::MutableTcpPacket;
+use pnet::packet::udp::MutableUdpPacket;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::os::unix::io::FromRawFd;
 use std::os::unix::io::RawFd;
-use anyhow::{Result, anyhow};
-use log::{info, error, trace};
-use pnet::packet;
+use std::sync::{Arc};
+use tokio::sync::RwLock;
 
 use nix::sys::select::{select, FdSet};
 use nix::unistd;
-use std::collections::VecDeque;
 use pnet::packet::ip::*;
-use pnet::packet::{Packet, MutablePacket};
+use pnet::packet::{MutablePacket, Packet};
+use std::collections::VecDeque;
+use tokio::task::spawn_blocking;
 
-use crate::nat_manager::NatManager;
+use crate::nat_manager::{NatManager, ProtocolType};
 
-#[derive(Debug)]
-enum IPPacket<'a> {
-    V4(packet::ipv4::MutableIpv4Packet<'a>),
-    V6(packet::ipv6::MutableIpv6Packet<'a>)
-}
+type NatManagerRef = Arc<RwLock<NatManager>>;
 
-impl<'a> IPPacket<'a> {
-    pub fn get_next_level_protocol(&self) -> IpNextHeaderProtocol {
-        match self {
-            IPPacket::V4(ref pkt) => pkt.get_next_level_protocol(),
-            IPPacket::V6(ref pkt) => pkt.get_next_header(),
-        }
-    }
-}
-
-impl<'a> Packet for IPPacket<'a> {
-    fn packet<'p>(&'p self) -> &'p [u8] {
-        match self {
-            IPPacket::V4(ref pkt) => pkt.packet(),
-            IPPacket::V6(ref pkt) => pkt.packet(),
-        }
-    }
-    fn payload<'p>(&'p self) -> &'p [u8] {
-        match self {
-            IPPacket::V4(ref pkt) => pkt.payload(),
-            IPPacket::V6(ref pkt) => pkt.payload(),
-        }
-    }
-}
-
-impl<'a> MutablePacket for IPPacket<'a> {
-    fn packet_mut<'p>(&'p mut self) -> &'p mut [u8] {
-        match self {
-            IPPacket::V4(ref mut pkt) => pkt.packet_mut(),
-            IPPacket::V6(ref mut pkt) => pkt.packet_mut(),
-        }
-    }
-
-    fn payload_mut<'p>(&'p mut self) -> &'p mut [u8] {
-        match self {
-            IPPacket::V4(ref mut pkt) => pkt.payload_mut(),
-            IPPacket::V6(ref mut pkt) => pkt.payload_mut(),
-        }
-    }
-
-    fn clone_from<T: packet::Packet>(&mut self, other: &T) {
-        match self {
-            IPPacket::V4(ref mut pkt) => pkt.clone_from(other),
-            IPPacket::V6(ref mut pkt) => pkt.clone_from(other),
-        }
-    }
-}
+const IPV4_CLIENT: Ipv4Addr = Ipv4Addr::new(10, 25, 1, 1);
+const IPV4_ROUTER: Ipv4Addr = Ipv4Addr::new(10, 25, 1, 100);
+const IPV6_CLIENT: Ipv6Addr = Ipv6Addr::new(0xfdfe, 0xdcba, 0x9876, 0, 0, 0, 0, 2);
+const IPV6_ROUTER: Ipv6Addr = Ipv6Addr::new(0xfdfe, 0xdcba, 0x9876, 0, 0, 0, 0, 1);
 
 #[derive(Debug)]
 struct TcpFlags {
@@ -75,7 +37,7 @@ struct TcpFlags {
     psh: bool,
     rst: bool,
     syn: bool,
-    fin: bool
+    fin: bool,
 }
 
 impl TcpFlags {
@@ -90,27 +52,240 @@ impl TcpFlags {
             psh: raw & PSH != 0,
             rst: raw & RST != 0,
             syn: raw & SYN != 0,
-            fin: raw & FIN != 0
+            fin: raw & FIN != 0,
         }
     }
 }
 
-fn handle_tcp<'p>(mut ip_pkt: IPPacket<'p>) -> Result<IPPacket<'p>> {
-    let tcp_pkt = packet::tcp::MutableTcpPacket::new(ip_pkt.payload_mut()).ok_or(anyhow!("Failed to parse TCP packet"))?;
-    trace!("TCP packet: {:?}", tcp_pkt);
-    trace!("TCP flags: {:?}", TcpFlags::new(tcp_pkt.get_flags()));
-    Ok(ip_pkt)
+#[derive(Debug)]
+struct AddressedPacket<T> {
+    pub src_addr: IpAddr,
+    pub dest_addr: IpAddr,
+    pub inner: T,
 }
 
-fn run_router(fd: u16) -> Result<()> {
+impl<T> AddressedPacket<T> {
+    pub fn is_from_client(&self) -> bool {
+        self.src_addr == IpAddr::V4(IPV4_CLIENT) || self.src_addr == IpAddr::V6(IPV6_CLIENT)
+    }
+
+    pub fn is_to_router(&self) -> bool {
+        self.dest_addr == IpAddr::V4(IPV4_ROUTER) || self.dest_addr == IpAddr::V6(IPV6_ROUTER)
+    }
+}
+
+type AddressedTcpPacket<'p> = AddressedPacket<MutableTcpPacket<'p>>;
+type AddressedUdpPacket<'p> = AddressedPacket<MutableUdpPacket<'p>>;
+
+async fn handle_tcp(manager: &mut NatManagerRef, packet: & mut AddressedTcpPacket<'_>, ports: &ProxyPorts) -> Result<()> {
+    let flags = TcpFlags::new(packet.inner.get_flags());
+    // trace!("Got TCP packet: [{:?}] {:?}", flags, packet);
+    if packet.is_from_client() {
+        if packet.is_to_router() {
+            // Return packet to orig
+            if let Some((dest_addr, dest_port)) = manager.read().await.get_entry(
+                ProtocolType::Tcp,
+                packet.inner.get_destination(),
+                packet.dest_addr,
+            ) {
+                packet.src_addr = dest_addr;
+                packet.dest_addr = match dest_addr {
+                    IpAddr::V4(_) => IpAddr::V4(IPV4_CLIENT),
+                    IpAddr::V6(_) => IpAddr::V6(IPV6_CLIENT),
+                };
+                packet.inner.set_source(dest_port);
+            } else {
+                return Err(anyhow!("Entry not found in NAT table"));
+            }
+        } else {
+            // Forward packet to proxy
+            if flags.syn && !flags.ack {
+                manager.write().await.new_entry(
+                    ProtocolType::Tcp,
+                    packet.inner.get_source(),
+                    packet.dest_addr,
+                    packet.inner.get_destination(),
+                );
+            } else {
+                let refresh_result = manager.write().await.refresh_entry(
+                    ProtocolType::Tcp,
+                    packet.inner.get_source(),
+                    packet.dest_addr,
+                    packet.inner.get_destination(),
+                );
+                if !refresh_result {
+                    return Err(anyhow!("Entry not found in NAT table"));
+                }
+            }
+            match packet.src_addr {
+                IpAddr::V4(_) => {
+                    packet.src_addr = IpAddr::V4(IPV4_ROUTER);
+                    packet.dest_addr = IpAddr::V4(IPV4_CLIENT);
+                    packet.inner.set_destination(ports.tcp_v4);
+                }
+                IpAddr::V6(_) => {
+                    packet.src_addr = IpAddr::V6(IPV6_ROUTER);
+                    packet.dest_addr = IpAddr::V6(IPV6_CLIENT);
+                    packet.inner.set_destination(ports.tcp_v6);
+                }
+            };
+        }
+    } else {
+        return Err(anyhow!("Unknown source address: {}", packet.src_addr));
+    }
+    Ok(())
+}
+
+async fn handle_udp(manager: &mut NatManagerRef, packet: &mut AddressedUdpPacket<'_>, ports: &ProxyPorts) -> Result<()> {
+    if packet.is_from_client() {
+        if packet.is_to_router() {
+            // Return packet to orig
+            if let Some((dest_addr, dest_port)) = manager.read().await.get_entry(
+                ProtocolType::Udp,
+                packet.inner.get_destination(),
+                packet.dest_addr,
+            ) {
+                packet.src_addr = dest_addr;
+                packet.dest_addr = match dest_addr {
+                    IpAddr::V4(_) => IpAddr::V4(IPV4_CLIENT),
+                    IpAddr::V6(_) => IpAddr::V6(IPV6_CLIENT),
+                };
+                packet.inner.set_source(dest_port);
+            } else {
+                return Err(anyhow!("Entry not found in NAT table"));
+            }
+        } else {
+            // Forward packet to proxy
+            let refresh_result = manager.write().await.refresh_entry(
+                ProtocolType::Udp,
+                packet.inner.get_source(),
+                packet.dest_addr,
+                packet.inner.get_destination(),
+            );
+            if !refresh_result {
+                manager.write().await.new_entry(
+                    ProtocolType::Udp,
+                    packet.inner.get_source(),
+                    packet.dest_addr,
+                    packet.inner.get_destination(),
+                );
+            }
+
+            match packet.src_addr {
+                IpAddr::V4(_) => {
+                    packet.src_addr = IpAddr::V4(IPV4_ROUTER);
+                    packet.dest_addr = IpAddr::V4(IPV4_CLIENT);
+                    if packet.inner.get_destination() == 53 {
+                        packet.inner.set_destination(ports.dns_v4);
+                    } else {
+                        packet.inner.set_destination(ports.udp_v4);
+                    }
+                }
+                IpAddr::V6(_) => {
+                    packet.src_addr = IpAddr::V6(IPV6_ROUTER);
+                    packet.dest_addr = IpAddr::V6(IPV6_CLIENT);
+                    if packet.inner.get_destination() == 53 {
+                        packet.inner.set_destination(ports.dns_v6);
+                    } else {
+                        packet.inner.set_destination(ports.udp_v6);
+                    }
+                }
+            };
+        }
+    } else {
+        return Err(anyhow!("Unknown source address: {}", packet.src_addr));
+    }
+    Ok(())
+}
+
+async fn handle_ipv4(manager: &mut NatManagerRef, buffer: &mut [u8], ports: &ProxyPorts) -> Result<()> {
+    let mut ip_pkt = packet::ipv4::MutableIpv4Packet::new(buffer)
+        .ok_or(anyhow!("Failed to parse IPv4 packet"))?;
+    let l4_proto = ip_pkt.get_next_level_protocol();
+
+    let mut src_addr = ip_pkt.get_source();
+    let mut dest_addr = ip_pkt.get_destination();
+
+    match l4_proto {
+        IpNextHeaderProtocols::Tcp => {
+            use pnet::packet::tcp::ipv4_checksum;
+            let tcp_pkt = packet::tcp::MutableTcpPacket::new(ip_pkt.payload_mut())
+                .ok_or(anyhow!("Failed to parse TCP packet"))?;
+
+            let mut addressed = AddressedPacket {
+                src_addr: IpAddr::V4(src_addr),
+                dest_addr: IpAddr::V4(dest_addr),
+                inner: tcp_pkt,
+            };
+            handle_tcp(manager, &mut addressed, &ports).await?;
+            src_addr = match addressed.src_addr {
+                IpAddr::V4(addr) => addr,
+                IpAddr::V6(_) => unreachable!(),
+            };
+            dest_addr = match addressed.dest_addr {
+                IpAddr::V4(addr) => addr,
+                IpAddr::V6(_) => unreachable!(),
+            };
+            addressed.inner.set_checksum(ipv4_checksum(
+                &addressed.inner.to_immutable(),
+                &src_addr,
+                &dest_addr,
+            ));
+        }
+        IpNextHeaderProtocols::Udp => {
+            use pnet::packet::udp::ipv4_checksum;
+            let udp_pkt = MutableUdpPacket::new(ip_pkt.payload_mut())
+                .ok_or(anyhow!("Failed to parse UDP packet"))?;
+
+            let mut addressed = AddressedPacket {
+                src_addr: IpAddr::V4(src_addr),
+                dest_addr: IpAddr::V4(dest_addr),
+                inner: udp_pkt,
+            };
+
+            handle_udp(manager, &mut addressed, &ports).await?;
+            src_addr = match addressed.src_addr {
+                IpAddr::V4(addr) => addr,
+                IpAddr::V6(_) => unreachable!(),
+            };
+            dest_addr = match addressed.dest_addr {
+                IpAddr::V4(addr) => addr,
+                IpAddr::V6(_) => unreachable!(),
+            };
+            addressed.inner.set_checksum(ipv4_checksum(
+                &addressed.inner.to_immutable(),
+                &src_addr,
+                &dest_addr,
+            ));
+        }
+        _ => {
+            return Err(anyhow!("Unsupported protocol: {:?}", l4_proto));
+        }
+    };
+    ip_pkt.set_source(src_addr);
+    ip_pkt.set_destination(dest_addr);
+
+    {
+        use pnet::packet::ipv4::checksum;
+        ip_pkt.set_checksum(checksum(&ip_pkt.to_immutable()));
+    }
+
+    Ok(())
+}
+
+fn select_fds(mut read_set: FdSet, mut write_set: FdSet) -> Result<(FdSet, FdSet)> {
+    select(None, &mut read_set, &mut write_set, None, None)?;
+    Ok((read_set, write_set))
+}
+
+async fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> Result<()> {
     let raw_fd = fd as RawFd;
     const QUEUE_CAP: usize = 10;
     let file = unsafe { std::fs::File::from_raw_fd(raw_fd) };
-    
 
     let mut read_set = FdSet::new();
     let mut write_set = FdSet::new();
-    let write_queue: VecDeque<Vec<u8>> = VecDeque::with_capacity(QUEUE_CAP);
+    let mut write_queue: VecDeque<Vec<u8>> = VecDeque::with_capacity(QUEUE_CAP);
 
     loop {
         let qlen = write_queue.len();
@@ -123,34 +298,45 @@ fn run_router(fd: u16) -> Result<()> {
             write_set.insert(fd as RawFd);
         }
 
-        select(None, &mut read_set, &mut write_set, None, None)?;
+        let (mut read_set, mut write_set) = select_fds(read_set, write_set)?;
 
-        if read_set.contains(raw_fd) { // Reading available
+        if read_set.contains(raw_fd) {
+            // Reading available
             let mut buffer = vec![0; 1500];
             let n = unistd::read(raw_fd, &mut buffer[..])?;
-            let pkt = match buffer[0] >> 4 {
-                4 => packet::ipv4::MutableIpv4Packet::new(&mut buffer[0..n]).map(|p| IPPacket::V4(p)),
-                6 => packet::ipv6::MutableIpv6Packet::new(&mut buffer[0..n]).map(|p| IPPacket::V6(p)),
-                _ => continue
-            };
 
-            if pkt.is_none() {
-                continue
+            let handle_result = match buffer[0] >> 4 {
+                4 => handle_ipv4(&mut manager, &mut buffer[0..n], &ports).await,
+                // 6 => packet::ipv6::MutableIpv6Packet::new(&mut buffer[0..n])
+                //     .map(|p| IPPacket::V6(p)),
+                _ => continue,
+            };
+            match handle_result {
+                Ok(_) => {
+                    buffer.resize(n, 0);
+                    write_queue.push_back(buffer);
+                }
+                Err(e) => error!("Packet handle failed: {:?}", e),
             }
-            let packet = pkt.unwrap();
-            let next_level = packet.get_next_level_protocol();
+        }
 
-            trace!("Packet Len = {}, [{}], {:?}", n, next_level, packet);
-            let processed = match next_level {
-                IpNextHeaderProtocols::Tcp => handle_tcp(packet),
-                _ => continue
-            };
-
+        if write_set.contains(raw_fd) {
+            // Writing available
+            let buffer = write_queue.pop_front().unwrap();
+            unistd::write(raw_fd, &buffer)?;
         }
     }
 }
 
-pub fn run_android(fd: u16) {
-    let manager = NatManager::new();
-    error!("NAT thread exited: {:?}", run_router(fd));
+#[tokio::main]
+pub async fn run_android(fd: u16) -> Result<()> {
+    let manager = NatManager::new_ref();
+    let ports = start_proxy(Arc::clone(&manager)).await?;
+
+    let mut router_rt = tokio::runtime::Runtime::new()?;
+    spawn_blocking(move || {
+        router_rt.block_on(run_router(fd, Arc::clone(&manager), ports))
+    }).await??;
+
+    Ok(())
 }

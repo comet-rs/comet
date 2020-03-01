@@ -1,17 +1,25 @@
 
+use std::net::Ipv6Addr;
+use std::net::Ipv4Addr;
 use jni::JNIEnv;
 use jni::objects::{JClass, JString};
 use jni::sys::{jstring, jint};
 
 use android_logger::Config;
-use log::Level;
+use log::{Level, info};
 
 use std::os::raw::{c_char};
 use std::ffi::{CString, CStr};
 
 mod nat_manager;
 mod nat;
+mod proxy;
 use nat::run_android;
+
+pub const IPV4_CLIENT: Ipv4Addr = Ipv4Addr::new(10, 25, 1, 1);
+pub const IPV4_ROUTER: Ipv4Addr = Ipv4Addr::new(10, 25, 1, 100);
+pub const IPV6_CLIENT: Ipv6Addr = Ipv6Addr::new(0xfdfe, 0xdcba, 0x9876, 0, 0, 0, 0, 2);
+pub const IPV6_ROUTER: Ipv6Addr = Ipv6Addr::new(0xfdfe, 0xdcba, 0x9876, 0, 0, 0, 0, 1);
 
 #[no_mangle]
 pub extern fn rust_greeting(to: *const c_char) -> *mut c_char {
@@ -44,6 +52,9 @@ pub unsafe extern fn Java_com_sayori_kokodayo_NativeModule_start(env: JNIEnv, _:
     android_logger::init_once(
         Config::default().with_min_level(Level::Trace),
     );
+
+    let utils_class = env.find_class("android/net/NetworkUtils");
+    info!("Utils class: {:?}", utils_class);
 
     run_android(fd as u16);
 

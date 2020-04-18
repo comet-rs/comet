@@ -56,7 +56,7 @@ pub unsafe extern fn Java_com_sayori_kokodayo_NativeModule_start(env: JNIEnv, _:
     let utils_class = env.find_class("android/net/NetworkUtils");
     info!("Utils class: {:?}", utils_class);
 
-    run_android(fd as u16);
+    let _ = run_android(fd as u16);
 
     output.into_inner()
 }

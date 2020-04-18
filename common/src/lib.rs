@@ -5,6 +5,7 @@ mod rwpair;
 pub use rwpair::RWPair;
 use serde::Deserialize;
 use std::net::IpAddr;
+pub mod io;
 
 #[derive(Debug, Clone)]
 pub enum Address {

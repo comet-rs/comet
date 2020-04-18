@@ -1,31 +1,27 @@
-use crate::proxy::ProxyPorts;
+use crate::{IPV4_CLIENT, IPV6_CLIENT, IPV4_ROUTER, IPV6_ROUTER};
 use crate::proxy::start_proxy;
+use crate::proxy::ProxyPorts;
 use anyhow::{anyhow, Result};
-use log::{error, info, trace};
+use log::error;
 use pnet::packet;
 use pnet::packet::tcp::MutableTcpPacket;
 use pnet::packet::udp::MutableUdpPacket;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::io::RawFd;
-use std::sync::{Arc};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use nix::sys::select::{select, FdSet};
 use nix::unistd;
 use pnet::packet::ip::*;
-use pnet::packet::{MutablePacket, Packet};
+use pnet::packet::MutablePacket;
 use std::collections::VecDeque;
 use tokio::task::spawn_blocking;
 
 use crate::nat_manager::{NatManager, ProtocolType};
 
 type NatManagerRef = Arc<RwLock<NatManager>>;
-
-const IPV4_CLIENT: Ipv4Addr = Ipv4Addr::new(10, 25, 1, 1);
-const IPV4_ROUTER: Ipv4Addr = Ipv4Addr::new(10, 25, 1, 100);
-const IPV6_CLIENT: Ipv6Addr = Ipv6Addr::new(0xfdfe, 0xdcba, 0x9876, 0, 0, 0, 0, 2);
-const IPV6_ROUTER: Ipv6Addr = Ipv6Addr::new(0xfdfe, 0xdcba, 0x9876, 0, 0, 0, 0, 1);
 
 #[derive(Debug)]
 struct TcpFlags {
@@ -77,7 +73,11 @@ impl<T> AddressedPacket<T> {
 type AddressedTcpPacket<'p> = AddressedPacket<MutableTcpPacket<'p>>;
 type AddressedUdpPacket<'p> = AddressedPacket<MutableUdpPacket<'p>>;
 
-async fn handle_tcp(manager: &mut NatManagerRef, packet: & mut AddressedTcpPacket<'_>, ports: &ProxyPorts) -> Result<()> {
+async fn handle_tcp(
+    manager: &mut NatManagerRef,
+    packet: &mut AddressedTcpPacket<'_>,
+    ports: &ProxyPorts,
+) -> Result<()> {
     let flags = TcpFlags::new(packet.inner.get_flags());
     // trace!("Got TCP packet: [{:?}] {:?}", flags, packet);
     if packet.is_from_client() {
@@ -136,7 +136,11 @@ async fn handle_tcp(manager: &mut NatManagerRef, packet: & mut AddressedTcpPacke
     Ok(())
 }
 
-async fn handle_udp(manager: &mut NatManagerRef, packet: &mut AddressedUdpPacket<'_>, ports: &ProxyPorts) -> Result<()> {
+async fn handle_udp(
+    manager: &mut NatManagerRef,
+    packet: &mut AddressedUdpPacket<'_>,
+    ports: &ProxyPorts,
+) -> Result<()> {
     if packet.is_from_client() {
         if packet.is_to_router() {
             // Return packet to orig
@@ -198,7 +202,11 @@ async fn handle_udp(manager: &mut NatManagerRef, packet: &mut AddressedUdpPacket
     Ok(())
 }
 
-async fn handle_ipv4(manager: &mut NatManagerRef, buffer: &mut [u8], ports: &ProxyPorts) -> Result<()> {
+async fn handle_ipv4(
+    manager: &mut NatManagerRef,
+    buffer: &mut [u8],
+    ports: &ProxyPorts,
+) -> Result<()> {
     let mut ip_pkt = packet::ipv4::MutableIpv4Packet::new(buffer)
         .ok_or(anyhow!("Failed to parse IPv4 packet"))?;
     let l4_proto = ip_pkt.get_next_level_protocol();
@@ -281,7 +289,7 @@ fn select_fds(mut read_set: FdSet, mut write_set: FdSet) -> Result<(FdSet, FdSet
 async fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> Result<()> {
     let raw_fd = fd as RawFd;
     const QUEUE_CAP: usize = 10;
-    let file = unsafe { std::fs::File::from_raw_fd(raw_fd) };
+    let _file = unsafe { std::fs::File::from_raw_fd(raw_fd) };
 
     let mut read_set = FdSet::new();
     let mut write_set = FdSet::new();
@@ -334,9 +342,8 @@ pub async fn run_android(fd: u16) -> Result<()> {
     let ports = start_proxy(Arc::clone(&manager)).await?;
 
     let mut router_rt = tokio::runtime::Runtime::new()?;
-    spawn_blocking(move || {
-        router_rt.block_on(run_router(fd, Arc::clone(&manager), ports))
-    }).await??;
+    spawn_blocking(move || router_rt.block_on(run_router(fd, Arc::clone(&manager), ports)))
+        .await??;
 
     Ok(())
 }

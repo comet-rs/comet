@@ -10,7 +10,9 @@ members = [
     "simple_outbounds",
     "router",
     "dns",
-    "android_lib"
+    "android_lib",
+    "raw_transport",
+    "protocol_processor"
 ]
 
 [patch.crates-io]

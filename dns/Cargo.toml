@@ -6,7 +6,9 @@ edition = "2018"
 
 [dependencies]
 trust-dns-proto = "0.19.3"
+trust-dns-client = "0.19.3"
 async-trait = "0.1.22"
 anyhow = "1.0"
 log = "0.4.0"
+rand = "*"
 tokio = { version = "0.2", features = ["full"] }

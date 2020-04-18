@@ -71,7 +71,7 @@ async fn process_socket(mut socket: TcpStream, dest_addr: IpAddr, dest_port: u16
     Ok(())
 }
 
-async fn run_tcp(listeners: (TcpListener,), mut manager: NatManagerRef) -> Result<()> {
+async fn run_tcp(listeners: (TcpListener,), manager: NatManagerRef) -> Result<()> {
     let mut listener_v4 = listeners.0;
     loop {
         let (socket, src_addr) = listener_v4.accept().await?;
@@ -97,12 +97,13 @@ async fn run_tcp(listeners: (TcpListener,), mut manager: NatManagerRef) -> Resul
     }
 }
 
-async fn run_udp(sockets: (UdpSocket,), mut manager: NatManagerRef) -> Result<()> {
-    loop {}
+async fn run_udp(_sockets: (UdpSocket,), _manager: NatManagerRef) -> Result<()> {
+    // loop {}
+    Ok(())
 }
 
 
-async fn run_dns(sockets: (UdpSocket,), mut manager: NatManagerRef) -> Result<()> {
+async fn run_dns(sockets: (UdpSocket,), _manager: NatManagerRef) -> Result<()> {
     let socket_v4 = Arc::new(Mutex::new(sockets.0));
 
     loop {
@@ -138,14 +139,14 @@ pub async fn start_proxy(manager: NatManagerRef) -> Result<ProxyPorts>{
             error!("TCP proxy thread exited: {:?}", error);
         }
     });
-    // let manager_udp = Arc::clone(&manager);
-    // tokio::spawn(async move {
-    //     let exit_status = run_udp(udp_listeners, manager_udp).await;
+    let manager_udp = Arc::clone(&manager);
+    tokio::spawn(async move {
+        let exit_status = run_udp(udp_listeners, manager_udp).await;
 
-    //     if let Err(error) = exit_status {
-    //         error!("UDP proxy thread exited: {:?}", error);
-    //     }
-    // });
+        if let Err(error) = exit_status {
+            error!("UDP proxy thread exited: {:?}", error);
+        }
+    });
     let manager_dns = Arc::clone(&manager);
     tokio::spawn(async move {
         let exit_status = run_dns(dns_listeners, manager_dns).await;

@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::{Instant};
-use log::info;
 
 pub type NatManagerRef = Arc<RwLock<NatManager>>;
 

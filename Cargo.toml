@@ -12,8 +12,6 @@ members = [
     "dns",
     "android_lib",
     "raw_transport",
-    "protocol_processor"
+    "protocol_processor",
+    "net_wrapper"
 ]
-
-[patch.crates-io]
-tokio = { path = "./tokio/tokio" }

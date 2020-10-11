@@ -12,3 +12,4 @@ anyhow = "1.0"
 log = "0.4.0"
 rand = "*"
 tokio = { version = "0.2", features = ["full"] }
+net_wrapper = { path="../net_wrapper" }

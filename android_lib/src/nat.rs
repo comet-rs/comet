@@ -1,6 +1,6 @@
-use crate::{IPV4_CLIENT, IPV6_CLIENT, IPV4_ROUTER, IPV6_ROUTER};
 use crate::proxy::start_proxy;
 use crate::proxy::ProxyPorts;
+use crate::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
 use anyhow::{anyhow, Result};
 use log::error;
 use pnet::packet;
@@ -10,7 +10,6 @@ use std::net::IpAddr;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::io::RawFd;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use nix::sys::select::{select, FdSet};
 use nix::unistd;
@@ -19,9 +18,7 @@ use pnet::packet::MutablePacket;
 use std::collections::VecDeque;
 use tokio::task::spawn_blocking;
 
-use crate::nat_manager::{NatManager, ProtocolType};
-
-type NatManagerRef = Arc<RwLock<NatManager>>;
+use crate::nat_manager::{NatManager, NatManagerRef, ProtocolType};
 
 #[derive(Debug)]
 struct TcpFlags {
@@ -83,7 +80,7 @@ async fn handle_tcp(
     if packet.is_from_client() {
         if packet.is_to_router() {
             // Return packet to orig
-            if let Some((dest_addr, dest_port)) = manager.read().await.get_entry(
+            if let Some((dest_addr, dest_port)) = manager.get_entry(
                 ProtocolType::Tcp,
                 packet.inner.get_destination(),
                 packet.dest_addr,
@@ -100,14 +97,14 @@ async fn handle_tcp(
         } else {
             // Forward packet to proxy
             if flags.syn && !flags.ack {
-                manager.write().await.new_entry(
+                manager.new_entry(
                     ProtocolType::Tcp,
                     packet.inner.get_source(),
                     packet.dest_addr,
                     packet.inner.get_destination(),
                 );
             } else {
-                let refresh_result = manager.write().await.refresh_entry(
+                let refresh_result = manager.refresh_entry(
                     ProtocolType::Tcp,
                     packet.inner.get_source(),
                     packet.dest_addr,
@@ -144,7 +141,7 @@ async fn handle_udp(
     if packet.is_from_client() {
         if packet.is_to_router() {
             // Return packet to orig
-            if let Some((dest_addr, dest_port)) = manager.read().await.get_entry(
+            if let Some((dest_addr, dest_port)) = manager.get_entry(
                 ProtocolType::Udp,
                 packet.inner.get_destination(),
                 packet.dest_addr,
@@ -160,14 +157,14 @@ async fn handle_udp(
             }
         } else {
             // Forward packet to proxy
-            let refresh_result = manager.write().await.refresh_entry(
+            let refresh_result = manager.refresh_entry(
                 ProtocolType::Udp,
                 packet.inner.get_source(),
                 packet.dest_addr,
                 packet.inner.get_destination(),
             );
             if !refresh_result {
-                manager.write().await.new_entry(
+                manager.new_entry(
                     ProtocolType::Udp,
                     packet.inner.get_source(),
                     packet.dest_addr,

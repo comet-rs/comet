@@ -1,10 +1,10 @@
-use tokio::sync::RwLock;
-use std::sync::Arc;
-use std::collections::BTreeMap;
+use flurry::{HashMap, HashMapRef};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::time::{Instant};
+use std::sync::Arc;
+use std::time::Instant;
 
-pub type NatManagerRef = Arc<RwLock<NatManager>>;
+pub type NatManagerRef = Arc<NatManager>;
+type NatMapRef<'a, T> = HashMapRef<'a, u16, NatEntry<T>>;
 
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
@@ -23,7 +23,8 @@ pub enum TcpState {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum ProtocolType {
-    Tcp, Udp
+    Tcp,
+    Udp,
 }
 
 #[derive(Debug)]
@@ -34,55 +35,47 @@ struct NatEntry<Addr> {
 }
 
 pub struct NatManager {
-    tcp_v4_table: BTreeMap<u16, NatEntry<Ipv4Addr>>,
-    tcp_v6_table: BTreeMap<u16, NatEntry<Ipv6Addr>>,
-    udp_v4_table: BTreeMap<u16, NatEntry<Ipv4Addr>>,
-    udp_v6_table: BTreeMap<u16, NatEntry<Ipv6Addr>>,
+    tcp_v4_table: HashMap<u16, NatEntry<Ipv4Addr>>,
+    tcp_v6_table: HashMap<u16, NatEntry<Ipv6Addr>>,
+    udp_v4_table: HashMap<u16, NatEntry<Ipv4Addr>>,
+    udp_v6_table: HashMap<u16, NatEntry<Ipv6Addr>>,
 }
 
 impl NatManager {
     pub fn new() -> Self {
         NatManager {
-            tcp_v4_table: BTreeMap::new(),
-            udp_v4_table: BTreeMap::new(),
-            tcp_v6_table: BTreeMap::new(),
-            udp_v6_table: BTreeMap::new(),
+            tcp_v4_table: HashMap::new(),
+            udp_v4_table: HashMap::new(),
+            tcp_v6_table: HashMap::new(),
+            udp_v6_table: HashMap::new(),
         }
     }
 
-    pub fn new_ref() -> Arc<RwLock<Self>> {
-        Arc::new(RwLock::new(Self::new()))
+    pub fn new_ref() -> NatManagerRef {
+        Arc::new(Self::new())
     }
 
-    fn get_table_v4(&self, protocol: ProtocolType) -> &BTreeMap<u16, NatEntry<Ipv4Addr>> {
+    fn get_table_v4(&self, protocol: ProtocolType) -> NatMapRef<'_, Ipv4Addr> {
         match protocol {
-            ProtocolType::Tcp => &self.tcp_v4_table,
-            ProtocolType::Udp => &self.udp_v4_table
+            ProtocolType::Tcp => self.tcp_v4_table.pin(),
+            ProtocolType::Udp => self.udp_v4_table.pin(),
         }
     }
 
-    fn get_table_v6(&self, protocol: ProtocolType) -> &BTreeMap<u16, NatEntry<Ipv6Addr>> {
+    fn get_table_v6(&self, protocol: ProtocolType) -> NatMapRef<'_, Ipv6Addr> {
         match protocol {
-            ProtocolType::Tcp => &self.tcp_v6_table,
-            ProtocolType::Udp => &self.udp_v6_table
+            ProtocolType::Tcp => self.tcp_v6_table.pin(),
+            ProtocolType::Udp => self.udp_v6_table.pin(),
         }
     }
 
-    fn get_table_v4_mut(&mut self, protocol: ProtocolType) -> &mut BTreeMap<u16, NatEntry<Ipv4Addr>> {
-        match protocol {
-            ProtocolType::Tcp => &mut self.tcp_v4_table,
-            ProtocolType::Udp => &mut self.udp_v4_table
-        }
-    }
-
-    fn get_table_v6_mut(&mut self, protocol: ProtocolType) -> &mut BTreeMap<u16, NatEntry<Ipv6Addr>> {
-        match protocol {
-            ProtocolType::Tcp => &mut self.tcp_v6_table,
-            ProtocolType::Udp => &mut self.udp_v6_table
-        }
-    }
-
-    pub fn new_entry(&mut self, protocol: ProtocolType, src_port: u16, dest_addr: IpAddr, dest_port: u16) {
+    pub fn new_entry(
+        &self,
+        protocol: ProtocolType,
+        src_port: u16,
+        dest_addr: IpAddr,
+        dest_port: u16,
+    ) {
         match dest_addr {
             IpAddr::V4(addr) => {
                 let entry = NatEntry {
@@ -90,10 +83,7 @@ impl NatManager {
                     dest_addr: addr,
                     dest_port: dest_port,
                 };
-                self.get_table_v4_mut(protocol).insert(
-                    src_port,
-                    entry,
-                );
+                self.get_table_v4(protocol).insert(src_port, entry);
             }
             IpAddr::V6(addr) => {
                 let entry = NatEntry {
@@ -101,20 +91,23 @@ impl NatManager {
                     dest_addr: addr,
                     dest_port: dest_port,
                 };
-                self.get_table_v6_mut(protocol).insert(
-                    src_port,
-                    entry,
-                );
+                self.get_table_v6(protocol).insert(src_port, entry);
             }
         };
     }
 
-    pub fn refresh_entry(&mut self, protocol: ProtocolType, src_port: u16, dest_addr: IpAddr, dest_port: u16) -> bool {
+    pub fn refresh_entry(
+        &self,
+        protocol: ProtocolType,
+        src_port: u16,
+        dest_addr: IpAddr,
+        dest_port: u16,
+    ) -> bool {
         match dest_addr {
             IpAddr::V4(addr) => {
-                if let Some(entry) = self.get_table_v4_mut(protocol).get_mut(&src_port) {
+                if let Some(entry) = self.get_table_v4(protocol).get(&src_port) {
                     if entry.dest_addr == addr && entry.dest_port == dest_port {
-                        entry.last_activity = Instant::now();
+                        // entry.last_activity = Instant::now();
                         true
                     } else {
                         false
@@ -124,9 +117,9 @@ impl NatManager {
                 }
             }
             IpAddr::V6(addr) => {
-                if let Some(entry) = self.get_table_v6_mut(protocol).get_mut(&src_port) {
+                if let Some(entry) = self.get_table_v6(protocol).get(&src_port) {
                     if entry.dest_addr == addr && entry.dest_port == dest_port {
-                        entry.last_activity = Instant::now();
+                        // entry.last_activity = Instant::now();
                         true
                     } else {
                         false
@@ -138,7 +131,12 @@ impl NatManager {
         }
     }
 
-    pub fn get_entry(&self, protocol: ProtocolType, port: u16, addr: IpAddr) -> Option<(IpAddr, u16)> {
+    pub fn get_entry(
+        &self,
+        protocol: ProtocolType,
+        port: u16,
+        addr: IpAddr,
+    ) -> Option<(IpAddr, u16)> {
         match addr {
             IpAddr::V4(_) => {
                 if let Some(entry) = self.get_table_v4(protocol).get(&port) {

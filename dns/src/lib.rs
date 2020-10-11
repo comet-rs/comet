@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use trust_dns_client::rr::Record;
 use anyhow::{anyhow, Result};
 use log::{debug, info};
+use net_wrapper::bind_udp;
+use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tokio::net::UdpSocket;
+use trust_dns_client::rr::Record;
 
 use trust_dns_client::rr::{Name, RecordType};
 use trust_dns_client::serialize::binary::{BinDecodable, BinEncodable};
@@ -12,13 +12,13 @@ use trust_dns_proto::op::{Message, MessageType, OpCode, Query};
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8;
 
 pub struct DnsService {
-    cache: HashMap<Query, Record>
+    cache: HashMap<Query, Record>,
 }
 
 impl DnsService {}
 
 fn new_lookup(name: Name, query_type: RecordType) -> Message {
-    debug!("querying: {} {:?}", name, query_type);
+    info!("querying: {} {:?}", name, query_type);
 
     let query = Query::query(name, query_type);
     let mut message: Message = Message::new();
@@ -48,8 +48,7 @@ fn new_lookup(name: Name, query_type: RecordType) -> Message {
 async fn xfer_message(query: Message) -> Result<Message> {
     let message_raw = query.to_bytes()?;
 
-    let mut out_sock =
-        UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)).await?;
+    let mut out_sock = bind_udp(&SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)).await?;
     out_sock.connect((Ipv4Addr::new(1, 2, 4, 8), 53)).await?;
     out_sock.send(&message_raw[..]).await?;
 

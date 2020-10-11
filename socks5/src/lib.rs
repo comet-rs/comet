@@ -37,7 +37,6 @@ pub async fn proxy(mut conn: AcceptedConnection<'_>) -> Result<(), Box<dyn std::
         Address::Domain(domain) => {
             info!("Trying to resolve {}", domain.as_str());
             let dest_str = format!("{}:{}", domain.as_str(), conn.dest_addr.port);
-
             dest_str.to_socket_addrs().await?.next().unwrap()
         }
     };

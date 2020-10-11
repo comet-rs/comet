@@ -1,4 +1,3 @@
-use crate::proxy::start_proxy;
 use crate::proxy::ProxyPorts;
 use crate::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
 use anyhow::{anyhow, Result};
@@ -9,16 +8,14 @@ use pnet::packet::udp::MutableUdpPacket;
 use std::net::IpAddr;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::io::RawFd;
-use std::sync::Arc;
 
 use nix::sys::select::{select, FdSet};
 use nix::unistd;
 use pnet::packet::ip::*;
 use pnet::packet::MutablePacket;
 use std::collections::VecDeque;
-use tokio::task::spawn_blocking;
 
-use crate::nat_manager::{NatManager, NatManagerRef, ProtocolType};
+use crate::nat_manager::{NatManagerRef, ProtocolType};
 
 #[derive(Debug)]
 struct TcpFlags {
@@ -70,7 +67,7 @@ impl<T> AddressedPacket<T> {
 type AddressedTcpPacket<'p> = AddressedPacket<MutableTcpPacket<'p>>;
 type AddressedUdpPacket<'p> = AddressedPacket<MutableUdpPacket<'p>>;
 
-async fn handle_tcp(
+fn handle_tcp(
     manager: &mut NatManagerRef,
     packet: &mut AddressedTcpPacket<'_>,
     ports: &ProxyPorts,
@@ -133,7 +130,7 @@ async fn handle_tcp(
     Ok(())
 }
 
-async fn handle_udp(
+fn handle_udp(
     manager: &mut NatManagerRef,
     packet: &mut AddressedUdpPacket<'_>,
     ports: &ProxyPorts,
@@ -199,11 +196,7 @@ async fn handle_udp(
     Ok(())
 }
 
-async fn handle_ipv4(
-    manager: &mut NatManagerRef,
-    buffer: &mut [u8],
-    ports: &ProxyPorts,
-) -> Result<()> {
+fn handle_ipv4(manager: &mut NatManagerRef, buffer: &mut [u8], ports: &ProxyPorts) -> Result<()> {
     let mut ip_pkt = packet::ipv4::MutableIpv4Packet::new(buffer)
         .ok_or(anyhow!("Failed to parse IPv4 packet"))?;
     let l4_proto = ip_pkt.get_next_level_protocol();
@@ -222,7 +215,7 @@ async fn handle_ipv4(
                 dest_addr: IpAddr::V4(dest_addr),
                 inner: tcp_pkt,
             };
-            handle_tcp(manager, &mut addressed, &ports).await?;
+            handle_tcp(manager, &mut addressed, &ports)?;
             src_addr = match addressed.src_addr {
                 IpAddr::V4(addr) => addr,
                 IpAddr::V6(_) => unreachable!(),
@@ -248,7 +241,7 @@ async fn handle_ipv4(
                 inner: udp_pkt,
             };
 
-            handle_udp(manager, &mut addressed, &ports).await?;
+            handle_udp(manager, &mut addressed, &ports)?;
             src_addr = match addressed.src_addr {
                 IpAddr::V4(addr) => addr,
                 IpAddr::V6(_) => unreachable!(),
@@ -283,7 +276,7 @@ fn select_fds(mut read_set: FdSet, mut write_set: FdSet) -> Result<(FdSet, FdSet
     Ok((read_set, write_set))
 }
 
-async fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> Result<()> {
+pub async fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> Result<()> {
     let raw_fd = fd as RawFd;
     const QUEUE_CAP: usize = 10;
     let _file = unsafe { std::fs::File::from_raw_fd(raw_fd) };
@@ -311,7 +304,7 @@ async fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> R
             let n = unistd::read(raw_fd, &mut buffer[..])?;
 
             let handle_result = match buffer[0] >> 4 {
-                4 => handle_ipv4(&mut manager, &mut buffer[0..n], &ports).await,
+                4 => handle_ipv4(&mut manager, &mut buffer[0..n], &ports),
                 // 6 => packet::ipv6::MutableIpv6Packet::new(&mut buffer[0..n])
                 //     .map(|p| IPPacket::V6(p)),
                 _ => continue,
@@ -331,16 +324,4 @@ async fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> R
             unistd::write(raw_fd, &buffer)?;
         }
     }
-}
-
-#[tokio::main]
-pub async fn run_android(fd: u16) -> Result<()> {
-    let manager = NatManager::new_ref();
-    let ports = start_proxy(Arc::clone(&manager)).await?;
-
-    let mut router_rt = tokio::runtime::Runtime::new()?;
-    spawn_blocking(move || router_rt.block_on(run_router(fd, Arc::clone(&manager), ports)))
-        .await??;
-
-    Ok(())
 }

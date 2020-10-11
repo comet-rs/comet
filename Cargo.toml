@@ -11,6 +11,7 @@ members = [
     "router",
     "dns",
     "android_lib",
+    "android",
     "raw_transport",
     "protocol_processor",
     "net_wrapper"

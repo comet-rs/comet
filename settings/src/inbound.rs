@@ -5,6 +5,11 @@ use std::net::{IpAddr, Ipv4Addr};
 #[derive(Deserialize, Default, Debug)]
 pub struct InboundSocks5Settings {}
 
+#[derive(Deserialize, Default, Debug)]
+pub struct InboundAndroidSettings {
+    fd: i32,
+}
+
 fn default_listen_addr() -> IpAddr {
     IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))
 }
@@ -14,6 +19,7 @@ fn default_listen_addr() -> IpAddr {
 #[serde(tag = "protocol", content = "settings")]
 pub enum InboundProtocolType {
     Socks(#[serde(default)] InboundSocks5Settings),
+    Android(InboundAndroidSettings),
 }
 
 #[derive(Deserialize, Debug)]

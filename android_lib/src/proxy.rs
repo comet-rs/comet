@@ -1,6 +1,6 @@
 use crate::nat_manager::{NatManagerRef, ProtocolType};
 use crate::IPV4_CLIENT;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use futures::try_join;
 use log::{error, info};
 use std::net::{IpAddr, SocketAddr};
@@ -72,7 +72,10 @@ async fn process_socket(mut socket: TcpStream, dest_addr: IpAddr, dest_port: u16
 async fn run_tcp(listeners: (TcpListener,), manager: NatManagerRef) -> Result<()> {
     let mut listener_v4 = listeners.0;
     loop {
-        let (socket, src_addr) = listener_v4.accept().await?;
+        let (socket, src_addr) = listener_v4
+            .accept()
+            .await
+            .with_context(|| "Failed to accept")?;
         let entry = manager.get_entry(ProtocolType::Tcp, src_addr.port(), src_addr.ip());
 
         if let Some((dest_addr, dest_port)) = entry {
@@ -93,7 +96,6 @@ async fn run_tcp(listeners: (TcpListener,), manager: NatManagerRef) -> Result<()
 }
 
 async fn run_udp(_sockets: (UdpSocket,), _manager: NatManagerRef) -> Result<()> {
-    // loop {}
     Ok(())
 }
 

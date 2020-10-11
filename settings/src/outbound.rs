@@ -17,6 +17,7 @@ pub mod protocols {
         #[serde(default)]
         domain_strategy: FreedomDomainStrategy,
     }
+    
     #[derive(Deserialize, Debug)]
     pub enum FreedomDomainStrategy {
         AsIs,

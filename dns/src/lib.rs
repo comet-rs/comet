@@ -67,13 +67,11 @@ pub async fn process_query(bytes: &[u8]) -> Result<Vec<u8>> {
     }
 
     let query = &message_query.queries()[0];
-    // let domain = query.name().to_utf8();
-    // info!("DNS query: {}", domain);
 
     let upstream_query = new_lookup(query.name().clone(), query.query_type());
     let mut upstream_response = xfer_message(upstream_query).await?;
     upstream_response.set_id(id);
-    info!("DNS response: {:?}", upstream_response);
+    debug!("DNS response: {:?}", upstream_response);
 
     Ok(upstream_response.to_vec()?)
 }

@@ -29,7 +29,7 @@ pub const IPV6_ROUTER: Ipv6Addr = Ipv6Addr::new(0xfdfe, 0xdcba, 0x9876, 0, 0, 0,
 pub async fn run_android(fd: u16) -> Result<()> {
     let manager = NatManager::new_ref();
     let ports = start_proxy(Arc::clone(&manager)).await?;
-    run_router(fd, Arc::clone(&manager), ports).await?;
+    spawn_blocking(move || run_router(fd, Arc::clone(&manager), ports)).await??;
     info!("Exiting...");
     Ok(())
 }

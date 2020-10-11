@@ -271,18 +271,23 @@ fn handle_ipv4(manager: &mut NatManagerRef, buffer: &mut [u8], ports: &ProxyPort
     Ok(())
 }
 
-fn select_fds(mut read_set: FdSet, mut write_set: FdSet) -> Result<(FdSet, FdSet)> {
-    select(None, &mut read_set, &mut write_set, None, None)?;
+fn select_fds(
+    mut read_set: FdSet,
+    mut write_set: FdSet,
+    mut error_set: FdSet,
+) -> Result<(FdSet, FdSet)> {
+    select(None, &mut read_set, &mut write_set, &mut error_set, None)?;
     Ok((read_set, write_set))
 }
 
-pub async fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> Result<()> {
+pub fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> Result<()> {
     let raw_fd = fd as RawFd;
     const QUEUE_CAP: usize = 10;
     let _file = unsafe { std::fs::File::from_raw_fd(raw_fd) };
 
     let mut read_set = FdSet::new();
     let mut write_set = FdSet::new();
+    let mut error_set = FdSet::new();
     let mut write_queue: VecDeque<Vec<u8>> = VecDeque::with_capacity(QUEUE_CAP);
 
     loop {
@@ -296,7 +301,11 @@ pub async fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) 
             write_set.insert(fd as RawFd);
         }
 
-        let (mut read_set, mut write_set) = select_fds(read_set, write_set)?;
+        let (mut read_set, mut write_set) = select_fds(read_set, write_set, error_set)?;
+
+        if error_set.contains(raw_fd) {
+            unistd::read(raw_fd, &mut [])?;
+        }
 
         if read_set.contains(raw_fd) {
             // Reading available

@@ -139,6 +139,7 @@ pub async fn start_proxy(manager: NatManagerRef) -> Result<ProxyPorts>{
             error!("TCP proxy thread exited: {:?}", error);
         }
     });
+
     let manager_udp = Arc::clone(&manager);
     tokio::spawn(async move {
         let exit_status = run_udp(udp_listeners, manager_udp).await;
@@ -147,6 +148,7 @@ pub async fn start_proxy(manager: NatManagerRef) -> Result<ProxyPorts>{
             error!("UDP proxy thread exited: {:?}", error);
         }
     });
+
     let manager_dns = Arc::clone(&manager);
     tokio::spawn(async move {
         let exit_status = run_dns(dns_listeners, manager_dns).await;
@@ -155,5 +157,6 @@ pub async fn start_proxy(manager: NatManagerRef) -> Result<ProxyPorts>{
             error!("DNS proxy thread exited: {:?}", error);
         }
     });
+    
     Ok(ports)
 }

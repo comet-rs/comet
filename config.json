@@ -54,7 +54,6 @@
         "user": ["love@v2ray.com"],
         "inboundTag": ["tag-vmess"],
         "protocol": ["http", "tls"],
-        "attrs": "attrs[':method'] == 'GET'",
         "outboundTag": "direct",
         "balancerTag": "balancer"
       }

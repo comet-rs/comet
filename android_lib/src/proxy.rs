@@ -53,17 +53,46 @@ async fn listen_dns(ports: &mut ProxyPorts) -> Result<(UdpSocket,)> {
 }
 
 async fn process_socket(mut socket: TcpStream, dest_addr: IpAddr, dest_port: u16) -> Result<()> {
-    use tokio::io::copy;
+    use common::connection::AcceptedConnection;
+    use common::protocol::OutboundProtocol;
+    use common::{Address, RWPair, SocketAddress};
+    use simple_outbounds::http::HttpOutbound;
+    use tokio::io::{copy, AsyncWriteExt};
     use transport::outbound::{OutboundTcpTransport, OutboundTransport};
 
-    let transport = OutboundTcpTransport;
-    let mut conn = transport
-        .connect(SocketAddr::new(dest_addr, dest_port))
+    let (cached_payload, sniff_result) = transport::sniff(&mut socket).await?;
+    let is_sniffed = sniff_result.is_some();
+
+    let mut accepted_conn = AcceptedConnection::new(
+        RWPair::new(socket),
+        SocketAddr::new([127, 0, 0, 1].into(), dest_port),
+        SocketAddress::new(sniff_result.unwrap_or(Address::Ip(dest_addr)), dest_port),
+    );
+
+    let out_transport = if is_sniffed {
+        OutboundTcpTransport
+            .connect(SocketAddr::new([192, 168, 1, 106].into(), 8888))
+            .await?
+    } else {
+        OutboundTcpTransport
+            .connect(SocketAddr::new(dest_addr, dest_port))
+            .await?
+    };
+
+    let mut out_conn = HttpOutbound
+        .connect(&mut accepted_conn, out_transport)
         .await?;
 
-    let (mut outgoing_read, mut outgoing_write) = socket.split();
-    let c2s = copy(&mut conn.read_half, &mut outgoing_write);
-    let s2c = copy(&mut outgoing_read, &mut conn.write_half);
+    out_conn.conn.write_half.write(&cached_payload).await?;
+    info!("TCP: Start copying");
+    let c2s = copy(
+        &mut out_conn.conn.read_half,
+        &mut accepted_conn.conn.write_half,
+    );
+    let s2c = copy(
+        &mut accepted_conn.conn.read_half,
+        &mut out_conn.conn.write_half,
+    );
     try_join!(c2s, s2c)?;
     info!("TCP: Done copying");
     Ok(())

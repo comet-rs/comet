@@ -1,7 +1,7 @@
 use crate::proxy::ProxyPorts;
 use crate::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
 use anyhow::{anyhow, Result};
-use log::error;
+use log::{error, info};
 use pnet::packet;
 use pnet::packet::tcp::MutableTcpPacket;
 use pnet::packet::udp::MutableUdpPacket;
@@ -94,6 +94,11 @@ fn handle_tcp(
         } else {
             // Forward packet to proxy
             if flags.syn && !flags.ack {
+                info!(
+                    "New TCP conn: {}:{}",
+                    packet.dest_addr,
+                    packet.inner.get_destination()
+                );
                 manager.new_entry(
                     ProtocolType::Tcp,
                     packet.inner.get_source(),
@@ -301,6 +306,8 @@ pub fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> Res
             write_set.insert(fd as RawFd);
         }
 
+        error_set.insert(fd as RawFd);
+
         let (mut read_set, mut write_set) = select_fds(read_set, write_set, error_set)?;
 
         if error_set.contains(raw_fd) {
@@ -314,8 +321,6 @@ pub fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> Res
 
             let handle_result = match buffer[0] >> 4 {
                 4 => handle_ipv4(&mut manager, &mut buffer[0..n], &ports),
-                // 6 => packet::ipv6::MutableIpv6Packet::new(&mut buffer[0..n])
-                //     .map(|p| IPPacket::V6(p)),
                 _ => continue,
             };
             match handle_result {

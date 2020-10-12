@@ -38,7 +38,10 @@ pub async fn sniff<R: AsyncRead + Unpin>(
                     http_failed = true;
                     info!("HTTP sniffing failed: {}", reason);
                 }
-                SniffStatus::Success(s) => return Ok((buffer, Some(Address::Domain(s.into())))),
+                SniffStatus::Success(s) => {
+                    info!("HTTP sniffed: {}", s);
+                    return Ok((buffer, Some(Address::Domain(s.into()))));
+                }
             }
         }
         if !tls_failed {
@@ -48,7 +51,10 @@ pub async fn sniff<R: AsyncRead + Unpin>(
                     tls_failed = true;
                     info!("TLS sniffing failed: {}", reason);
                 }
-                SniffStatus::Success(s) => return Ok((buffer, Some(Address::Domain(s.into())))),
+                SniffStatus::Success(s) => {
+                    info!("TLS sniffed: {}", s);
+                    return Ok((buffer, Some(Address::Domain(s.into()))));
+                }
             }
         }
         if http_failed && tls_failed {

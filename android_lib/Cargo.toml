@@ -21,4 +21,5 @@ common = { path = "../common" }
 transport = { path = "../transport" }
 dns = { path = "../dns" }
 net_wrapper = { path="../net_wrapper" }
+simple_outbounds = { path="../simple_outbounds" }
 flurry = "0.3.1"

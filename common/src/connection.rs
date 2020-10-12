@@ -17,8 +17,10 @@ pub struct InboundConnection<'conn> {
 pub struct AcceptedConnection<'conn> {
     #[derivative(Debug = "ignore")]
     pub conn: RWPair<'conn>,
+    
     pub src_addr: SocketAddr,
     pub dest_addr: SocketAddress,
+
     #[derivative(Debug = "ignore")]
     pub sniffer_data: Option<BytesMut>,
     pub sniffed_dest: Option<Address>,

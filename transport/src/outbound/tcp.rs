@@ -9,7 +9,7 @@ pub struct OutboundTcpTransport;
 
 #[async_trait]
 impl OutboundTransport for OutboundTcpTransport {
-    async fn connect(&self, addr: SocketAddr) -> Result<RWPair<'static>> {
+    async fn connect(&self, addr: SocketAddr) -> Result<RWPair> {
         let stream = connect_tcp(&addr).await?;
         Ok(RWPair::new(stream))
     }

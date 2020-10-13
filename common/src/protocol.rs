@@ -5,14 +5,14 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait InboundProtocol: Sync {
-    async fn accept<'a>(&self, conn: InboundConnection<'a>) -> Result<AcceptedConnection<'a>>;
+    async fn accept(&self, conn: InboundConnection) -> Result<AcceptedConnection>;
 }
 
 #[async_trait]
 pub trait OutboundProtocol {
-    async fn connect<'a>(
+    async fn connect(
         &self,
-        conn: &mut AcceptedConnection<'_>,
-        downlink: RWPair<'a>,
-    ) -> Result<OutboundConnection<'a>>;
+        conn: &mut AcceptedConnection,
+        downlink: RWPair,
+    ) -> Result<OutboundConnection>;
 }

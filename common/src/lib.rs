@@ -1,4 +1,5 @@
 pub use smallstr::SmallString;
+use tokio::stream::Stream;
 pub mod connection;
 pub mod protocol;
 mod rwpair;
@@ -7,6 +8,9 @@ use serde::Deserialize;
 use std::fmt;
 use std::net::IpAddr;
 pub mod io;
+
+pub type BoxedConnectionStream =
+    Box<dyn Stream<Item = connection::Connection>>;
 
 #[derive(Debug, Clone)]
 pub enum Address {

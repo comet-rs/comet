@@ -8,11 +8,11 @@ pub struct FreedomOutbound;
 
 #[async_trait]
 impl OutboundProtocol for FreedomOutbound {
-  async fn connect<'a>(
+  async fn connect(
     &self,
-    _conn: &mut AcceptedConnection<'_>,
-    downlink: RWPair<'a>,
-  ) -> Result<OutboundConnection<'a>> {
+    _conn: &mut AcceptedConnection,
+    downlink: RWPair,
+  ) -> Result<OutboundConnection> {
     Ok(OutboundConnection::new(RWPair::new(downlink)))
   }
 }

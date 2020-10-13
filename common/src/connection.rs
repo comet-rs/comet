@@ -5,20 +5,50 @@ use anyhow::Result;
 use async_trait::async_trait;
 use bytes::BytesMut;
 use derivative::Derivative;
-use std::net::SocketAddr;
 use std::fmt;
+use std::net::SocketAddr;
 
-pub struct InboundConnection<'conn> {
-    pub conn: RWPair<'conn>,
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct Connection {
+    #[derivative(Debug = "ignore")]
+    pub src_conn: RWPair,
+    pub src_addr: SocketAddr,
+
+    #[derivative(Debug = "ignore")]
+    pub dest_conn: Option<RWPair>,
+    pub dest_addr: Option<SocketAddress>,
+
+    #[derivative(Debug = "ignore")]
+    pub sniffer_data: Option<BytesMut>,
+    pub sniffed_dest: Option<Address>,
+}
+
+impl Connection {
+    pub fn new<C: Into<RWPair>, A: Into<SocketAddr>>(src_conn: C, src_addr: A) -> Self {
+        Connection {
+            src_conn: src_conn.into(),
+            src_addr: src_addr.into(),
+
+            dest_conn: None,
+            dest_addr: None,
+
+            sniffer_data: None,
+            sniffed_dest: None,
+        }
+    }
+}
+
+pub struct InboundConnection {
+    pub conn: RWPair,
     pub addr: SocketAddr,
 }
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct AcceptedConnection<'conn> {
+pub struct AcceptedConnection {
     #[derivative(Debug = "ignore")]
-    pub conn: RWPair<'conn>,
-    
+    pub conn: RWPair,
     pub src_addr: SocketAddr,
     pub dest_addr: SocketAddress,
 
@@ -27,8 +57,8 @@ pub struct AcceptedConnection<'conn> {
     pub sniffed_dest: Option<Address>,
 }
 
-impl<'conn> AcceptedConnection<'conn> {
-    pub fn new(conn: RWPair<'conn>, src_addr: SocketAddr, dest_addr: SocketAddress) -> Self {
+impl AcceptedConnection {
+    pub fn new(conn: RWPair, src_addr: SocketAddr, dest_addr: SocketAddress) -> Self {
         AcceptedConnection {
             conn: conn,
             src_addr: src_addr,
@@ -39,12 +69,12 @@ impl<'conn> AcceptedConnection<'conn> {
     }
 }
 
-pub struct OutboundConnection<'conn> {
-    pub conn: RWPair<'conn>,
+pub struct OutboundConnection {
+    pub conn: RWPair,
 }
 
-impl<'conn> OutboundConnection<'conn> {
-    pub fn new(conn: RWPair<'conn>) -> Self {
+impl OutboundConnection {
+    pub fn new(conn: RWPair) -> Self {
         OutboundConnection { conn: conn }
     }
 }

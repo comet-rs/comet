@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use bytes::BytesMut;
 use common::connection::{AcceptedConnection, OutboundConnection};
@@ -10,11 +10,11 @@ pub struct HttpOutbound;
 
 #[async_trait]
 impl OutboundProtocol for HttpOutbound {
-  async fn connect<'a>(
+  async fn connect(
     &self,
-    conn: &mut AcceptedConnection<'_>,
-    mut downlink: RWPair<'a>,
-  ) -> Result<OutboundConnection<'a>> {
+    conn: &mut AcceptedConnection,
+    mut downlink: RWPair,
+  ) -> Result<OutboundConnection> {
     let request = format!("CONNECT {0} HTTP/1.1\r\nHost: {0}\r\n\r\n", conn.dest_addr);
     downlink.write(request.as_bytes()).await?;
 

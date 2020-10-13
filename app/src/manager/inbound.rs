@@ -38,7 +38,7 @@ impl InboundManager {
         Ok(InboundManager { items: inbounds })
     }
 
-    pub async fn run(self) -> Result<mpsc::Receiver<AcceptedConnection<'static>>> {
+    pub async fn run(self) -> Result<mpsc::Receiver<AcceptedConnection>> {
         let (sender, receiver) = mpsc::channel::<AcceptedConnection>(self.items.len());
         for item in self.items {
             let transport = transport::inbound::create_transport(&item.settings).await?;
@@ -51,7 +51,7 @@ impl InboundManager {
 async fn acceptor(
     mut transport: Box<dyn InboundTransport>,
     inbound: InboundItem,
-    sink: mpsc::Sender<AcceptedConnection<'static>>,
+    sink: mpsc::Sender<AcceptedConnection>,
 ) -> Result<()> {
     let ib_arc = Arc::new(inbound);
     loop {
@@ -65,10 +65,10 @@ async fn acceptor(
     }
 }
 
-async fn accept_conn<'a>(
-    conn: InboundConnection<'a>,
+async fn accept_conn(
+    conn: InboundConnection,
     inbound: Arc<InboundItem>,
-    mut sink: mpsc::Sender<AcceptedConnection<'a>>,
+    mut sink: mpsc::Sender<AcceptedConnection>,
 ) -> Result<()> {
     let mut handled = inbound.protocol.accept(conn).await?;
     if inbound.settings.sniffing.enabled {

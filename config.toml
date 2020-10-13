@@ -1,0 +1,4 @@
+[inbounds]
+[inbounds.socks5]
+protocol = "socks5"
+port = 10808

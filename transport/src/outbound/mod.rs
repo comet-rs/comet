@@ -8,5 +8,5 @@ use std::net::SocketAddr;
 
 #[async_trait]
 pub trait OutboundTransport {
-    async fn connect(&self, addr: SocketAddr) -> Result<RWPair<'static>>;
+    async fn connect(&self, addr: SocketAddr) -> Result<RWPair>;
 }

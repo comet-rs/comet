@@ -5,16 +5,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Remote attach",
-      "type": "lldb",
-      "request": "custom",
-      "targetCreateCommands": [
-        "target create /home/harryc/workspace/kokodayo-android/app/src/main/jniLibs/arm64-v8a/libapp.so"
-      ],
-      "processCreateCommands": ["gdb-remote 127.0.0.1:1337"]
-    },
-    {
-      "name": "Remote launch (LLDB",
+      "name": "Remote attach (LLDB)",
       "type": "lldb",
       "request": "custom",
       "initCommands": [

@@ -7,6 +7,7 @@ use log::info;
 use settings::inbound::InboundSettings;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
+use tokio::stream::Stream;
 
 pub struct InboundTcpTransport {
     listener: TcpListener,
@@ -21,11 +22,13 @@ impl InboundTcpTransport {
         info!("TCP listening: {}", addr);
         Ok(ret)
     }
+
+    // pub async fn start(settings: &InboundSettings) -> Result<impl Stream> {}
 }
 
 #[async_trait]
 impl InboundTransport for InboundTcpTransport {
-    async fn accept(&mut self) -> Result<InboundConnection<'static>> {
+    async fn accept(&mut self) -> Result<InboundConnection> {
         let (socket, addr) = self.listener.accept().await?;
         info!("{} accepted from {}", self.listener.local_addr()?, addr);
         Ok(InboundConnection {

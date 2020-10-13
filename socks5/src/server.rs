@@ -20,8 +20,8 @@ fn other(desc: &str) -> io::Error {
 }
 
 pub async fn serve(
-    mut conn: InboundConnection<'_>,
-) -> io::Result<(InboundConnection<'_>, SocketAddress)> {
+    mut conn: InboundConnection,
+) -> io::Result<(InboundConnection, SocketAddress)> {
     // Read version
     let version = conn.conn.read_u8().await?;
     if version != v5::VERSION {

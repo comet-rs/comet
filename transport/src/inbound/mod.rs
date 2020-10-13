@@ -9,7 +9,7 @@ use tcp::InboundTcpTransport;
 #[async_trait]
 pub trait InboundTransport: Send {
     // async fn listen(settings: &InboundSettings) -> Result<Self>;
-    async fn accept(&mut self) -> Result<InboundConnection<'static>>;
+    async fn accept(&mut self) -> Result<InboundConnection>;
 }
 
 pub async fn create_transport(settings: &InboundSettings) -> Result<Box<dyn InboundTransport>> {

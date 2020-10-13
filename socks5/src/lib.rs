@@ -25,13 +25,13 @@ impl InboundSocks5Protocol {
 
 #[async_trait]
 impl InboundProtocol for InboundSocks5Protocol {
-    async fn accept<'a>(&self, conn: InboundConnection<'a>) -> Result<AcceptedConnection<'a>> {
+    async fn accept(&self, conn: InboundConnection) -> Result<AcceptedConnection> {
         let (conn, dest_addr) = server::serve(conn).await?;
         Ok(AcceptedConnection::new(conn.conn, conn.addr, dest_addr))
     }
 }
 
-pub async fn proxy(mut conn: AcceptedConnection<'_>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn proxy(mut conn: AcceptedConnection) -> Result<(), Box<dyn std::error::Error>> {
     let dest = match conn.dest_addr.addr {
         Address::Ip(ip) => SocketAddr::new(ip, conn.dest_addr.port),
         Address::Domain(domain) => {

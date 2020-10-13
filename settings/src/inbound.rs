@@ -19,7 +19,7 @@ fn default_listen_addr() -> IpAddr {
 #[serde(tag = "protocol", content = "settings")]
 pub enum InboundProtocolType {
     Socks(#[serde(default)] InboundSocks5Settings),
-    Android(InboundAndroidSettings),
+    // Android(InboundAndroidSettings),
 }
 
 #[derive(Deserialize, Debug)]

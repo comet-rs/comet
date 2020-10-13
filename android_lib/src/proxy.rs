@@ -56,6 +56,7 @@ async fn process_socket(mut socket: TcpStream, dest_addr: IpAddr, dest_port: u16
     use common::connection::AcceptedConnection;
     use common::protocol::OutboundProtocol;
     use common::{Address, RWPair, SocketAddress};
+    use simple_outbounds::freedom::FreedomOutbound;
     use simple_outbounds::http::HttpOutbound;
     use tokio::io::{copy, AsyncWriteExt};
     use transport::outbound::{OutboundTcpTransport, OutboundTransport};
@@ -69,22 +70,26 @@ async fn process_socket(mut socket: TcpStream, dest_addr: IpAddr, dest_port: u16
         SocketAddress::new(sniff_result.unwrap_or(Address::Ip(dest_addr)), dest_port),
     );
 
-    let out_transport = if is_sniffed {
-        OutboundTcpTransport
+    info!("Conn: {:?}", accepted_conn);
+
+    let mut out_conn = if is_sniffed {
+        let transport = OutboundTcpTransport
             .connect(SocketAddr::new([192, 168, 1, 106].into(), 8888))
-            .await?
+            .await?;
+        HttpOutbound
+            .connect(&mut accepted_conn, transport)
+            .await
+            .with_context(|| format!("When processing {:?}", accepted_conn))?
     } else {
-        OutboundTcpTransport
+        let transport = OutboundTcpTransport
             .connect(SocketAddr::new(dest_addr, dest_port))
+            .await?;
+        FreedomOutbound
+            .connect(&mut accepted_conn, transport)
             .await?
     };
 
-    let mut out_conn = HttpOutbound
-        .connect(&mut accepted_conn, out_transport)
-        .await?;
-
     out_conn.conn.write_half.write(&cached_payload).await?;
-    info!("TCP: Start copying");
     let c2s = copy(
         &mut out_conn.conn.read_half,
         &mut accepted_conn.conn.write_half,
@@ -93,8 +98,8 @@ async fn process_socket(mut socket: TcpStream, dest_addr: IpAddr, dest_port: u16
         &mut accepted_conn.conn.read_half,
         &mut out_conn.conn.write_half,
     );
+
     try_join!(c2s, s2c)?;
-    info!("TCP: Done copying");
     Ok(())
 }
 
@@ -114,8 +119,17 @@ async fn run_tcp(listeners: (TcpListener,), manager: NatManagerRef) -> Result<()
             );
             tokio::spawn(async move {
                 let result = process_socket(socket, dest_addr, dest_port).await;
-                if let Err(error) = result {
-                    error!("Error while processing: {:?}", error);
+                
+                match result {
+                    Err(error) => {
+                        error!("Error while processing: {:?}", error);
+                    }
+                    Ok(_) => {
+                        info!(
+                            "Successfully processed connection to {:?}:{}",
+                            dest_addr, dest_port
+                        );
+                    }
                 }
             });
         } else {

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use bytes::BytesMut;
 use common::connection::{AcceptedConnection, OutboundConnection};
@@ -15,21 +15,25 @@ impl OutboundProtocol for HttpOutbound {
     conn: &mut AcceptedConnection<'_>,
     mut downlink: RWPair<'a>,
   ) -> Result<OutboundConnection<'a>> {
-    let request = format!("CONNECT {} HTTP/1.1\r\n\r\n", conn.dest_addr);
+    let request = format!("CONNECT {0} HTTP/1.1\r\nHost: {0}\r\n\r\n", conn.dest_addr);
     downlink.write(request.as_bytes()).await?;
-    let mut buffer = BytesMut::with_capacity(1024);
 
+    let mut buffer = BytesMut::with_capacity(1024);
     loop {
       let mut headers = [httparse::EMPTY_HEADER; 16];
       let mut res = httparse::Response::new(&mut headers);
-      downlink.read_buf(&mut buffer).await?;
+      let n = downlink.read_buf(&mut buffer).await?;
 
       match res.parse(&buffer[..])? {
         httparse::Status::Complete(len) => {
           conn.conn.write(&buffer[len..]).await?; // Write response data
           return Ok(OutboundConnection::new(RWPair::new(downlink)));
         }
-        httparse::Status::Partial => {}
+        httparse::Status::Partial => {
+          if n == 0 {
+            return Err(anyhow!("Handshake failed: unexpected EOF"));
+          }
+        }
       }
     }
   }

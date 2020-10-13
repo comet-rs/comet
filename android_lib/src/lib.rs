@@ -41,7 +41,11 @@ pub unsafe extern "C" fn Java_com_sayori_kokodayo_NativeModule_start(
     fd: jint,
 ) {
     RUNNING.store(true, Ordering::SeqCst);
-    android_logger::init_once(Config::default().with_min_level(Level::Debug));
+    android_logger::init_once(
+        Config::default()
+            .with_min_level(Level::Debug)
+            .with_filter(android_logger::FilterBuilder::new().parse("debug,trust_dns_proto=error").build()),
+    );
     let _ = run_android(fd as u16);
 }
 

@@ -63,9 +63,12 @@ pub fn read_client_hello(mut b: &[u8]) -> SniffStatus {
             return FAIL_NOT_HANDSHAKE;
         }
 
+        let splitted = b.split_at(extension_len);
+        let mut d = splitted.0;
+        b = splitted.1;
+
         if extension_id == 0x00 {
             // SNI
-            let mut d = b.split_at(extension_len).0;
             if d.len() != extension_len {
                 return FAIL_NOT_HANDSHAKE;
             }

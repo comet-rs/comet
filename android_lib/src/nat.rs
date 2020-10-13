@@ -1,7 +1,7 @@
 use crate::proxy::ProxyPorts;
 use crate::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
 use anyhow::{anyhow, Result};
-use log::{error, info};
+use log::error;
 use pnet::packet;
 use pnet::packet::tcp::MutableTcpPacket;
 use pnet::packet::udp::MutableUdpPacket;
@@ -94,11 +94,6 @@ fn handle_tcp(
         } else {
             // Forward packet to proxy
             if flags.syn && !flags.ack {
-                info!(
-                    "New TCP conn: {}:{}",
-                    packet.dest_addr,
-                    packet.inner.get_destination()
-                );
                 manager.new_entry(
                     ProtocolType::Tcp,
                     packet.inner.get_source(),

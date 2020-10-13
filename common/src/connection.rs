@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use bytes::BytesMut;
 use derivative::Derivative;
 use std::net::SocketAddr;
+use std::fmt;
 
 pub struct InboundConnection<'conn> {
     pub conn: RWPair<'conn>,

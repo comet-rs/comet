@@ -3,7 +3,7 @@ mod tls;
 
 use bytes::{BufMut, BytesMut};
 use common::Address;
-use log::info;
+use log::{info, warn};
 use std::str;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
@@ -18,16 +18,16 @@ pub enum SniffStatus {
 pub async fn sniff<R: AsyncRead + Unpin>(
     conn: &mut R,
 ) -> std::io::Result<(BytesMut, Option<Address>)> {
-    let mut buffer = BytesMut::with_capacity(300);
+    let mut buffer = BytesMut::with_capacity(1024);
 
-    let mut attempts = 0;
+    let mut attempts: u8 = 0;
     let mut http_failed = false;
     let mut tls_failed = false;
 
-    while attempts < 3 && buffer.remaining_mut() > 0 {
+    while attempts < 5 && buffer.remaining_mut() > 0 {
         let read_bytes = conn.read_buf(&mut buffer).await?;
         if read_bytes == 0 {
-            // EOF
+            warn!("Got EOF while sniffing: {:?}", buffer);
             return Ok((buffer, None));
         }
 
@@ -36,14 +36,13 @@ pub async fn sniff<R: AsyncRead + Unpin>(
                 SniffStatus::NoClue => (),
                 SniffStatus::Fail(reason) => {
                     http_failed = true;
-                    info!("HTTP sniffing failed: {}", reason);
                 }
                 SniffStatus::Success(s) => {
-                    info!("HTTP sniffed: {}", s);
                     return Ok((buffer, Some(Address::Domain(s.into()))));
                 }
             }
         }
+
         if !tls_failed {
             match tls::sniff(&buffer) {
                 SniffStatus::NoClue => (),
@@ -52,7 +51,6 @@ pub async fn sniff<R: AsyncRead + Unpin>(
                     info!("TLS sniffing failed: {}", reason);
                 }
                 SniffStatus::Success(s) => {
-                    info!("TLS sniffed: {}", s);
                     return Ok((buffer, Some(Address::Domain(s.into()))));
                 }
             }

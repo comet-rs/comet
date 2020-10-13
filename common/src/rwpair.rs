@@ -6,7 +6,9 @@ use tokio::io::{split, AsyncRead, AsyncWrite};
 
 pub struct RWPair {
     pub read_half: Box<dyn AsyncRead + Unpin + Send + 'static>,
+    pub read_bytes: u64,
     pub write_half: Box<dyn AsyncWrite + Unpin + Send + 'static>,
+    pub write_bytes: u64,
 }
 
 impl RWPair {
@@ -14,17 +16,24 @@ impl RWPair {
         let (read_half, write_half) = split(inner);
         RWPair {
             read_half: Box::new(read_half),
+            read_bytes: 0,
             write_half: Box::new(write_half),
+            write_bytes: 0,
         }
     }
 
-    pub fn new_parts<R: AsyncRead + Send + Unpin + 'static, W: AsyncWrite + Send + Unpin + 'static>(
+    pub fn new_parts<
+        R: AsyncRead + Send + Unpin + 'static,
+        W: AsyncWrite + Send + Unpin + 'static,
+    >(
         read_half: R,
         write_half: W,
     ) -> RWPair {
         RWPair {
             read_half: Box::new(read_half),
+            read_bytes: 0,
             write_half: Box::new(write_half),
+            write_bytes: 0,
         }
     }
 }
@@ -35,21 +44,35 @@ impl AsyncRead for RWPair {
     }
 
     fn poll_read(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
-        Pin::new(&mut *self.get_mut().read_half).poll_read(cx, buf)
+        let r = Pin::new(&mut self.read_half).poll_read(cx, buf);
+        match r {
+            Poll::Ready(Ok(n)) => {
+                self.read_bytes += n as u64;
+            }
+            _ => {}
+        }
+        r
     }
 }
 
 impl AsyncWrite for RWPair {
     fn poll_write(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Pin::new(&mut *self.get_mut().write_half).poll_write(cx, buf)
+        let r = Pin::new(&mut self.write_half).poll_write(cx, buf);
+        match r {
+            Poll::Ready(Ok(n)) => {
+                self.write_bytes += n as u64;
+            }
+            _ => {}
+        }
+        r
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {

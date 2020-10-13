@@ -105,6 +105,8 @@ async fn process_socket(
     );
 
     try_join!(c2s, s2c)?;
+
+    info!("C -> S: {}, S -> C: {}", out_conn.conn.write_bytes, out_conn.conn.read_bytes);
     Ok(())
 }
 

@@ -52,7 +52,11 @@ async fn listen_dns(ports: &mut ProxyPorts) -> Result<(UdpSocket,)> {
     Ok((socket_v4,))
 }
 
-async fn process_socket(mut socket: TcpStream, dest_addr: IpAddr, dest_port: u16) -> Result<()> {
+async fn process_socket(
+    mut socket: TcpStream,
+    src_addr: SocketAddr,
+    dest_addr: SocketAddr,
+) -> Result<()> {
     use common::connection::AcceptedConnection;
     use common::protocol::OutboundProtocol;
     use common::{Address, RWPair, SocketAddress};
@@ -66,8 +70,11 @@ async fn process_socket(mut socket: TcpStream, dest_addr: IpAddr, dest_port: u16
 
     let mut accepted_conn = AcceptedConnection::new(
         RWPair::new(socket),
-        SocketAddr::new([127, 0, 0, 1].into(), dest_port),
-        SocketAddress::new(sniff_result.unwrap_or(Address::Ip(dest_addr)), dest_port),
+        src_addr,
+        SocketAddress::new(
+            sniff_result.unwrap_or(Address::Ip(dest_addr.ip())),
+            dest_addr.port(),
+        ),
     );
 
     info!("Conn: {:?}", accepted_conn);
@@ -81,9 +88,7 @@ async fn process_socket(mut socket: TcpStream, dest_addr: IpAddr, dest_port: u16
             .await
             .with_context(|| format!("When processing {:?}", accepted_conn))?
     } else {
-        let transport = OutboundTcpTransport
-            .connect(SocketAddr::new(dest_addr, dest_port))
-            .await?;
+        let transport = OutboundTcpTransport.connect(dest_addr).await?;
         FreedomOutbound
             .connect(&mut accepted_conn, transport)
             .await?
@@ -118,8 +123,8 @@ async fn run_tcp(listeners: (TcpListener,), manager: NatManagerRef) -> Result<()
                 src_addr, dest_addr, dest_port
             );
             tokio::spawn(async move {
-                let result = process_socket(socket, dest_addr, dest_port).await;
-                
+                let result =
+                    process_socket(socket, src_addr, SocketAddr::new(dest_addr, dest_port)).await;
                 match result {
                     Err(error) => {
                         error!("Error while processing: {:?}", error);

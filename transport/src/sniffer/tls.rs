@@ -110,7 +110,7 @@ pub fn sniff(b: &[u8]) -> SniffStatus {
         return SniffStatus::NoClue;
     }
     if b[0] != consts::TYPE_HANDSHAKE {
-        return SniffStatus::Fail("Not handshake message");
+        return FAIL_NOT_HANDSHAKE;
     }
     if b[1] != consts::MAJOR_VERSION_3 {
         return SniffStatus::Fail("Invalid TLS version");

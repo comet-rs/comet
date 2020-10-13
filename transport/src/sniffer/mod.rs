@@ -3,7 +3,7 @@ mod tls;
 
 use bytes::{BufMut, BytesMut};
 use common::Address;
-use log::{info, warn};
+use log::warn;
 use std::str;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
@@ -34,7 +34,7 @@ pub async fn sniff<R: AsyncRead + Unpin>(
         if !http_failed {
             match http::sniff(&buffer) {
                 SniffStatus::NoClue => (),
-                SniffStatus::Fail(reason) => {
+                SniffStatus::Fail(_) => {
                     http_failed = true;
                 }
                 SniffStatus::Success(s) => {
@@ -46,9 +46,8 @@ pub async fn sniff<R: AsyncRead + Unpin>(
         if !tls_failed {
             match tls::sniff(&buffer) {
                 SniffStatus::NoClue => (),
-                SniffStatus::Fail(reason) => {
+                SniffStatus::Fail(_) => {
                     tls_failed = true;
-                    info!("TLS sniffing failed: {}", reason);
                 }
                 SniffStatus::Success(s) => {
                     return Ok((buffer, Some(Address::Domain(s.into()))));

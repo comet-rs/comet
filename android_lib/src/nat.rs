@@ -73,7 +73,6 @@ fn handle_tcp(
     ports: &ProxyPorts,
 ) -> Result<()> {
     let flags = TcpFlags::new(packet.inner.get_flags());
-    // trace!("Got TCP packet: [{:?}] {:?}", flags, packet);
     if packet.is_from_client() {
         if packet.is_to_router() {
             // Return packet to orig

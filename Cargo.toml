@@ -6,12 +6,12 @@ members = [
     "common",
     "transport",
     "settings",
-    "vmess",
     "simple_outbounds",
     "router",
     "dns",
     "android_lib",
     "raw_transport",
     "protocol_processor",
-    "net_wrapper"
+    "net_wrapper",
+    "sniffer"
 ]

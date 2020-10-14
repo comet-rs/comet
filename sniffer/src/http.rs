@@ -1,4 +1,4 @@
-use crate::sniffer::SniffStatus;
+use crate::SniffStatus;
 use std::str;
 
 const HTTP_METHODS: [&'static str; 7] =

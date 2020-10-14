@@ -15,11 +15,14 @@ futures = "0.3"
 anyhow = "1.0"
 log = "0.4.0"
 pnet = "0.26.0"
-nix = "0.18.0"
+nix = "0.19.0"
 smallvec="1.4.2"
+flurry = "0.3.1"
+
 common = { path = "../common" }
 transport = { path = "../transport" }
 dns = { path = "../dns" }
 net_wrapper = { path="../net_wrapper" }
 simple_outbounds = { path="../simple_outbounds" }
-flurry = "0.3.1"
+sniffer = { path="../sniffer" }
+

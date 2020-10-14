@@ -64,8 +64,9 @@ async fn process_socket(
     use simple_outbounds::http::HttpOutbound;
     use tokio::io::{copy, AsyncWriteExt};
     use transport::outbound::{OutboundTcpTransport, OutboundTransport};
+    use sniffer::sniff;
 
-    let (cached_payload, sniff_result) = transport::sniff(&mut socket).await?;
+    let (cached_payload, sniff_result) = sniff(&mut socket).await?;
     let is_sniffed = sniff_result.is_some();
 
     let mut accepted_conn = AcceptedConnection::new(

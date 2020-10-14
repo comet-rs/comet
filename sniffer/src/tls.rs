@@ -1,4 +1,4 @@
-use crate::sniffer::SniffStatus;
+use crate::SniffStatus;
 use std::convert::TryInto;
 use std::str;
 

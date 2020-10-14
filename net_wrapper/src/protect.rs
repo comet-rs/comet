@@ -7,7 +7,6 @@ fn protect(fd: c_int) -> nix::Result<()> {
   use nix::sys::socket::*;
   use nix::sys::uio::IoVec;
 
-  info!("Protecting {}", fd);
   let channel = socket(
     AddressFamily::Unix,
     SockType::Stream,

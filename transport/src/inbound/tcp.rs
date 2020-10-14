@@ -7,7 +7,6 @@ use log::info;
 use settings::inbound::InboundSettings;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-use tokio::stream::Stream;
 
 pub struct InboundTcpTransport {
     listener: TcpListener,

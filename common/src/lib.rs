@@ -8,6 +8,7 @@ use serde::Deserialize;
 use std::fmt;
 use std::net::IpAddr;
 pub mod io;
+pub use connection::Connection;
 
 pub type BoxedConnectionStream =
     Box<dyn Stream<Item = connection::Connection>>;
@@ -58,3 +59,7 @@ impl Default for StreamType {
         Self::Tcp
     }
 }
+
+// pub trait Processor {
+//     fn process(self: Arc<Self>);
+// }

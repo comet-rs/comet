@@ -36,6 +36,9 @@ pub async fn sniff(mut stream: RWPair, conn: &mut Connection) -> std::io::Result
                     http_failed = true;
                 }
                 SniffStatus::Success(s) => {
+                    if let Some(idx) = s.rfind(':') {
+                        s.split_at(idx);
+                    }
                     conn.dest_addr = Some(SocketAddress::new_domain(s, dest_port));
                     return Ok(stream.prepend_data(buffer));
                 }

@@ -1,4 +1,5 @@
 pub use smallstr::SmallString;
+use std::net::SocketAddr;
 use tokio::stream::Stream;
 pub mod connection;
 pub mod protocol;
@@ -10,8 +11,7 @@ use std::net::IpAddr;
 pub mod io;
 pub use connection::Connection;
 
-pub type BoxedConnectionStream =
-    Box<dyn Stream<Item = connection::Connection>>;
+pub type BoxedConnectionStream = Box<dyn Stream<Item = connection::Connection>>;
 
 #[derive(Debug, Clone)]
 pub enum Address {
@@ -41,11 +41,25 @@ impl SocketAddress {
             port: port,
         }
     }
+
+    pub fn new_domain<T: Into<SmallString<[u8; 10]>>>(addr: T, port: u16) -> SocketAddress {
+        SocketAddress::new(Address::Domain(addr.into()), port)
+    }
+
+    pub fn new_ip<T: Into<IpAddr>>(addr: T, port: u16) -> SocketAddress {
+        SocketAddress::new(Address::Ip(addr.into()), port)
+    }
 }
 
 impl fmt::Display for SocketAddress {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}", self.addr, self.port)
+    }
+}
+
+impl From<SocketAddr> for SocketAddress {
+    fn from(addr: SocketAddr) -> Self {
+        Self::new_ip(addr.ip(), addr.port())
     }
 }
 
@@ -59,6 +73,8 @@ impl Default for StreamType {
         Self::Tcp
     }
 }
+
+pub struct Context {}
 
 // pub trait Processor {
 //     fn process(self: Arc<Self>);

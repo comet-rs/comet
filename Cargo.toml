@@ -2,16 +2,12 @@
 
 members = [
     "app",
-    "socks5",
     "common",
     "transport",
     "settings",
-    "simple_outbounds",
     "router",
     "dns",
     "android_lib",
-    "raw_transport",
-    "protocol_processor",
     "net_wrapper",
-    "sniffer"
+    "processors"
 ]

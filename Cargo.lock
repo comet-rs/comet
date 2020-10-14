@@ -45,9 +45,8 @@ dependencies = [
  "net_wrapper",
  "nix 0.19.0",
  "pnet",
- "simple_outbounds",
+ "processors",
  "smallvec 1.4.2",
- "sniffer",
  "tokio",
  "transport",
 ]
@@ -98,7 +97,6 @@ dependencies = [
  "serde",
  "serde_json",
  "settings",
- "socks5",
  "tokio",
  "transport",
 ]
@@ -375,6 +373,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "derivative 1.0.4",
+ "futures 0.3.6",
  "serde",
  "smallstr",
  "tokio",
@@ -1297,8 +1296,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "protocol_processor"
+name = "processors"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "common",
+ "futures 0.3.6",
+ "httparse",
+ "log 0.4.11",
+ "settings",
+ "tokio",
+]
 
 [[package]]
 name = "quick-error"
@@ -1373,26 +1382,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core",
-]
-
-[[package]]
-name = "raw_transport"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-std",
- "async-trait",
- "bytes",
- "common",
- "derivative 1.0.4",
- "env_logger",
- "futures 0.3.6",
- "log 0.4.11",
- "net2",
- "serde",
- "settings",
- "tokio",
- "tokio-threadpool",
 ]
 
 [[package]]
@@ -1514,21 +1503,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "simple_outbounds"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "common",
- "futures 0.3.6",
- "httparse",
- "log 0.4.11",
- "tokio",
- "transport",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1559,18 +1533,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbee7696b84bbf3d89a1c2eccff0850e3047ed46bfcd2e92c29a2d074d57e252"
 
 [[package]]
-name = "sniffer"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "common",
- "futures 0.3.6",
- "log 0.4.11",
- "settings",
- "tokio",
-]
-
-[[package]]
 name = "socket2"
 version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1580,22 +1542,6 @@ dependencies = [
  "libc",
  "redox_syscall",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "socks5"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-std",
- "async-trait",
- "common",
- "env_logger",
- "futures 0.3.6",
- "log 0.4.11",
- "settings",
- "tokio",
- "transport",
 ]
 
 [[package]]

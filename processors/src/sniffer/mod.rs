@@ -2,11 +2,10 @@ mod http;
 mod tls;
 
 use bytes::{BufMut, BytesMut};
-use common::Address;
+use common::*;
 use log::warn;
 use std::str;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt;
+use tokio::prelude::*;
 
 #[derive(Debug)]
 pub enum SniffStatus {
@@ -15,20 +14,19 @@ pub enum SniffStatus {
     Success(String),
 }
 
-pub async fn sniff<R: AsyncRead + Unpin>(
-    conn: &mut R,
-) -> std::io::Result<(BytesMut, Option<Address>)> {
+pub async fn sniff(mut stream: RWPair, conn: &mut Connection) -> std::io::Result<RWPair> {
     let mut buffer = BytesMut::with_capacity(1024);
 
     let mut attempts: u8 = 0;
     let mut http_failed = false;
     let mut tls_failed = false;
+    let dest_port = conn.dest_addr.as_ref().unwrap().port;
 
     while attempts < 5 && buffer.remaining_mut() > 0 {
-        let read_bytes = conn.read_buf(&mut buffer).await?;
+        let read_bytes = stream.read_buf(&mut buffer).await?;
         if read_bytes == 0 {
             warn!("Got EOF while sniffing: {:?}", buffer);
-            return Ok((buffer, None));
+            return Ok(stream.prepend_data(buffer));
         }
 
         if !http_failed {
@@ -38,7 +36,8 @@ pub async fn sniff<R: AsyncRead + Unpin>(
                     http_failed = true;
                 }
                 SniffStatus::Success(s) => {
-                    return Ok((buffer, Some(Address::Domain(s.into()))));
+                    conn.dest_addr = Some(SocketAddress::new_domain(s, dest_port));
+                    return Ok(stream.prepend_data(buffer));
                 }
             }
         }
@@ -50,7 +49,8 @@ pub async fn sniff<R: AsyncRead + Unpin>(
                     tls_failed = true;
                 }
                 SniffStatus::Success(s) => {
-                    return Ok((buffer, Some(Address::Domain(s.into()))));
+                    conn.dest_addr = Some(SocketAddress::new_domain(s, dest_port));
+                    return Ok(stream.prepend_data(buffer));
                 }
             }
         }
@@ -60,5 +60,5 @@ pub async fn sniff<R: AsyncRead + Unpin>(
         attempts += 1;
     }
 
-    Ok((buffer, None))
+    return Ok(stream.prepend_data(buffer));
 }

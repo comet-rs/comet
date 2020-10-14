@@ -1,7 +1,6 @@
 use crate::nat_manager::{NatManagerRef, ProtocolType};
 use crate::IPV4_CLIENT;
 use anyhow::{Context, Result};
-use futures::try_join;
 use log::{error, info};
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -53,61 +52,36 @@ async fn listen_dns(ports: &mut ProxyPorts) -> Result<(UdpSocket,)> {
 }
 
 async fn process_socket(
-    mut socket: TcpStream,
+    socket: TcpStream,
     src_addr: SocketAddr,
     dest_addr: SocketAddr,
 ) -> Result<()> {
-    use common::connection::AcceptedConnection;
-    use common::protocol::OutboundProtocol;
-    use common::{Address, RWPair, SocketAddress};
-    use simple_outbounds::freedom::FreedomOutbound;
-    use simple_outbounds::http::HttpOutbound;
-    use tokio::io::{copy, AsyncWriteExt};
+    use common::*;
     use transport::outbound::{OutboundTcpTransport, OutboundTransport};
-    use sniffer::sniff;
 
-    let (cached_payload, sniff_result) = sniff(&mut socket).await?;
-    let is_sniffed = sniff_result.is_some();
+    let mut socket = RWPair::new(socket);
 
-    let mut accepted_conn = AcceptedConnection::new(
-        RWPair::new(socket),
-        src_addr,
-        SocketAddress::new(
-            sniff_result.unwrap_or(Address::Ip(dest_addr.ip())),
-            dest_addr.port(),
-        ),
-    );
+    let mut conn = Connection::new(src_addr);
+    conn.dest_addr = Some(dest_addr.into());
 
-    info!("Conn: {:?}", accepted_conn);
+    socket = processors::sniffer::sniff(socket, &mut conn).await?;
 
-    let mut out_conn = if is_sniffed {
-        let transport = OutboundTcpTransport
-            .connect(SocketAddr::new([192, 168, 1, 106].into(), 8888))
-            .await?;
-        HttpOutbound
-            .connect(&mut accepted_conn, transport)
-            .await
-            .with_context(|| format!("When processing {:?}", accepted_conn))?
-    } else {
-        let transport = OutboundTcpTransport.connect(dest_addr).await?;
-        FreedomOutbound
-            .connect(&mut accepted_conn, transport)
-            .await?
+    info!("Conn: {:?}", conn);
+
+    let mut out_conn = match conn.dest_addr.as_ref().unwrap().addr {
+        Address::Domain(_) => {
+            let transport = OutboundTcpTransport
+                .connect(SocketAddr::new([192, 168, 1, 106].into(), 8888))
+                .await?;
+
+            processors::http_proxy::client_handshake(transport, &mut conn).await?
+        }
+        Address::Ip(_) => OutboundTcpTransport.connect(dest_addr).await?,
     };
 
-    out_conn.conn.write_half.write(&cached_payload).await?;
-    let c2s = copy(
-        &mut out_conn.conn.read_half,
-        &mut accepted_conn.conn.write_half,
-    );
-    let s2c = copy(
-        &mut accepted_conn.conn.read_half,
-        &mut out_conn.conn.write_half,
-    );
+    let copy_count = socket.bidi_copy(&mut out_conn).await?;
 
-    try_join!(c2s, s2c)?;
-
-    info!("C -> S: {}, S -> C: {}", out_conn.conn.write_bytes, out_conn.conn.read_bytes);
+    info!("C -> S: {}, S -> C: {}", copy_count.0, copy_count.1);
     Ok(())
 }
 

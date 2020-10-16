@@ -771,6 +771,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63312a18f7ea8760cdd0a7c5aac1a619752a246b833545e3e36d1f81f7cd9e66"
 dependencies = [
  "cfg-if",
+ "js-sys",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -787,6 +790,15 @@ name = "ipnetwork"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8eca9f51da27bc908ef3dd85c21e1bbba794edaf94d7841e37356275b82d31e"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "ipnetwork"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02c3eaab3ac0ede60ffa41add21970a7df7d91772c03383aac6c2c3d53cc716b"
 dependencies = [
  "serde",
 ]
@@ -834,6 +846,14 @@ checksum = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 dependencies = [
  "winapi 0.2.8",
  "winapi-build",
+]
+
+[[package]]
+name = "kokodayo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rhai",
 ]
 
 [[package]]
@@ -1163,7 +1183,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c62df42dcd72f6f2a658bcf38509f1027df1440ac85f1af4badbe034418302dc"
 dependencies = [
- "ipnetwork",
+ "ipnetwork 0.16.0",
  "pnet_base",
  "pnet_datalink",
  "pnet_packet",
@@ -1183,7 +1203,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7318ae1d6e0b7fa1e49933233c9473f2b72d3d18b97e70e2716c6415dde5f915"
 dependencies = [
- "ipnetwork",
+ "ipnetwork 0.16.0",
  "libc",
  "pnet_base",
  "pnet_sys",
@@ -1409,6 +1429,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26412eb97c6b088a6997e05f69403a802a92d520de2f8e63c2b65f9e0f47c4e8"
 
 [[package]]
+name = "rhai"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e8e282535f1c756a24c01b2e6aefa17f101c6c68c87696061002ce59371c33a"
+dependencies = [
+ "instant",
+ "rhai_codegen",
+ "smallvec 1.4.2",
+]
+
+[[package]]
+name = "rhai_codegen"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a911a142bb489f3e4e34d0e62da91cba81c10972240ce0d99d79d41ab6e6d9a5"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.7",
+ "syn 1.0.44",
+]
+
+[[package]]
 name = "router"
 version = "0.1.0"
 dependencies = [
@@ -1484,12 +1526,14 @@ dependencies = [
 name = "settings"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "common",
- "ipnetwork",
+ "ipnetwork 0.17.0",
  "log 0.4.11",
  "regex",
  "serde",
  "serde_json",
+ "toml",
 ]
 
 [[package]]
@@ -1755,6 +1799,15 @@ dependencies = [
  "num_cpus",
  "slab",
  "tokio-executor",
+]
+
+[[package]]
+name = "toml"
+version = "0.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75cf45bb0bef80604d001caaec0d09da99611b3c0fd39d3080468875cdb65645"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

@@ -1,42 +1,35 @@
 pub mod inbound;
+pub mod input;
 pub mod outbound;
+pub mod output;
+pub mod processor;
 pub mod routing;
 pub mod transport;
-use crate::inbound::InboundSettings;
-use crate::outbound::OutboundSettings;
-use crate::routing::RoutingSettings;
-use crate::transport::TransportSettings;
+use std::collections::HashMap;
 
+use anyhow::Result;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::prelude::*;
 use std::path::Path;
 
-use log::trace;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct Settings {
-    #[serde(default)]
-    pub inbounds: Vec<InboundSettings>,
-    #[serde(default)]
-    pub outbounds: Vec<OutboundSettings>,
-    #[serde(default)]
-    pub transport: TransportSettings,
-    #[serde(default)]
-    pub routing: RoutingSettings,
+    pub inputs: HashMap<String, input::InputItem>,
+    pub outputs: HashMap<String, output::OutputItem>,
 }
 
-pub fn load_file<P: AsRef<Path>>(path: P) -> Result<Settings, Box<dyn std::error::Error>> {
-    let file = File::open(&path)?;
-    let reader = BufReader::new(file);
-    let des = serde_json::from_reader(reader)?;
-    trace!("Config content: {:#?}", des);
+pub fn load_file<P: AsRef<Path>>(path: P) -> Result<Settings> {
+    let mut file = File::open(&path)?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)?;
+    let des = toml::from_str(&content)?;
     Ok(des)
 }
 
-pub fn load_string(input: &str) -> Result<Settings, Box<dyn std::error::Error>> {
-    let des = serde_json::from_str(input)?;
-    trace!("Config content: {:#?}", des);
+pub fn load_string(input: &str) -> Result<Settings> {
+    let des = toml::from_str(input)?;
     Ok(des)
 }

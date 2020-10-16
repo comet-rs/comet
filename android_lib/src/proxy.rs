@@ -1,55 +1,11 @@
 use crate::nat_manager::{NatManagerRef, ProtocolType};
-use crate::IPV4_CLIENT;
+use crate::VpnListeners;
 use anyhow::{Context, Result};
 use log::{error, info};
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::sync::Mutex;
-
-#[derive(Clone, Debug)]
-pub struct ProxyPorts {
-    pub tcp_v4: u16,
-    pub udp_v4: u16,
-    pub dns_v4: u16,
-    pub tcp_v6: u16,
-    pub udp_v6: u16,
-    pub dns_v6: u16,
-}
-
-impl ProxyPorts {
-    pub fn new() -> Self {
-        ProxyPorts {
-            tcp_v4: 0,
-            udp_v4: 0,
-            dns_v4: 0,
-            tcp_v6: 0,
-            udp_v6: 0,
-            dns_v6: 0,
-        }
-    }
-}
-
-async fn listen_tcp(ports: &mut ProxyPorts) -> Result<(TcpListener,)> {
-    let listener_v4 = TcpListener::bind((IPV4_CLIENT, 0)).await?;
-    ports.tcp_v4 = listener_v4.local_addr()?.port();
-    info!("TCP proxy listening on port {} (v4)", ports.tcp_v4);
-    Ok((listener_v4,))
-}
-
-async fn listen_udp(ports: &mut ProxyPorts) -> Result<(UdpSocket,)> {
-    let socket_v4 = UdpSocket::bind(SocketAddr::new(IpAddr::V4(IPV4_CLIENT), 0)).await?;
-    ports.udp_v4 = socket_v4.local_addr()?.port();
-    info!("UDP proxy listening on port {} (v4)", ports.udp_v4);
-    Ok((socket_v4,))
-}
-
-async fn listen_dns(ports: &mut ProxyPorts) -> Result<(UdpSocket,)> {
-    let socket_v4 = UdpSocket::bind(SocketAddr::new(IpAddr::V4(IPV4_CLIENT), 0)).await?;
-    ports.dns_v4 = socket_v4.local_addr()?.port();
-    info!("DNS proxy listening on port {} (v4)", ports.dns_v4);
-    Ok((socket_v4,))
-}
 
 async fn process_socket(
     socket: TcpStream,
@@ -73,7 +29,6 @@ async fn process_socket(
             let transport = OutboundTcpTransport
                 .connect(SocketAddr::new([192, 168, 1, 106].into(), 8888))
                 .await?;
-
             processors::http_proxy::client_handshake(transport, &mut conn).await?
         }
         Address::Ip(_) => OutboundTcpTransport.connect(dest_addr).await?,
@@ -150,37 +105,33 @@ async fn run_dns(sockets: (UdpSocket,), _manager: NatManagerRef) -> Result<()> {
     }
 }
 
-pub async fn start_proxy(manager: NatManagerRef) -> Result<ProxyPorts> {
-    let mut ports = ProxyPorts::new();
-    let tcp_listeners = listen_tcp(&mut ports).await?;
-    let udp_listeners = listen_udp(&mut ports).await?;
-    let dns_listeners = listen_dns(&mut ports).await?;
+pub async fn start_proxy(manager: NatManagerRef, listeners: VpnListeners) -> Result<()> {
+    let tcp = listeners.tcp_v4;
+    let dns = listeners.udp_v4;
 
     let manager_tcp = Arc::clone(&manager);
     tokio::spawn(async move {
-        let exit_status = run_tcp(tcp_listeners, manager_tcp).await;
-
+        let exit_status = run_tcp((tcp,), manager_tcp).await;
         if let Err(error) = exit_status {
             error!("TCP proxy thread exited: {:?}", error);
         }
     });
 
-    let manager_udp = Arc::clone(&manager);
-    tokio::spawn(async move {
-        let exit_status = run_udp(udp_listeners, manager_udp).await;
+    // let manager_udp = Arc::clone(&manager);
+    // tokio::spawn(async move {
+    //     let exit_status = run_udp((listeners.udp_v4,), manager_udp).await;
 
-        if let Err(error) = exit_status {
-            error!("UDP proxy thread exited: {:?}", error);
-        }
-    });
+    //     if let Err(error) = exit_status {
+    //         error!("UDP proxy thread exited: {:?}", error);
+    //     }
+    // });
 
     let manager_dns = Arc::clone(&manager);
     tokio::spawn(async move {
-        let exit_status = run_dns(dns_listeners, manager_dns).await;
-
+        let exit_status = run_dns((dns,), manager_dns).await;
         if let Err(error) = exit_status {
             error!("DNS proxy thread exited: {:?}", error);
         }
     });
-    Ok(ports)
+    Ok(())
 }

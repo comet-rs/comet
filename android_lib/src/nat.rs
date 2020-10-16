@@ -1,4 +1,4 @@
-use crate::proxy::ProxyPorts;
+use crate::VpnPorts;
 use crate::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
 use anyhow::{anyhow, Result};
 use log::error;
@@ -70,7 +70,7 @@ type AddressedUdpPacket<'p> = AddressedPacket<MutableUdpPacket<'p>>;
 fn handle_tcp(
     manager: &mut NatManagerRef,
     packet: &mut AddressedTcpPacket<'_>,
-    ports: &ProxyPorts,
+    ports: &VpnPorts,
 ) -> Result<()> {
     let flags = TcpFlags::new(packet.inner.get_flags());
     if packet.is_from_client() {
@@ -132,7 +132,7 @@ fn handle_tcp(
 fn handle_udp(
     manager: &mut NatManagerRef,
     packet: &mut AddressedUdpPacket<'_>,
-    ports: &ProxyPorts,
+    ports: &VpnPorts,
 ) -> Result<()> {
     if packet.is_from_client() {
         if packet.is_to_router() {
@@ -195,7 +195,7 @@ fn handle_udp(
     Ok(())
 }
 
-fn handle_ipv4(manager: &mut NatManagerRef, buffer: &mut [u8], ports: &ProxyPorts) -> Result<()> {
+fn handle_ipv4(manager: &mut NatManagerRef, buffer: &mut [u8], ports: &VpnPorts) -> Result<()> {
     let mut ip_pkt = packet::ipv4::MutableIpv4Packet::new(buffer)
         .ok_or(anyhow!("Failed to parse IPv4 packet"))?;
     let l4_proto = ip_pkt.get_next_level_protocol();
@@ -279,7 +279,7 @@ fn select_fds(
     Ok((read_set, write_set))
 }
 
-pub fn run_router(fd: u16, mut manager: NatManagerRef, ports: ProxyPorts) -> Result<()> {
+pub fn run_router(fd: u16, mut manager: NatManagerRef, ports: VpnPorts) -> Result<()> {
     let raw_fd = fd as RawFd;
     const QUEUE_CAP: usize = 10;
     let _file = unsafe { std::fs::File::from_raw_fd(raw_fd) };

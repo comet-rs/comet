@@ -7,6 +7,7 @@ members = [
     "settings",
     "router",
     "dns",
+    "kokodayo",
     "android_lib",
     "net_wrapper",
     "processors"

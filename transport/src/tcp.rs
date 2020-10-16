@@ -1,2 +1,2 @@
-pub struct TcpTransport;
+pub struct TcpInputTransport;
 pub struct TcpOutputTransport;

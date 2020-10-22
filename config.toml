@@ -1,3 +1,9 @@
+[inbounds]
+[[inbounds.socks5]]
+
+[pipelines]
+[[pipelines.socks5]]
+
 [inputs]
 
 [inputs.socks5]

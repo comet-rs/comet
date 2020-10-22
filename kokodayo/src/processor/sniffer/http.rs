@@ -20,7 +20,7 @@ fn match_http_method(buf: &[u8]) -> Option<bool> {
     Some(false)
 }
 
-pub fn sniff(b: &[u8]) -> SniffStatus {
+pub fn sniff(b: &[u8]) -> super::SniffStatus {
     if let Some(matched) = match_http_method(b) {
         if !matched {
             return SniffStatus::Fail("Not HTTP method");

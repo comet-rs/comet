@@ -1,8 +1,11 @@
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
 use common::*;
+use serde::Deserialize;
 use tokio::prelude::*;
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct HttpProxyClientConfig;
 pub async fn client_handshake(mut stream: RWPair, conn: &mut Connection) -> Result<RWPair> {
   let request = format!(
     "CONNECT {0} HTTP/1.1\r\nHost: {0}\r\n\r\n",
@@ -10,7 +13,6 @@ pub async fn client_handshake(mut stream: RWPair, conn: &mut Connection) -> Resu
   );
 
   stream.write(request.as_bytes()).await?;
-
   let mut buffer = BytesMut::with_capacity(1024);
   loop {
     let mut headers = [httparse::EMPTY_HEADER; 16];

@@ -1,14 +1,14 @@
-use net2::{TcpBuilder, UdpBuilder};
+use net2::UdpBuilder;
 use std::io;
 use std::net::SocketAddr;
-use tokio::net::{TcpStream, UdpSocket};
+use tokio::net::{TcpSocket, TcpStream, UdpSocket};
 
 mod protect;
 
 pub async fn connect_tcp(addr: &SocketAddr) -> io::Result<TcpStream> {
     let sock = match addr {
-        SocketAddr::V4(_) => TcpBuilder::new_v4(),
-        SocketAddr::V6(_) => TcpBuilder::new_v6(),
+        SocketAddr::V4(_) => TcpSocket::new_v4(),
+        SocketAddr::V6(_) => TcpSocket::new_v6(),
     }?;
 
     #[cfg(target_os = "android")]
@@ -17,8 +17,7 @@ pub async fn connect_tcp(addr: &SocketAddr) -> io::Result<TcpStream> {
         let fd = sock.as_raw_fd();
         protect::protect_async(fd).await?;
     }
-    let unconnected = sock.to_tcp_stream()?;
-    TcpStream::connect_std(unconnected, addr).await
+    sock.connect(*addr).await
 }
 
 pub async fn bind_udp(addr: &SocketAddr) -> io::Result<UdpSocket> {

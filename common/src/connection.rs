@@ -1,61 +1,45 @@
 use crate::Address;
 use crate::RWPair;
-use crate::SocketAddress;
-use bytes::BytesMut;
-use derivative::Derivative;
+use crate::SocketDomainAddr;
+use smol_str::SmolStr;
+use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::net::SocketAddr;
 
 #[derive(Debug)]
 pub struct Connection {
+    pub inbound_tag: SmolStr,
+    pub inbound_pipeline: SmolStr,
     pub src_addr: SocketAddr,
-    pub dest_addr: Option<SocketAddress>,
+    pub dest_addr: Option<SocketDomainAddr>,
+    pub variables: HashMap<SmolStr, SmolStr>,
 }
 
 impl Connection {
-    pub fn new<A: Into<SocketAddr>>(src_addr: A) -> Self {
+    pub fn new<A: Into<SocketAddr>, T1: Into<SmolStr>, T2: Into<SmolStr>>(
+        src_addr: A,
+        inbound_tag: T1,
+        inbound_pipeline: T2,
+    ) -> Self {
         Connection {
+            inbound_tag: inbound_tag.into(),
+            inbound_pipeline: inbound_pipeline.into(),
             src_addr: src_addr.into(),
             dest_addr: None,
+            variables: HashMap::new(),
         }
+    }
+
+    pub fn set_var<K: Into<SmolStr>, V: Into<SmolStr>>(&mut self, key: K, value: V) {
+        self.variables.insert(key.into(), value.into());
+    }
+
+    pub fn get_var(&self, key: &str) -> Option<&str> {
+        self.variables.get(key).map(|v| v.borrow())
     }
 }
 
 pub struct InboundConnection {
     pub conn: RWPair,
     pub addr: SocketAddr,
-}
-
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct AcceptedConnection {
-    #[derivative(Debug = "ignore")]
-    pub conn: RWPair,
-    pub src_addr: SocketAddr,
-    pub dest_addr: SocketAddress,
-
-    #[derivative(Debug = "ignore")]
-    pub sniffer_data: Option<BytesMut>,
-    pub sniffed_dest: Option<Address>,
-}
-
-impl AcceptedConnection {
-    pub fn new(conn: RWPair, src_addr: SocketAddr, dest_addr: SocketAddress) -> Self {
-        AcceptedConnection {
-            conn: conn,
-            src_addr: src_addr,
-            dest_addr: dest_addr,
-            sniffer_data: None,
-            sniffed_dest: None,
-        }
-    }
-}
-
-pub struct OutboundConnection {
-    pub conn: RWPair,
-}
-
-impl OutboundConnection {
-    pub fn new(conn: RWPair) -> Self {
-        OutboundConnection { conn: conn }
-    }
 }

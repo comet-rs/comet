@@ -1,10 +1,10 @@
+use futures::try_join;
 use std::io;
 use std::io::Cursor;
-use std::mem::MaybeUninit;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{split, AsyncRead, AsyncReadExt, AsyncWrite, copy};
-use futures::try_join;
+use tokio::io::ReadBuf;
+use tokio::io::{copy, split, AsyncRead, AsyncReadExt, AsyncWrite};
 
 pub struct RWPair {
     pub read_half: Box<dyn AsyncRead + Unpin + Send + 'static>,
@@ -46,15 +46,11 @@ impl RWPair {
 }
 
 impl AsyncRead for RWPair {
-    unsafe fn prepare_uninitialized_buffer(&self, buf: &mut [MaybeUninit<u8>]) -> bool {
-        (*self.read_half).prepare_uninitialized_buffer(buf)
-    }
-
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         Pin::new(&mut self.read_half).poll_read(cx, buf)
     }
 }

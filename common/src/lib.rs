@@ -1,8 +1,7 @@
-pub use smallstr::SmallString;
+use smol_str::SmolStr;
 use std::net::SocketAddr;
 use tokio::stream::Stream;
 pub mod connection;
-pub mod protocol;
 mod rwpair;
 pub use rwpair::RWPair;
 use serde::Deserialize;
@@ -10,12 +9,11 @@ use std::fmt;
 use std::net::IpAddr;
 pub mod io;
 pub use connection::Connection;
-
 pub type BoxedConnectionStream = Box<dyn Stream<Item = connection::Connection>>;
 
 #[derive(Debug, Clone)]
 pub enum Address {
-    Domain(SmallString<[u8; 10]>),
+    Domain(SmolStr),
     Ip(IpAddr),
 }
 
@@ -29,35 +27,35 @@ impl fmt::Display for Address {
 }
 
 #[derive(Debug, Clone)]
-pub struct SocketAddress {
+pub struct SocketDomainAddr {
     pub addr: Address,
     pub port: u16,
 }
 
-impl SocketAddress {
-    pub fn new(addr: Address, port: u16) -> SocketAddress {
-        SocketAddress {
+impl SocketDomainAddr {
+    pub fn new(addr: Address, port: u16) -> SocketDomainAddr {
+        SocketDomainAddr {
             addr: addr,
             port: port,
         }
     }
 
-    pub fn new_domain<T: Into<SmallString<[u8; 10]>>>(addr: T, port: u16) -> SocketAddress {
-        SocketAddress::new(Address::Domain(addr.into()), port)
+    pub fn new_domain<T: Into<SmolStr>>(addr: T, port: u16) -> SocketDomainAddr {
+        SocketDomainAddr::new(Address::Domain(addr.into()), port)
     }
 
-    pub fn new_ip<T: Into<IpAddr>>(addr: T, port: u16) -> SocketAddress {
-        SocketAddress::new(Address::Ip(addr.into()), port)
+    pub fn new_ip<T: Into<IpAddr>>(addr: T, port: u16) -> SocketDomainAddr {
+        SocketDomainAddr::new(Address::Ip(addr.into()), port)
     }
 }
 
-impl fmt::Display for SocketAddress {
+impl fmt::Display for SocketDomainAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}", self.addr, self.port)
     }
 }
 
-impl From<SocketAddr> for SocketAddress {
+impl From<SocketAddr> for SocketDomainAddr {
     fn from(addr: SocketAddr) -> Self {
         Self::new_ip(addr.ip(), addr.port())
     }
@@ -73,9 +71,3 @@ impl Default for StreamType {
         Self::Tcp
     }
 }
-
-pub struct Context {}
-
-// pub trait Processor {
-//     fn process(self: Arc<Self>);
-// }

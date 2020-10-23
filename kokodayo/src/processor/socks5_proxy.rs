@@ -41,7 +41,7 @@ impl Processor for Socks5ProxyServerProcessor {
     stream.read_exact(&mut vec![0; nmethods as usize]).await?;
 
     // METHOD selection message
-    stream.write(&[v5::VERSION, v5::METH_NO_AUTH]).await?;
+    stream.write_all(&[v5::VERSION, v5::METH_NO_AUTH]).await?;
 
     // Read request
     let addr_type = {
@@ -77,7 +77,7 @@ impl Processor for Socks5ProxyServerProcessor {
 
     // Send reply
     stream
-      .write(&[0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x08, 0x4])
+      .write_all(&[0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x08, 0x4])
       .await?;
 
     // And we are done

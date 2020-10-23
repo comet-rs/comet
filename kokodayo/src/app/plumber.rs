@@ -31,7 +31,7 @@ impl Plumber {
     conn: Connection,
     stream: RWPair,
     ctx: AppContextRef,
-  ) -> Result<(RWPair, Connection)> {
+  ) -> Result<(Connection, RWPair)> {
     let pipeline = self.pipelines.get(tag).unwrap();
     Ok(pipeline.process(stream, conn, ctx).await?)
   }
@@ -51,12 +51,12 @@ impl Pipeline {
     mut stream: RWPair,
     mut conn: Connection,
     ctx: AppContextRef,
-  ) -> Result<(RWPair, Connection)> {
+  ) -> Result<(Connection, RWPair)> {
     for item in &self.items {
-      let result = item.process(stream, &mut conn, Arc::clone(&ctx)).await;
+      let result = item.process(stream, &mut conn, ctx.clone()).await;
       stream = result.with_context(|| format!("Error running processor {:?}", item))?;
     }
-    Ok((stream, conn))
+    Ok((conn, stream))
   }
 }
 

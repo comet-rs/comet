@@ -1,5 +1,6 @@
 use smol_str::SmolStr;
 use std::net::SocketAddr;
+use tokio::net::ToSocketAddrs;
 use tokio::stream::Stream;
 pub mod connection;
 mod rwpair;

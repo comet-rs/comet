@@ -6,6 +6,8 @@ use std::task::{Context, Poll};
 use tokio::io::ReadBuf;
 use tokio::io::{copy, split, AsyncRead, AsyncReadExt, AsyncWrite};
 
+pub trait RWStream: AsyncRead + AsyncWrite + Send + Sync + Unpin {}
+
 pub struct RWPair {
     pub read_half: Box<dyn AsyncRead + Unpin + Send + 'static>,
     pub write_half: Box<dyn AsyncWrite + Unpin + Send + 'static>,
@@ -70,6 +72,12 @@ impl AsyncWrite for RWPair {
 
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut *self.get_mut().write_half).poll_shutdown(cx)
+    }
+}
+
+impl std::fmt::Debug for RWPair {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "RWPair")
     }
 }
 

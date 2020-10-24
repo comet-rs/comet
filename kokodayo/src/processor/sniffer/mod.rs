@@ -107,7 +107,7 @@ impl Processor for SnifferProcessor {
             }
             attempts += 1;
         }
-        return Ok(stream.prepend_data(buffer));
+        Ok(stream.prepend_data(buffer))
     }
 }
 

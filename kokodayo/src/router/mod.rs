@@ -14,12 +14,15 @@ impl Router {
     }
   }
 
-  pub fn try_match(&self, conn: &Connection, ctx: &AppContextRef) -> Option<&str> {
+  pub fn try_match(&self, conn: &Connection, ctx: &AppContextRef) -> &str {
     for rule in &self.config.rules {
       if rule.rule.is_match(conn) {
-        return Some(&rule.target)
+        return&rule.target
       }
     }
-    None
+    match conn.typ {
+      TransportType::Tcp => &self.config.defaults.tcp,
+      _ => unimplemented!()
+    }
   }
 }

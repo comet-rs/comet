@@ -81,7 +81,7 @@ impl NatManager {
                 let entry = NatEntry {
                     last_activity: Instant::now(),
                     dest_addr: addr,
-                    dest_port: dest_port,
+                    dest_port,
                 };
                 self.get_table_v4(protocol).insert(src_port, entry);
             }
@@ -89,7 +89,7 @@ impl NatManager {
                 let entry = NatEntry {
                     last_activity: Instant::now(),
                     dest_addr: addr,
-                    dest_port: dest_port,
+                    dest_port,
                 };
                 self.get_table_v6(protocol).insert(src_port, entry);
             }

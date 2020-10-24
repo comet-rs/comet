@@ -8,6 +8,7 @@ use serde::{Serialize, Serializer};
 use serde_with::DeserializeFromStr;
 use std::borrow::Borrow;
 use std::net::IpAddr;
+use std::ops::Range;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -17,6 +18,8 @@ pub enum MatchCondition {
   All(Vec<MatchCondition>),
   DestAddr(Vec<IpMatchCondition>),
   SrcAddr(Vec<IpMatchCondition>),
+  #[serde(deserialize_with = "deserialize_ports")]
+  SrcPort(Vec<PortCondition>),
   DestDomain(#[serde(deserialize_with = "deserialize_domain_matcher_text")] DomainMatcher),
   Metadata,
 }
@@ -70,6 +73,7 @@ impl MatchCondition {
         false
       }
       MatchCondition::Metadata => false,
+      _ => unimplemented!(),
     }
   }
 }
@@ -114,8 +118,8 @@ impl FromStr for IpMatchCondition {
   }
 }
 
-pub fn serialize_regex_set<'a, S: Serializer>(
-  this: &'a RegexSet,
+pub fn serialize_regex_set<S: Serializer>(
+  this: &RegexSet,
   serializer: S,
 ) -> Result<S::Ok, S::Error> {
   this.patterns().serialize(serializer)
@@ -167,7 +171,7 @@ impl DomainMatcher {
         domain.push(format!(".{}", res).into());
         continue;
       }
-      contains.push(rule.into());
+      contains.push(rule);
     }
     Ok(DomainMatcher {
       included,
@@ -214,4 +218,45 @@ where
     Ok(r) => Ok(r),
     Err(err) => Err(D::Error::custom(err)),
   }
+}
+
+#[derive(Debug, Clone)]
+pub enum PortCondition {
+  Port(u16),
+  Range(Range<u16>),
+}
+
+fn deserialize_ports<'de, D>(deserializer: D) -> Result<Vec<PortCondition>, D::Error>
+where
+  D: Deserializer<'de>,
+{
+  let s = String::deserialize(deserializer)?;
+  let mut rules = Vec::new();
+
+  for raw_rule in s.split(',') {
+    let trimmed = raw_rule.trim();
+    if let Ok(port) = u16::from_str(trimmed) {
+      rules.push(PortCondition::Port(port));
+      continue;
+    }
+    let parts: Vec<&str> = raw_rule.split('-').collect();
+    if parts.len() == 2 {
+      if let (Ok(min), Ok(max)) = (
+        u16::from_str(parts[0].trim()),
+        u16::from_str(parts[1].trim()),
+      ) {
+        rules.push(PortCondition::Range(Range {
+          start: min,
+          end: max,
+        }));
+        continue;
+      }
+    }
+    return Err(serde::de::Error::custom(format!(
+      "Invalid port range rule: {}",
+      raw_rule
+    )));
+  }
+
+  Ok(rules)
 }

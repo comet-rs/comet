@@ -30,11 +30,11 @@ impl Metrics {
     let mut inbounds = HashMap::new();
     let mut outbounds = HashMap::new();
 
-    for (tag, _inbound) in &config.inbounds {
+    for tag in config.inbounds.keys() {
       inbounds.insert(tag.clone(), Arc::new(MetricsValues::default()));
     }
 
-    for (tag, _outbound) in &config.outbounds {
+    for tag in config.outbounds.keys() {
       outbounds.insert(tag.clone(), Arc::new(MetricsValues::default()));
     }
 
@@ -45,10 +45,10 @@ impl Metrics {
   }
 
   pub fn get_inbound(&self, tag: &str) -> Option<Arc<MetricsValues>> {
-    self.inbounds.get(tag).map(|v| v.clone())
+    self.inbounds.get(tag).cloned()
   }
 
   pub fn get_outbound(&self, tag: &str) -> Option<Arc<MetricsValues>> {
-    self.outbounds.get(tag).map(|v| v.clone())
+    self.outbounds.get(tag).cloned()
   }
 }

@@ -1,4 +1,4 @@
-use crate::config::{Config, Inbound, TransportType};
+use crate::config::{Config, Inbound};
 use crate::prelude::*;
 use crate::utils::metered_stream::{MeteredReader, MeteredWriter};
 use log::info;
@@ -40,7 +40,7 @@ impl InboundManager {
     for inbound in &self.inbounds {
       let ctx = ctx.clone();
       let transport = &inbound.1.transport;
-      let ip = transport.listen.unwrap_or([0, 0, 0, 0].into());
+      let ip = transport.listen.unwrap_or_else(|| [0, 0, 0, 0].into());
       let tag = inbound.0.clone();
       let pipe = inbound.1.pipeline.clone();
       let port = transport.port;
@@ -54,7 +54,7 @@ impl InboundManager {
           tokio::spawn(async move {
             loop {
               let (stream, src_addr) = listener.accept().await.unwrap();
-              let conn = Connection::new(src_addr, tag.clone(), pipe.clone());
+              let conn = Connection::new(src_addr, tag.clone(), pipe.clone(), TransportType::Tcp);
               let splitted = stream.into_split();
               info!("Inbound {} accepted from {}", tag, src_addr);
               sender

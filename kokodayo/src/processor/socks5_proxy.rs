@@ -81,6 +81,6 @@ impl Processor for Socks5ProxyServerProcessor {
       .await?;
 
     // And we are done
-    return Ok(stream);
+    Ok(stream)
   }
 }

@@ -1,6 +1,5 @@
 use smol_str::SmolStr;
 use std::net::SocketAddr;
-use tokio::net::ToSocketAddrs;
 use tokio::stream::Stream;
 pub mod connection;
 mod rwpair;
@@ -35,10 +34,7 @@ pub struct SocketDomainAddr {
 
 impl SocketDomainAddr {
     pub fn new(addr: Address, port: u16) -> SocketDomainAddr {
-        SocketDomainAddr {
-            addr: addr,
-            port: port,
-        }
+        SocketDomainAddr { addr, port }
     }
 
     pub fn new_domain<T: Into<SmolStr>>(addr: T, port: u16) -> SocketDomainAddr {
@@ -62,13 +58,9 @@ impl From<SocketAddr> for SocketDomainAddr {
     }
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(rename_all(deserialize = "lowercase"))]
-pub enum StreamType {
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all(deserialize = "snake_case"))]
+pub enum TransportType {
     Tcp,
-}
-impl Default for StreamType {
-    fn default() -> Self {
-        Self::Tcp
-    }
+    Udp,
 }

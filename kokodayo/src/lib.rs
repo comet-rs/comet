@@ -1,4 +1,5 @@
 pub mod app;
+pub mod common;
 pub mod config;
 pub mod context;
 pub mod net_wrapper;
@@ -6,7 +7,6 @@ pub mod processor;
 pub mod router;
 pub mod transport;
 pub mod utils;
-pub mod common;
 
 use crate::context::AppContext;
 use crate::prelude::*;
@@ -30,28 +30,28 @@ async fn handle_tcp_conn(
 
   let dest_addr = conn.dest_addr.clone().unwrap();
   let dest_addr_ip = match &dest_addr.addr {
-    Address::Ip(ip) => ip.clone(),
+    Address::Ip(ip) => *ip,
     Address::Domain(s) => {
       let s: &str = s.borrow();
       tokio::net::lookup_host((s, 443))
         .await?
-        .nth(0)
+        .next()
         .ok_or_else(|| anyhow!("Unable to resolve"))?
         .ip()
     }
   };
 
-  let routing_result = ctx.router.try_match(&conn, &ctx);
+  let outbound_tag = ctx.router.try_match(&conn, &ctx);
 
-  let (outbound_tag, mut outbound) = ctx
+  let mut outbound = ctx
     .outbound_manager
-    .connect_tcp(routing_result, dest_addr_ip, dest_addr.port, &ctx)
+    .connect_tcp(outbound_tag, dest_addr_ip, dest_addr.port, &ctx)
     .await?;
   info!("Connected outbound: {:?}", outbound_tag);
 
   if let Some(outbound_pipeline) = ctx
     .outbound_manager
-    .get_pipeline(outbound_tag, config::TransportType::Tcp)
+    .get_pipeline(outbound_tag, TransportType::Tcp)
   {
     let ret = ctx
       .clone_plumber()
@@ -99,10 +99,10 @@ pub async fn run() -> Result<()> {
 
 pub mod prelude {
   pub use crate::app::plumber::Processor;
+  pub use crate::common::*;
   pub use crate::context::AppContextRef;
   pub use anyhow::Result;
   pub use async_trait::async_trait;
-  pub use crate::common::*;
   pub use log::*;
   pub use serde::Deserialize;
   pub use smol_str::SmolStr;

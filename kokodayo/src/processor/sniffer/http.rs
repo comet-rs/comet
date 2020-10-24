@@ -1,7 +1,7 @@
 use super::SniffStatus;
 use std::str;
 
-const HTTP_METHODS: [&'static str; 7] =
+const HTTP_METHODS: [&str; 7] =
     ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "CONNECT"];
 
 fn match_http_method(buf: &[u8]) -> Option<bool> {
@@ -32,7 +32,7 @@ pub fn sniff(b: &[u8]) -> super::SniffStatus {
     let mut headers_iter = b.split(|b| *b == b'\n').skip(1).peekable();
 
     while let Some(header) = headers_iter.next() {
-        if header.len() == 0 {
+        if header.is_empty() {
             break;
         }
         let parts: Vec<&[u8]> = header.splitn(2, |b| *b == b':').collect();

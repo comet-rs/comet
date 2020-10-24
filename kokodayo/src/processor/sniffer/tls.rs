@@ -1,3 +1,4 @@
+#![allow(clippy::len_zero)]
 use super::SniffStatus;
 use std::convert::TryInto;
 use std::str;
@@ -90,7 +91,7 @@ pub fn read_client_hello(mut b: &[u8]) -> SniffStatus {
                 }
                 if name_type == 0 {
                     if let Ok(server_name) = str::from_utf8(&d[0..name_len]) {
-                        if server_name.ends_with(".") {
+                        if server_name.ends_with('.') {
                             return FAIL_NOT_HANDSHAKE;
                         }
                         return SniffStatus::Success(server_name.to_owned());
@@ -119,5 +120,5 @@ pub fn sniff(b: &[u8]) -> SniffStatus {
     if (5 + header_len) as usize > b.len() {
         return SniffStatus::NoClue;
     }
-    return read_client_hello(&b[5..(header_len + 5) as usize]);
+    read_client_hello(&b[5..(header_len + 5) as usize])
 }

@@ -6,6 +6,7 @@ use anyhow::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
 use tokio::fs::File;
+use crate::prelude::*;
 use tokio::prelude::*;
 
 #[derive(Deserialize, Clone, Debug)]
@@ -45,12 +46,7 @@ pub struct OutboundTransportConfig {
   pub addr: Option<IpAddr>
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(rename_all(deserialize = "snake_case"))]
-pub enum TransportType {
-  Tcp,
-  Udp,
-}
+
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all(deserialize = "snake_case"))]

@@ -1,4 +1,4 @@
-use crate::Address;
+use crate::TransportType;
 use crate::RWPair;
 use crate::SocketDomainAddr;
 use smol_str::SmolStr;
@@ -13,6 +13,7 @@ pub struct Connection {
     pub src_addr: SocketAddr,
     pub dest_addr: Option<SocketDomainAddr>,
     pub variables: HashMap<SmolStr, SmolStr>,
+    pub typ: TransportType
 }
 
 impl Connection {
@@ -20,6 +21,7 @@ impl Connection {
         src_addr: A,
         inbound_tag: T1,
         inbound_pipeline: T2,
+        typ: TransportType
     ) -> Self {
         Connection {
             inbound_tag: inbound_tag.into(),
@@ -27,6 +29,7 @@ impl Connection {
             src_addr: src_addr.into(),
             dest_addr: None,
             variables: HashMap::new(),
+            typ
         }
     }
 

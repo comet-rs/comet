@@ -1,5 +1,6 @@
 use crate::config::{Config, Inbound, TransportType};
 use crate::prelude::*;
+use crate::utils::metered_stream::{MeteredReader, MeteredWriter};
 use log::info;
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
@@ -28,6 +29,7 @@ impl InboundManager {
 
   pub async fn start(
     self: Arc<Self>,
+    ctx: AppContextRef,
   ) -> Result<(
     ConnReceiver<RWPair>,
     ConnReceiver<(Vec<u8>, Arc<UdpSocket>)>,
@@ -36,6 +38,7 @@ impl InboundManager {
     let udp_channel = unbounded_channel();
 
     for inbound in &self.inbounds {
+      let ctx = ctx.clone();
       let transport = &inbound.1.transport;
       let ip = transport.listen.unwrap_or([0, 0, 0, 0].into());
       let tag = inbound.0.clone();
@@ -57,7 +60,10 @@ impl InboundManager {
               sender
                 .send((
                   conn,
-                  RWPair::new_parts(BufReader::new(splitted.0), splitted.1),
+                  RWPair::new_parts(
+                    BufReader::new(MeteredReader::new_inbound(splitted.0, &tag, &ctx)),
+                    MeteredWriter::new_inbound(splitted.1, &tag, &ctx),
+                  ),
                 ))
                 .unwrap();
             }

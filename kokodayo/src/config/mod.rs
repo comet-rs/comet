@@ -1,3 +1,4 @@
+use crate::router::matching::MatchCondition;
 use std::net::IpAddr;
 use smol_str::SmolStr;
 use crate::processor;
@@ -13,6 +14,10 @@ pub struct Config {
   pub inbounds: HashMap<SmolStr, Inbound>,
   #[serde(default)]
   pub pipelines: HashMap<SmolStr, Vec<ProcessorConfig>>,
+  #[serde(default)]
+  pub outbounds: HashMap<SmolStr, Outbound>,
+  #[serde(default)]
+  pub router: RouterConfig
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -29,6 +34,19 @@ pub struct TransportConfig {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+pub struct Outbound {
+  pub pipeline: Option<SmolStr>,
+  pub transport: OutboundTransportConfig
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct OutboundTransportConfig {
+  pub r#type: TransportType,
+  pub port: Option<u16>,
+  pub addr: Option<IpAddr>
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all(deserialize = "snake_case"))]
 pub enum TransportType {
   Tcp,
@@ -45,7 +63,7 @@ pub enum ProcessorConfig {
   Socks5ProxyClient,
 
   HttpProxyServer,
-  HttpProxyClient,
+  HttpProxyClient(processor::http_proxy::HttpProxyClientConfig),
 
   ShadowsocksServer,
   ShadowsocksClient,
@@ -59,6 +77,17 @@ pub enum ProcessorConfig {
   Switch {
     cases: Vec<processor::switch::SwitchCase>,
   },
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct RouterConfig {
+  pub rules: Vec<RouterRule>
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct RouterRule {
+  pub target: SmolStr,
+  pub rule: MatchCondition
 }
 
 pub async fn load_file(path: &str) -> Result<Config> {

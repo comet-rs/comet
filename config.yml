@@ -11,3 +11,25 @@ pipelines:
     - type: sniffer
       override_dest: true
       types: [tls, http]
+  http_client:
+    - type: http_proxy_client
+
+router:
+  rules:
+    - target: fiddler
+      rule:
+        any:
+          - dest_domain: ["t.cn"]
+          - dest_addr: ["192.168.0.0/16"]
+          
+
+outbounds:
+  direct_tcp:
+    transport:
+      type: tcp
+  fiddler:
+    pipeline: http_client
+    transport:
+      type: tcp
+      addr: "192.168.1.105"
+      port: 8888

@@ -1,9 +1,11 @@
 [workspace]
 
 members = [
-    "app",
     "common",
     "settings",
     "kokodayo",
     "android_lib",
 ]
+
+[profile.release]
+lto = "thin"

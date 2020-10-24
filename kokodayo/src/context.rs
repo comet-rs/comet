@@ -1,3 +1,5 @@
+use crate::router::Router;
+use crate::app::outbound_manager::OutboundManager;
 use crate::prelude::*;
 use crate::app::inbound_manager::InboundManager;
 use crate::app::metrics::Metrics;
@@ -9,7 +11,9 @@ pub type AppContextRef = Arc<AppContext>;
 pub struct AppContext {
   pub plumber: Arc<Plumber>,
   pub inbound_manager: Arc<InboundManager>,
+  pub outbound_manager: OutboundManager,
   pub metrics: Metrics,
+  pub router: Router
 }
 
 impl AppContext {
@@ -17,7 +21,9 @@ impl AppContext {
     Ok(AppContext {
       plumber: Arc::new(Plumber::new(config)?),
       inbound_manager: Arc::new(InboundManager::new(config)),
+      outbound_manager: OutboundManager::new(config),
       metrics: Metrics::new(config),
+      router: Router::new(config)
     })
   }
 }

@@ -72,6 +72,7 @@ impl Processor for SnifferProcessor {
                             s.split_at(idx);
                         }
                         conn.set_var("sniffed_dest", &s);
+                        conn.set_var("protocol", "http");
                         if self.config.override_dest {
                             conn.dest_addr = Some(SocketDomainAddr::new_domain(s, dest_port));
                         }
@@ -87,6 +88,7 @@ impl Processor for SnifferProcessor {
                     }
                     SniffStatus::Success(s) => {
                         conn.set_var("sniffed_dest", &s);
+                        conn.set_var("protocol", "tls");
                         if self.config.override_dest {
                             conn.dest_addr = Some(SocketDomainAddr::new_domain(s, dest_port));
                         }

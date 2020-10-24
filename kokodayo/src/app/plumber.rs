@@ -101,7 +101,8 @@ macro_rules! processor_item {
 
 processor_item!(
   Sniffer => processor::sniffer::SnifferProcessor,
-  Socks5ProxyServer => processor::socks5_proxy::Socks5ProxyServerProcessor
+  Socks5ProxyServer => processor::socks5_proxy::Socks5ProxyServerProcessor,
+  HttpProxyClient => processor::http_proxy::HttpProxyClientProcessor
 );
 
 #[async_trait]

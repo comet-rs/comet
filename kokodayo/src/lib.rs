@@ -41,6 +41,7 @@ async fn handle_tcp_conn(
   };
 
   let routing_result = ctx.router.try_match(&conn, &ctx);
+  info!("Routing result: {:?}", routing_result);
 
   let (outbound_tag, mut outbound) = ctx
     .outbound_manager
@@ -72,7 +73,7 @@ pub async fn run() -> Result<()> {
   let ctx1 = ctx.clone();
   let (mut tcp_conns, _udp_conns) = ctx.clone_inbound_manager().start(ctx.clone()).await?;
 
-  let tcp_handle = tokio::spawn(async move {
+  let _tcp_handle = tokio::spawn(async move {
     while let Some((conn, stream)) = tcp_conns.recv().await {
       let ctx = Arc::clone(&ctx);
       tokio::spawn(async move {
@@ -93,7 +94,6 @@ pub async fn run() -> Result<()> {
     interval.tick().await;
     println!("{:?}", ctx1.metrics);
   }
-  Ok(())
 }
 
 pub mod prelude {

@@ -3,7 +3,9 @@ mod tls;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use log::warn;
+use std::net::IpAddr;
 use std::str;
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub enum SniffStatus {
@@ -34,7 +36,7 @@ pub struct SnifferProcessor {
 impl SnifferProcessor {
     pub fn new(config: &SnifferConfig) -> Result<Self> {
         Ok(SnifferProcessor {
-            config: config.clone()
+            config: config.clone(),
         })
     }
 }
@@ -74,7 +76,11 @@ impl Processor for SnifferProcessor {
                         conn.set_var("sniffed_dest", &s);
                         conn.set_var("protocol", "http");
                         if self.config.override_dest {
-                            conn.dest_addr = Some(SocketDomainAddr::new_domain(s, dest_port));
+                            conn.dest_addr = Some(if let Ok(addr) = IpAddr::from_str(&s) {
+                                SocketDomainAddr::new_ip(addr, dest_port)
+                            } else {
+                                SocketDomainAddr::new_domain(s, dest_port)
+                            })
                         }
                         return Ok(stream.prepend_data(buffer));
                     }

@@ -15,6 +15,8 @@ pipelines:
     - type: http_proxy_client
 
 router:
+  defaults:
+    tcp: direct_tcp
   rules:
     - target: fiddler
       rule:
@@ -22,7 +24,6 @@ router:
           - dest_domain: ["t.cn"]
           - dest_addr: ["192.168.0.0/16"]
           
-
 outbounds:
   direct_tcp:
     transport:

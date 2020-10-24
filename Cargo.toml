@@ -1,7 +1,6 @@
 [workspace]
 
 members = [
-    "common",
     "settings",
     "kokodayo",
     "android_lib",

@@ -36,7 +36,6 @@ version = "0.1.0"
 dependencies = [
  "android_logger",
  "anyhow",
- "common",
  "flurry",
  "futures",
  "jni",
@@ -204,20 +203,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes 0.6.0",
- "derivative",
- "futures",
- "serde",
- "smol_str",
- "tokio 0.3.1",
-]
-
-[[package]]
 name = "crossbeam-epoch"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -283,17 +268,6 @@ name = "data-encoding"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4d0e2d24e5ee3b23a01de38eefdcd978907890701f08ffffd4cb457ca4ee8d6"
-
-[[package]]
-name = "derivative"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb582b60359da160a9477ee80f15c8d784c477e69c217ef2cdd4169c24ea380f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
 
 [[package]]
 name = "dtoa"
@@ -642,7 +616,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bytes 0.6.0",
- "common",
  "enum_dispatch",
  "env_logger 0.8.1",
  "futures",
@@ -1314,7 +1287,6 @@ name = "settings"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "common",
  "ipnetwork 0.17.0",
  "log 0.4.11",
  "regex",

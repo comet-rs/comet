@@ -16,7 +16,6 @@ pub struct Config {
   pub pipelines: HashMap<SmolStr, Vec<ProcessorConfig>>,
   #[serde(default)]
   pub outbounds: HashMap<SmolStr, Outbound>,
-  #[serde(default)]
   pub router: RouterConfig
 }
 
@@ -79,9 +78,15 @@ pub enum ProcessorConfig {
   },
 }
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RouterConfig {
-  pub rules: Vec<RouterRule>
+  pub rules: Vec<RouterRule>,
+  pub defaults: RouterDefaults
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct RouterDefaults {
+  pub tcp: SmolStr
 }
 
 #[derive(Debug, Deserialize, Clone)]

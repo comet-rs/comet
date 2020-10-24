@@ -3,9 +3,10 @@ pub mod config;
 pub mod context;
 pub mod net_wrapper;
 pub mod processor;
+pub mod router;
 pub mod transport;
 pub mod utils;
-pub mod router;
+pub mod common;
 
 use crate::context::AppContext;
 use crate::prelude::*;
@@ -41,12 +42,12 @@ async fn handle_tcp_conn(
   };
 
   let routing_result = ctx.router.try_match(&conn, &ctx);
-  info!("Routing result: {:?}", routing_result);
 
   let (outbound_tag, mut outbound) = ctx
     .outbound_manager
     .connect_tcp(routing_result, dest_addr_ip, dest_addr.port, &ctx)
     .await?;
+  info!("Connected outbound: {:?}", outbound_tag);
 
   if let Some(outbound_pipeline) = ctx
     .outbound_manager
@@ -101,7 +102,7 @@ pub mod prelude {
   pub use crate::context::AppContextRef;
   pub use anyhow::Result;
   pub use async_trait::async_trait;
-  pub use common::*;
+  pub use crate::common::*;
   pub use log::*;
   pub use serde::Deserialize;
   pub use smol_str::SmolStr;

@@ -1,9 +1,10 @@
+use crate::config::AndroidConfig;
+use crate::config::Config;
 use flurry::{HashMap, HashMapRef};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::sync::Arc;
 use std::time::Instant;
+use crate::prelude::*;
 
-pub type NatManagerRef = Arc<NatManager>;
 type NatMapRef<'a, T> = HashMapRef<'a, u16, NatEntry<T>>;
 
 #[allow(dead_code)]
@@ -21,12 +22,6 @@ pub enum TcpState {
     Closed,
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum ProtocolType {
-    Tcp,
-    Udp,
-}
-
 #[derive(Debug)]
 struct NatEntry<Addr> {
     pub last_activity: Instant,
@@ -35,6 +30,7 @@ struct NatEntry<Addr> {
 }
 
 pub struct NatManager {
+    pub config: AndroidConfig,
     tcp_v4_table: HashMap<u16, NatEntry<Ipv4Addr>>,
     tcp_v6_table: HashMap<u16, NatEntry<Ipv6Addr>>,
     udp_v4_table: HashMap<u16, NatEntry<Ipv4Addr>>,
@@ -42,8 +38,9 @@ pub struct NatManager {
 }
 
 impl NatManager {
-    pub fn new() -> Self {
+    pub fn new(config: &Config) -> Self {
         NatManager {
+            config: config.android.clone(),
             tcp_v4_table: HashMap::new(),
             udp_v4_table: HashMap::new(),
             tcp_v6_table: HashMap::new(),
@@ -51,27 +48,23 @@ impl NatManager {
         }
     }
 
-    pub fn new_ref() -> NatManagerRef {
-        Arc::new(Self::new())
-    }
-
-    fn get_table_v4(&self, protocol: ProtocolType) -> NatMapRef<'_, Ipv4Addr> {
+    fn get_table_v4(&self, protocol: TransportType) -> NatMapRef<'_, Ipv4Addr> {
         match protocol {
-            ProtocolType::Tcp => self.tcp_v4_table.pin(),
-            ProtocolType::Udp => self.udp_v4_table.pin(),
+            TransportType::Tcp => self.tcp_v4_table.pin(),
+            TransportType::Udp => self.udp_v4_table.pin(),
         }
     }
 
-    fn get_table_v6(&self, protocol: ProtocolType) -> NatMapRef<'_, Ipv6Addr> {
+    fn get_table_v6(&self, protocol: TransportType) -> NatMapRef<'_, Ipv6Addr> {
         match protocol {
-            ProtocolType::Tcp => self.tcp_v6_table.pin(),
-            ProtocolType::Udp => self.udp_v6_table.pin(),
+            TransportType::Tcp => self.tcp_v6_table.pin(),
+            TransportType::Udp => self.udp_v6_table.pin(),
         }
     }
 
     pub fn new_entry(
         &self,
-        protocol: ProtocolType,
+        protocol: TransportType,
         src_port: u16,
         dest_addr: IpAddr,
         dest_port: u16,
@@ -98,7 +91,7 @@ impl NatManager {
 
     pub fn refresh_entry(
         &self,
-        protocol: ProtocolType,
+        protocol: TransportType,
         src_port: u16,
         dest_addr: IpAddr,
         dest_port: u16,
@@ -133,7 +126,7 @@ impl NatManager {
 
     pub fn get_entry(
         &self,
-        protocol: ProtocolType,
+        protocol: TransportType,
         port: u16,
         addr: IpAddr,
     ) -> Option<(IpAddr, u16)> {

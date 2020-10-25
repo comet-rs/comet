@@ -20,7 +20,8 @@ pub enum MatchCondition {
   SrcAddr(Vec<IpMatchCondition>),
   #[serde(deserialize_with = "deserialize_ports")]
   SrcPort(Vec<PortCondition>),
-  DestDomain(#[serde(deserialize_with = "deserialize_domain_matcher_text")] DomainMatcher),
+  #[serde(deserialize_with = "deserialize_domain_matcher_text")]
+  DestDomain(DomainMatcher),
   Metadata,
 }
 

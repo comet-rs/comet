@@ -1,3 +1,4 @@
+pub mod android;
 pub mod app;
 pub mod common;
 pub mod config;
@@ -13,6 +14,7 @@ use crate::prelude::*;
 use anyhow::{anyhow, Context, Result};
 use log::{error, info};
 use std::borrow::Borrow;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -65,12 +67,7 @@ async fn handle_tcp_conn(
   Ok(conn)
 }
 
-pub async fn run() -> Result<()> {
-  let config = config::load_file("./config.yml")
-    .await
-    .with_context(|| "Failed to read config file")?;
-  println!("{:#?}", config);
-  let ctx = Arc::new(AppContext::new(&config)?);
+pub async fn run(ctx: AppContextRef) -> Result<()> {
   let ctx1 = ctx.clone();
   let (mut tcp_conns, _udp_conns) = ctx.clone_inbound_manager().start(ctx.clone()).await?;
 
@@ -90,11 +87,38 @@ pub async fn run() -> Result<()> {
     }
   });
 
-  let mut interval = tokio::time::interval(Duration::from_secs(10));
-  loop {
-    interval.tick().await;
-    println!("{:?}", ctx1.metrics);
-  }
+  tokio::spawn(async move {
+    let mut interval = tokio::time::interval(Duration::from_secs(10));
+    loop {
+      interval.tick().await;
+      println!("{:?}", ctx1.metrics);
+    }
+  });
+  Ok(())
+}
+
+pub async fn run_bin() -> Result<()> {
+  let config = config::load_file("./config.yml")
+    .await
+    .with_context(|| "Failed to read config file")?;
+  println!("{:#?}", config);
+  let ctx = Arc::new(AppContext::new(&config)?);
+  run(ctx).await?;
+  Ok(())
+}
+
+pub async fn run_android(fd: u16, config: &str, running: Arc<AtomicBool>) -> Result<()> {
+  let config = config::load_string(config).with_context(|| "Failed to read config file")?;
+  let ctx = Arc::new(AppContext::new(&config)?);
+
+  let ctx1 = ctx.clone();
+  std::thread::spawn(move || match android::nat::run_router(fd, ctx1, running) {
+    Ok(_) => info!("Android router exited"),
+    Err(err) => error!("Android router failed: {}", err),
+  });
+
+  run(ctx).await?;
+  Ok(())
 }
 
 pub mod prelude {

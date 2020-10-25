@@ -1,12 +1,12 @@
-use crate::router::matching::MatchCondition;
-use std::net::IpAddr;
-use smol_str::SmolStr;
+use crate::prelude::*;
 use crate::processor;
+use crate::router::matching::MatchCondition;
 use anyhow::Result;
 use serde::Deserialize;
+use smol_str::SmolStr;
 use std::collections::HashMap;
+use std::net::IpAddr;
 use tokio::fs::File;
-use crate::prelude::*;
 use tokio::prelude::*;
 
 #[derive(Deserialize, Clone, Debug)]
@@ -17,7 +17,8 @@ pub struct Config {
   pub pipelines: HashMap<SmolStr, Vec<ProcessorConfig>>,
   #[serde(default)]
   pub outbounds: HashMap<SmolStr, Outbound>,
-  pub router: RouterConfig
+  pub router: RouterConfig,
+  pub android: AndroidConfig
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -36,17 +37,30 @@ pub struct TransportConfig {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Outbound {
   pub pipeline: Option<SmolStr>,
-  pub transport: OutboundTransportConfig
+  pub transport: OutboundTransportConfig,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct OutboundTransportConfig {
   pub r#type: TransportType,
   pub port: Option<u16>,
-  pub addr: Option<IpAddr>
+  pub addr: Option<IpAddr>,
 }
 
+#[derive(Deserialize, Clone, Debug)]
+pub struct AndroidConfig {
+  pub ports: AndroidPorts
+}
 
+#[derive(Deserialize, Clone, Debug)]
+pub struct AndroidPorts {
+  pub tcp: u16,
+  pub tcp_v6: Option<u16>,
+  pub udp: u16,
+  pub udp_v6: Option<u16>,
+  pub dns: u16,
+  pub dns_v6: Option<u16>,
+}
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all(deserialize = "snake_case"))]
@@ -77,18 +91,18 @@ pub enum ProcessorConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct RouterConfig {
   pub rules: Vec<RouterRule>,
-  pub defaults: RouterDefaults
+  pub defaults: RouterDefaults,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct RouterDefaults {
-  pub tcp: SmolStr
+  pub tcp: SmolStr,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct RouterRule {
   pub target: SmolStr,
-  pub rule: MatchCondition
+  pub rule: MatchCondition,
 }
 
 pub async fn load_file(path: &str) -> Result<Config> {
@@ -97,4 +111,8 @@ pub async fn load_file(path: &str) -> Result<Config> {
 
   file.read_to_string(&mut buffer).await?;
   Ok(serde_yaml::from_str(&buffer)?)
+}
+
+pub fn load_string(input: &str) -> Result<Config> {
+  Ok(serde_yaml::from_str(input)?)
 }

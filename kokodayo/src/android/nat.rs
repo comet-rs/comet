@@ -1,21 +1,19 @@
-use crate::VpnPorts;
-use crate::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
+use std::sync::atomic::{AtomicBool, Ordering};
+use super::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
 use anyhow::{anyhow, Result};
 use log::error;
 use pnet::packet;
 use pnet::packet::tcp::MutableTcpPacket;
 use pnet::packet::udp::MutableUdpPacket;
 use std::net::IpAddr;
-use std::os::unix::io::FromRawFd;
-use std::os::unix::io::RawFd;
+use std::os::unix::io::{FromRawFd, RawFd};
 
+use crate::prelude::*;
 use nix::sys::select::{select, FdSet};
 use nix::unistd;
 use pnet::packet::ip::*;
 use pnet::packet::MutablePacket;
 use std::collections::VecDeque;
-
-use crate::nat_manager::{NatManagerRef, ProtocolType};
 
 #[derive(Debug)]
 struct TcpFlags {
@@ -67,17 +65,15 @@ impl<T> AddressedPacket<T> {
 type AddressedTcpPacket<'p> = AddressedPacket<MutableTcpPacket<'p>>;
 type AddressedUdpPacket<'p> = AddressedPacket<MutableUdpPacket<'p>>;
 
-fn handle_tcp(
-    manager: &mut NatManagerRef,
-    packet: &mut AddressedTcpPacket<'_>,
-    ports: &VpnPorts,
-) -> Result<()> {
+fn handle_tcp(packet: &mut AddressedTcpPacket<'_>, ctx: &AppContextRef) -> Result<()> {
     let flags = TcpFlags::new(packet.inner.get_flags());
+    let manager = &ctx.nat_manager;
+
     if packet.is_from_client() {
         if packet.is_to_router() {
             // Return packet to orig
             if let Some((dest_addr, dest_port)) = manager.get_entry(
-                ProtocolType::Tcp,
+                TransportType::Tcp,
                 packet.inner.get_destination(),
                 packet.dest_addr,
             ) {
@@ -94,14 +90,14 @@ fn handle_tcp(
             // Forward packet to proxy
             if flags.syn && !flags.ack {
                 manager.new_entry(
-                    ProtocolType::Tcp,
+                    TransportType::Tcp,
                     packet.inner.get_source(),
                     packet.dest_addr,
                     packet.inner.get_destination(),
                 );
             } else {
                 let refresh_result = manager.refresh_entry(
-                    ProtocolType::Tcp,
+                    TransportType::Tcp,
                     packet.inner.get_source(),
                     packet.dest_addr,
                     packet.inner.get_destination(),
@@ -114,12 +110,12 @@ fn handle_tcp(
                 IpAddr::V4(_) => {
                     packet.src_addr = IpAddr::V4(IPV4_ROUTER);
                     packet.dest_addr = IpAddr::V4(IPV4_CLIENT);
-                    packet.inner.set_destination(ports.tcp_v4);
+                    packet.inner.set_destination(manager.config.ports.tcp);
                 }
                 IpAddr::V6(_) => {
                     packet.src_addr = IpAddr::V6(IPV6_ROUTER);
                     packet.dest_addr = IpAddr::V6(IPV6_CLIENT);
-                    packet.inner.set_destination(ports.tcp_v6);
+                    packet.inner.set_destination(manager.config.ports.tcp_v6.unwrap_or(0));
                 }
             };
         }
@@ -129,16 +125,14 @@ fn handle_tcp(
     Ok(())
 }
 
-fn handle_udp(
-    manager: &mut NatManagerRef,
-    packet: &mut AddressedUdpPacket<'_>,
-    ports: &VpnPorts,
-) -> Result<()> {
+fn handle_udp(packet: &mut AddressedUdpPacket<'_>, ctx: &AppContextRef) -> Result<()> {
+    let manager = &ctx.nat_manager;
+
     if packet.is_from_client() {
         if packet.is_to_router() {
             // Return packet to orig
             if let Some((dest_addr, dest_port)) = manager.get_entry(
-                ProtocolType::Udp,
+                TransportType::Udp,
                 packet.inner.get_destination(),
                 packet.dest_addr,
             ) {
@@ -154,14 +148,14 @@ fn handle_udp(
         } else {
             // Forward packet to proxy
             let refresh_result = manager.refresh_entry(
-                ProtocolType::Udp,
+                TransportType::Udp,
                 packet.inner.get_source(),
                 packet.dest_addr,
                 packet.inner.get_destination(),
             );
             if !refresh_result {
-                manager.new_entry(
-                    ProtocolType::Udp,
+                ctx.nat_manager.new_entry(
+                    TransportType::Udp,
                     packet.inner.get_source(),
                     packet.dest_addr,
                     packet.inner.get_destination(),
@@ -173,18 +167,18 @@ fn handle_udp(
                     packet.src_addr = IpAddr::V4(IPV4_ROUTER);
                     packet.dest_addr = IpAddr::V4(IPV4_CLIENT);
                     if packet.inner.get_destination() == 53 {
-                        packet.inner.set_destination(ports.dns_v4);
+                        packet.inner.set_destination(manager.config.ports.dns);
                     } else {
-                        packet.inner.set_destination(ports.udp_v4);
+                        packet.inner.set_destination(manager.config.ports.udp);
                     }
                 }
                 IpAddr::V6(_) => {
                     packet.src_addr = IpAddr::V6(IPV6_ROUTER);
                     packet.dest_addr = IpAddr::V6(IPV6_CLIENT);
                     if packet.inner.get_destination() == 53 {
-                        packet.inner.set_destination(ports.dns_v6);
+                        packet.inner.set_destination(manager.config.ports.dns_v6.unwrap_or(0));
                     } else {
-                        packet.inner.set_destination(ports.udp_v6);
+                        packet.inner.set_destination(manager.config.ports.udp_v6.unwrap_or(0));
                     }
                 }
             };
@@ -195,7 +189,7 @@ fn handle_udp(
     Ok(())
 }
 
-fn handle_ipv4(manager: &mut NatManagerRef, buffer: &mut [u8], ports: &VpnPorts) -> Result<()> {
+fn handle_ipv4(buffer: &mut [u8], ctx: &AppContextRef) -> Result<()> {
     let mut ip_pkt = packet::ipv4::MutableIpv4Packet::new(buffer)
         .ok_or(anyhow!("Failed to parse IPv4 packet"))?;
     let l4_proto = ip_pkt.get_next_level_protocol();
@@ -214,7 +208,7 @@ fn handle_ipv4(manager: &mut NatManagerRef, buffer: &mut [u8], ports: &VpnPorts)
                 dest_addr: IpAddr::V4(dest_addr),
                 inner: tcp_pkt,
             };
-            handle_tcp(manager, &mut addressed, &ports)?;
+            handle_tcp(&mut addressed, ctx)?;
             src_addr = match addressed.src_addr {
                 IpAddr::V4(addr) => addr,
                 IpAddr::V6(_) => unreachable!(),
@@ -240,7 +234,7 @@ fn handle_ipv4(manager: &mut NatManagerRef, buffer: &mut [u8], ports: &VpnPorts)
                 inner: udp_pkt,
             };
 
-            handle_udp(manager, &mut addressed, &ports)?;
+            handle_udp(&mut addressed, ctx)?;
             src_addr = match addressed.src_addr {
                 IpAddr::V4(addr) => addr,
                 IpAddr::V6(_) => unreachable!(),
@@ -279,7 +273,7 @@ fn select_fds(
     Ok((read_set, write_set))
 }
 
-pub fn run_router(fd: u16, mut manager: NatManagerRef, ports: VpnPorts) -> Result<()> {
+pub fn run_router(fd: u16, ctx: AppContextRef, running: Arc<AtomicBool>) -> Result<()> {
     let raw_fd = fd as RawFd;
     const QUEUE_CAP: usize = 10;
     let _file = unsafe { std::fs::File::from_raw_fd(raw_fd) };
@@ -289,15 +283,15 @@ pub fn run_router(fd: u16, mut manager: NatManagerRef, ports: VpnPorts) -> Resul
     let mut error_set = FdSet::new();
     let mut write_queue: VecDeque<Vec<u8>> = VecDeque::with_capacity(QUEUE_CAP);
 
-    loop {
+    while running.load(Ordering::Relaxed) {
         let qlen = write_queue.len();
         read_set.clear();
         write_set.clear();
         if qlen < QUEUE_CAP {
-            read_set.insert(fd as RawFd);
+            read_set.insert(raw_fd);
         }
         if qlen > 0 {
-            write_set.insert(fd as RawFd);
+            write_set.insert(raw_fd);
         }
 
         error_set.insert(fd as RawFd);
@@ -314,7 +308,7 @@ pub fn run_router(fd: u16, mut manager: NatManagerRef, ports: VpnPorts) -> Resul
             let n = unistd::read(raw_fd, &mut buffer[..])?;
 
             let handle_result = match buffer[0] >> 4 {
-                4 => handle_ipv4(&mut manager, &mut buffer[0..n], &ports),
+                4 => handle_ipv4(&mut buffer[0..n], &ctx),
                 _ => continue,
             };
             match handle_result {
@@ -332,4 +326,6 @@ pub fn run_router(fd: u16, mut manager: NatManagerRef, ports: VpnPorts) -> Resul
             unistd::write(raw_fd, &buffer)?;
         }
     }
+
+    Ok(())
 }

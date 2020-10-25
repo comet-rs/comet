@@ -1,10 +1,11 @@
-use crate::router::Router;
-use crate::app::outbound_manager::OutboundManager;
-use crate::prelude::*;
+use crate::android::nat_manager::NatManager;
 use crate::app::inbound_manager::InboundManager;
 use crate::app::metrics::Metrics;
+use crate::app::outbound_manager::OutboundManager;
 use crate::app::plumber::Plumber;
 use crate::config::Config;
+use crate::prelude::*;
+use crate::router::Router;
 
 pub type AppContextRef = Arc<AppContext>;
 
@@ -13,7 +14,8 @@ pub struct AppContext {
   pub inbound_manager: Arc<InboundManager>,
   pub outbound_manager: OutboundManager,
   pub metrics: Metrics,
-  pub router: Router
+  pub router: Router,
+  pub nat_manager: NatManager,
 }
 
 impl AppContext {
@@ -23,7 +25,8 @@ impl AppContext {
       inbound_manager: Arc::new(InboundManager::new(config)),
       outbound_manager: OutboundManager::new(config),
       metrics: Metrics::new(config),
-      router: Router::new(config)
+      router: Router::new(config),
+      nat_manager: NatManager::new(config),
     })
   }
 }
@@ -40,4 +43,3 @@ impl AppContext {
   ctx_impl_getter!(clone_plumber, plumber, Plumber);
   ctx_impl_getter!(clone_inbound_manager, inbound_manager, InboundManager);
 }
-

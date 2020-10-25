@@ -1,12 +1,11 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use super::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
 use anyhow::{anyhow, Result};
-use log::error;
 use pnet::packet;
 use pnet::packet::tcp::MutableTcpPacket;
 use pnet::packet::udp::MutableUdpPacket;
 use std::net::IpAddr;
 use std::os::unix::io::{FromRawFd, RawFd};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::prelude::*;
 use nix::sys::select::{select, FdSet};
@@ -115,7 +114,9 @@ fn handle_tcp(packet: &mut AddressedTcpPacket<'_>, ctx: &AppContextRef) -> Resul
                 IpAddr::V6(_) => {
                     packet.src_addr = IpAddr::V6(IPV6_ROUTER);
                     packet.dest_addr = IpAddr::V6(IPV6_CLIENT);
-                    packet.inner.set_destination(manager.config.ports.tcp_v6.unwrap_or(0));
+                    packet
+                        .inner
+                        .set_destination(manager.config.ports.tcp_v6.unwrap_or(0));
                 }
             };
         }
@@ -176,9 +177,13 @@ fn handle_udp(packet: &mut AddressedUdpPacket<'_>, ctx: &AppContextRef) -> Resul
                     packet.src_addr = IpAddr::V6(IPV6_ROUTER);
                     packet.dest_addr = IpAddr::V6(IPV6_CLIENT);
                     if packet.inner.get_destination() == 53 {
-                        packet.inner.set_destination(manager.config.ports.dns_v6.unwrap_or(0));
+                        packet
+                            .inner
+                            .set_destination(manager.config.ports.dns_v6.unwrap_or(0));
                     } else {
-                        packet.inner.set_destination(manager.config.ports.udp_v6.unwrap_or(0));
+                        packet
+                            .inner
+                            .set_destination(manager.config.ports.udp_v6.unwrap_or(0));
                     }
                 }
             };
@@ -191,7 +196,7 @@ fn handle_udp(packet: &mut AddressedUdpPacket<'_>, ctx: &AppContextRef) -> Resul
 
 fn handle_ipv4(buffer: &mut [u8], ctx: &AppContextRef) -> Result<()> {
     let mut ip_pkt = packet::ipv4::MutableIpv4Packet::new(buffer)
-        .ok_or(anyhow!("Failed to parse IPv4 packet"))?;
+        .ok_or_else(|| anyhow!("Failed to parse IPv4 packet"))?;
     let l4_proto = ip_pkt.get_next_level_protocol();
 
     let mut src_addr = ip_pkt.get_source();
@@ -201,7 +206,7 @@ fn handle_ipv4(buffer: &mut [u8], ctx: &AppContextRef) -> Result<()> {
         IpNextHeaderProtocols::Tcp => {
             use pnet::packet::tcp::ipv4_checksum;
             let tcp_pkt = packet::tcp::MutableTcpPacket::new(ip_pkt.payload_mut())
-                .ok_or(anyhow!("Failed to parse TCP packet"))?;
+                .ok_or_else(|| anyhow!("Failed to parse TCP packet"))?;
 
             let mut addressed = AddressedPacket {
                 src_addr: IpAddr::V4(src_addr),
@@ -226,7 +231,7 @@ fn handle_ipv4(buffer: &mut [u8], ctx: &AppContextRef) -> Result<()> {
         IpNextHeaderProtocols::Udp => {
             use pnet::packet::udp::ipv4_checksum;
             let udp_pkt = MutableUdpPacket::new(ip_pkt.payload_mut())
-                .ok_or(anyhow!("Failed to parse UDP packet"))?;
+                .ok_or_else(|| anyhow!("Failed to parse UDP packet"))?;
 
             let mut addressed = AddressedPacket {
                 src_addr: IpAddr::V4(src_addr),
@@ -316,7 +321,9 @@ pub fn run_router(fd: u16, ctx: AppContextRef, running: Arc<AtomicBool>) -> Resu
                     buffer.resize(n, 0);
                     write_queue.push_back(buffer);
                 }
-                Err(e) => error!("Packet handle failed: {:?}", e),
+                Err(e) => {
+                    // error!("Packet handle failed: {:?}", e)
+                }
             }
         }
 

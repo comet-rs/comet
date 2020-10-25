@@ -3,6 +3,7 @@ pub mod app;
 pub mod common;
 pub mod config;
 pub mod context;
+pub mod dns;
 pub mod net_wrapper;
 pub mod processor;
 pub mod router;
@@ -11,12 +12,13 @@ pub mod utils;
 
 use crate::context::AppContext;
 use crate::prelude::*;
-use anyhow::{anyhow, Context, Result};
+use anyhow::Context;
 use log::{error, info};
-use std::borrow::Borrow;
+use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::time::timeout;
 
 async fn handle_tcp_conn(
   conn: Connection,
@@ -25,29 +27,19 @@ async fn handle_tcp_conn(
 ) -> Result<Connection> {
   let (mut conn, mut stream) = ctx
     .clone_plumber()
-    .process_stream(&conn.inbound_tag.clone(), conn, stream, ctx.clone())
+    .process_stream(&conn.inbound_pipeline.clone(), conn, stream, ctx.clone())
     .await?;
 
   info!("Accepted {:?}", conn);
 
   let dest_addr = conn.dest_addr.clone().unwrap();
-  let dest_addr_ip = match &dest_addr.addr {
-    Address::Ip(ip) => *ip,
-    Address::Domain(s) => {
-      let s: &str = s.borrow();
-      tokio::net::lookup_host((s, 443))
-        .await?
-        .next()
-        .ok_or_else(|| anyhow!("Unable to resolve"))?
-        .ip()
-    }
-  };
+  let dest_addr_ips = ctx.dns.resolve_addr(&dest_addr.addr).await?;
 
   let outbound_tag = ctx.router.try_match(&conn, &ctx);
 
   let mut outbound = ctx
     .outbound_manager
-    .connect_tcp(outbound_tag, dest_addr_ip, dest_addr.port, &ctx)
+    .connect_tcp_multi(outbound_tag, dest_addr_ips, dest_addr.port, &ctx)
     .await?;
   info!("Connected outbound: {:?}", outbound_tag);
 
@@ -67,18 +59,77 @@ async fn handle_tcp_conn(
   Ok(conn)
 }
 
+async fn handle_udp_conn(
+  conn: Connection,
+  req: UdpRequest,
+  ctx: AppContextRef,
+) -> Result<Connection> {
+  let (mut conn, mut req) = ctx
+    .clone_plumber()
+    .process_packet(&conn.inbound_pipeline.clone(), conn, req, ctx.clone())
+    .await?;
+  let dest_addr = conn.dest_addr.clone().unwrap();
+  let dest_addr_ips = ctx.dns.resolve_addr(&dest_addr.addr).await?;
+
+  let outbound_tag = ctx.router.try_match(&conn, &ctx);
+
+  let outbound = ctx
+    .outbound_manager
+    .connect_udp(
+      outbound_tag,
+      &conn,
+      SocketAddr::new(dest_addr_ips[0], dest_addr.port),
+      &ctx,
+    )
+    .await?;
+
+  if let Some(outbound_pipeline) = ctx
+    .outbound_manager
+    .get_pipeline(outbound_tag, TransportType::Udp)
+  {
+    let ret = ctx
+      .clone_plumber()
+      .process_packet(outbound_pipeline, conn, req, ctx.clone())
+      .await?;
+    conn = ret.0;
+    req = ret.1;
+  }
+  outbound.send(&req.packet).await?;
+
+  let mut buffer = [0u8; 4096];
+  let n = timeout(Duration::from_secs(10), outbound.recv(&mut buffer)).await??;
+  req.socket.send_to(&buffer[0..n], conn.src_addr).await?;
+  Ok(conn)
+}
+
 pub async fn run(ctx: AppContextRef) -> Result<()> {
   let ctx1 = ctx.clone();
-  let (mut tcp_conns, _udp_conns) = ctx.clone_inbound_manager().start(ctx.clone()).await?;
+  let (mut tcp_conns, mut udp_conns) = ctx.clone_inbound_manager().start(ctx.clone()).await?;
 
+  let ctx_tcp = ctx.clone();
   let _tcp_handle = tokio::spawn(async move {
     while let Some((conn, stream)) = tcp_conns.recv().await {
-      let ctx = Arc::clone(&ctx);
+      let ctx = ctx_tcp.clone();
       tokio::spawn(async move {
         match handle_tcp_conn(conn, stream, ctx).await {
           Ok(r) => {
             info!("Done handling {:?}", r);
           }
+          Err(err) => {
+            error!("Failed to handle accepted connection: {:?}", err);
+          }
+        }
+      });
+    }
+  });
+
+  let ctx_udp = ctx.clone();
+  let _udp_handle = tokio::spawn(async move {
+    while let Some((conn, req)) = udp_conns.recv().await {
+      let ctx = ctx_udp.clone();
+      tokio::spawn(async move {
+        match handle_udp_conn(conn, req, ctx).await {
+          Ok(r) => {}
           Err(err) => {
             error!("Failed to handle accepted connection: {:?}", err);
           }

@@ -1,15 +1,16 @@
-use smol_str::SmolStr;
-use std::net::SocketAddr;
-use tokio::stream::Stream;
-pub mod connection;
-mod rwpair;
-pub use rwpair::RWPair;
 use serde::Deserialize;
+use smol_str::SmolStr;
 use std::fmt;
 use std::net::IpAddr;
-pub mod io;
-pub use connection::Connection;
-pub type BoxedConnectionStream = Box<dyn Stream<Item = connection::Connection>>;
+use std::net::SocketAddr;
+
+mod connection;
+mod packet;
+mod rwpair;
+
+pub use connection::{Connection, UdpRequest};
+pub use packet::{AsyncPacketIO, PacketIO};
+pub use rwpair::RWPair;
 
 #[derive(Debug, Clone)]
 pub enum Address {
@@ -58,7 +59,7 @@ impl From<SocketAddr> for SocketDomainAddr {
     }
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all(deserialize = "snake_case"))]
 pub enum TransportType {
     Tcp,

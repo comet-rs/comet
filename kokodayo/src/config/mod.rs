@@ -69,23 +69,25 @@ pub enum ProcessorConfig {
   Sniffer(processor::sniffer::SnifferConfig),
 
   Socks5ProxyServer(processor::socks5_proxy::Socks5ProxyServerConfig),
-  Socks5ProxyClient,
+  // Socks5ProxyClient,
 
-  HttpProxyServer,
+  // HttpProxyServer,
   HttpProxyClient(processor::http_proxy::HttpProxyClientConfig),
 
-  ShadowsocksServer,
-  ShadowsocksClient,
+  // ShadowsocksServer,
+  // ShadowsocksClient,
 
-  SsrObfsServer,
-  SsrObfsClient,
+  // SsrObfsServer,
+  // SsrObfsClient,
 
-  VmessServer,
-  VmessClient,
+  // VmessServer,
+  // VmessClient,
 
-  Switch {
-    cases: Vec<processor::switch::SwitchCase>,
-  },
+  AndroidNat(processor::android::AndroidNatConfig),
+
+  // Switch {
+  //   cases: Vec<processor::switch::SwitchCase>,
+  // },
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -97,6 +99,7 @@ pub struct RouterConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct RouterDefaults {
   pub tcp: SmolStr,
+  pub udp: Option<SmolStr>
 }
 
 #[derive(Debug, Deserialize, Clone)]

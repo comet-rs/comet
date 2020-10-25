@@ -34,6 +34,17 @@ impl Plumber {
     let pipeline = self.pipelines.get(tag).unwrap();
     Ok(pipeline.process(stream, conn, ctx).await?)
   }
+
+  pub async fn process_packet(
+    self: Arc<Self>,
+    tag: &str,
+    conn: Connection,
+    req: UdpRequest,
+    ctx: AppContextRef,
+  ) -> Result<(Connection, UdpRequest)> {
+    let pipeline = self.pipelines.get(tag).unwrap();
+    Ok(pipeline.process_udp(req, conn, ctx).await?)
+  }
 }
 
 pub struct Pipeline {
@@ -57,6 +68,18 @@ impl Pipeline {
     }
     Ok((conn, stream))
   }
+  pub async fn process_udp(
+    &self,
+    mut req: UdpRequest,
+    mut conn: Connection,
+    ctx: AppContextRef,
+  ) -> Result<(Connection, UdpRequest)> {
+    for item in &self.items {
+      let result = item.process_udp(req, &mut conn, ctx.clone()).await;
+      req = result.with_context(|| format!("Error running processor {:?}", item))?;
+    }
+    Ok((conn, req))
+  }
 }
 
 macro_rules! processor_item {
@@ -69,7 +92,6 @@ macro_rules! processor_item {
       pub fn new(config: &ProcessorConfig) -> Result<Self> {
         Ok(match config {
           $(ProcessorConfig::$variant(c) => ProcessorItem::$variant(Arc::new(<$processor>::new(c)?))),*,
-          _ => unimplemented!()
         })
       }
       async fn process(
@@ -98,10 +120,34 @@ macro_rules! processor_item {
   };
 }
 
+macro_rules! processor_item_udp {
+  ($($variant:ident => $processor:ty), *) => {
+    impl ProcessorItem {
+      async fn process_udp(&self,
+        req: UdpRequest,
+        conn: &mut Connection,
+        ctx: AppContextRef,) -> Result<UdpRequest> {
+          match *self {
+            $(
+              ProcessorItem::$variant(ref s) =>
+                    Arc::clone(s).process_udp(req, conn, ctx).await
+            ),*,
+            _ => unimplemented!()
+          }
+        }
+    }
+  };
+}
+
 processor_item!(
   Sniffer => processor::sniffer::SnifferProcessor,
   Socks5ProxyServer => processor::socks5_proxy::Socks5ProxyServerProcessor,
-  HttpProxyClient => processor::http_proxy::HttpProxyClientProcessor
+  HttpProxyClient => processor::http_proxy::HttpProxyClientProcessor,
+  AndroidNat => processor::android::AndroidNatProcessor
+);
+
+processor_item_udp!(
+  AndroidNat => processor::android::AndroidNatProcessor
 );
 
 #[async_trait]
@@ -112,4 +158,14 @@ pub trait Processor {
     conn: &mut Connection,
     ctx: AppContextRef,
   ) -> Result<RWPair>;
+}
+
+#[async_trait]
+pub trait UdpProcessor {
+  async fn process_udp(
+    self: Arc<Self>,
+    mut req: UdpRequest,
+    conn: &mut Connection,
+    ctx: AppContextRef,
+  ) -> Result<UdpRequest>;
 }

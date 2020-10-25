@@ -1,9 +1,9 @@
 use crate::config::AndroidConfig;
 use crate::config::Config;
+use crate::prelude::*;
 use flurry::{HashMap, HashMapRef};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::Instant;
-use crate::prelude::*;
 
 type NatMapRef<'a, T> = HashMapRef<'a, u16, NatEntry<T>>;
 
@@ -99,24 +99,14 @@ impl NatManager {
         match dest_addr {
             IpAddr::V4(addr) => {
                 if let Some(entry) = self.get_table_v4(protocol).get(&src_port) {
-                    if entry.dest_addr == addr && entry.dest_port == dest_port {
-                        // entry.last_activity = Instant::now();
-                        true
-                    } else {
-                        false
-                    }
+                    entry.dest_addr == addr && entry.dest_port == dest_port
                 } else {
                     false
                 }
             }
             IpAddr::V6(addr) => {
                 if let Some(entry) = self.get_table_v6(protocol).get(&src_port) {
-                    if entry.dest_addr == addr && entry.dest_port == dest_port {
-                        // entry.last_activity = Instant::now();
-                        true
-                    } else {
-                        false
-                    }
+                    entry.dest_addr == addr && entry.dest_port == dest_port
                 } else {
                     false
                 }

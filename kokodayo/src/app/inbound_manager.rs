@@ -15,7 +15,7 @@ pub type TcpConnSender = ConnSender<RWPair>;
 pub struct InboundManager {
   inbounds: HashMap<SmolStr, Inbound>,
   tcp_sender: OnceCell<ConnSender<RWPair>>,
-  udp_sender: OnceCell<ConnSender<(Vec<u8>, Arc<UdpSocket>)>>,
+  udp_sender: OnceCell<ConnSender<UdpRequest>>,
 }
 
 impl InboundManager {
@@ -30,10 +30,7 @@ impl InboundManager {
   pub async fn start(
     self: Arc<Self>,
     ctx: AppContextRef,
-  ) -> Result<(
-    ConnReceiver<RWPair>,
-    ConnReceiver<(Vec<u8>, Arc<UdpSocket>)>,
-  )> {
+  ) -> Result<(ConnReceiver<RWPair>, ConnReceiver<UdpRequest>)> {
     let tcp_channel = unbounded_channel();
     let udp_channel = unbounded_channel();
 
@@ -49,14 +46,14 @@ impl InboundManager {
         TransportType::Tcp => {
           let listener = TcpListener::bind(&(ip, port)).await?;
           let sender = tcp_channel.0.clone();
-          info!("Inbound {} listening on {}:{}", tag, ip, port);
+          info!("Inbound {}/TCP listening on {}:{}", tag, ip, port);
 
           tokio::spawn(async move {
             loop {
               let (stream, src_addr) = listener.accept().await.unwrap();
               let conn = Connection::new(src_addr, tag.clone(), pipe.clone(), TransportType::Tcp);
               let splitted = stream.into_split();
-              info!("Inbound {} accepted from {}", tag, src_addr);
+              info!("Inbound {}/TCP accepted from {}", tag, src_addr);
               sender
                 .send((
                   conn,
@@ -70,7 +67,23 @@ impl InboundManager {
           });
         }
         TransportType::Udp => {
-          unimplemented!();
+          let socket = Arc::new(UdpSocket::bind(&(ip, port)).await?);
+          let sender = udp_channel.0.clone();
+          info!("Inbound {}/UDP listening on {}:{}", tag, ip, port);
+
+          tokio::spawn(async move {
+            loop {
+              let mut buffer = [0u8; 4096];
+              let (size, src_addr) = socket.recv_from(&mut buffer).await.unwrap();
+              let packet = buffer[0..size].to_vec();
+              let conn = Connection::new(src_addr, tag.clone(), pipe.clone(), TransportType::Udp);
+              info!("Inbound {}/UDP accepted from {}", tag, src_addr);
+
+              sender
+                .send((conn, UdpRequest::new(socket.clone(), packet)))
+                .unwrap();
+            }
+          });
         }
       };
     }
@@ -79,4 +92,7 @@ impl InboundManager {
     self.udp_sender.set(udp_channel.0.clone()).unwrap();
     Ok((tcp_channel.1, udp_channel.1))
   }
+
+  pub fn inject_tcp(&self) {}
+  pub fn inject_udp(&self) {}
 }

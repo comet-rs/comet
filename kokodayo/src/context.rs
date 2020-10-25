@@ -1,3 +1,4 @@
+use crate::dns::DnsService;
 use crate::android::nat_manager::NatManager;
 use crate::app::inbound_manager::InboundManager;
 use crate::app::metrics::Metrics;
@@ -16,6 +17,7 @@ pub struct AppContext {
   pub metrics: Metrics,
   pub router: Router,
   pub nat_manager: NatManager,
+  pub dns: DnsService,
 }
 
 impl AppContext {
@@ -27,6 +29,7 @@ impl AppContext {
       metrics: Metrics::new(config),
       router: Router::new(config),
       nat_manager: NatManager::new(config),
+      dns: DnsService::new(config)
     })
   }
 }

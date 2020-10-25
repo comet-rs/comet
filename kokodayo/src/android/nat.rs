@@ -316,14 +316,9 @@ pub fn run_router(fd: u16, ctx: AppContextRef, running: Arc<AtomicBool>) -> Resu
                 4 => handle_ipv4(&mut buffer[0..n], &ctx),
                 _ => continue,
             };
-            match handle_result {
-                Ok(_) => {
-                    buffer.resize(n, 0);
-                    write_queue.push_back(buffer);
-                }
-                Err(e) => {
-                    // error!("Packet handle failed: {:?}", e)
-                }
+            if handle_result.is_ok() {
+                buffer.resize(n, 0);
+                write_queue.push_back(buffer);
             }
         }
 

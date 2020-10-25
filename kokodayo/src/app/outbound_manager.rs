@@ -4,7 +4,6 @@ use crate::utils::metered_stream::MeteredReader;
 use crate::utils::metered_stream::MeteredWriter;
 use crate::utils::unix_ts;
 use anyhow::anyhow;
-use flurry;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::net::SocketAddr;

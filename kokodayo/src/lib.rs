@@ -129,7 +129,7 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
       let ctx = ctx_udp.clone();
       tokio::spawn(async move {
         match handle_udp_conn(conn, req, ctx).await {
-          Ok(r) => {}
+          Ok(_) => {}
           Err(err) => {
             error!("Failed to handle accepted connection: {:?}", err);
           }
@@ -158,8 +158,10 @@ pub async fn run_bin() -> Result<()> {
   Ok(())
 }
 
-pub async fn run_android(fd: u16, config: &str, running: Arc<AtomicBool>) -> Result<()> {
-  let config = config::load_string(config).with_context(|| "Failed to read config file")?;
+pub async fn run_android(fd: u16, config_path: &str, running: Arc<AtomicBool>) -> Result<()> {
+  let config = config::load_file(config_path)
+    .await
+    .with_context(|| "Failed to read config file")?;
   let ctx = Arc::new(AppContext::new(&config)?);
 
   let ctx1 = ctx.clone();

@@ -5,7 +5,7 @@ use crate::config::ProcessorConfig;
 use crate::prelude::*;
 use crate::processor;
 use crate::AppContextRef;
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -31,8 +31,7 @@ impl Plumber {
     stream: RWPair,
     ctx: AppContextRef,
   ) -> Result<(Connection, RWPair)> {
-    let pipeline = self.pipelines.get(tag).unwrap();
-    Ok(pipeline.process(stream, conn, ctx).await?)
+    Ok(self.get_pipeline(tag)?.process(stream, conn, ctx).await?)
   }
 
   pub async fn process_packet(
@@ -42,8 +41,14 @@ impl Plumber {
     req: UdpRequest,
     ctx: AppContextRef,
   ) -> Result<(Connection, UdpRequest)> {
-    let pipeline = self.pipelines.get(tag).unwrap();
-    Ok(pipeline.process_udp(req, conn, ctx).await?)
+    Ok(self.get_pipeline(tag)?.process_udp(req, conn, ctx).await?)
+  }
+
+  pub fn get_pipeline(&self, tag: &str) -> Result<&Pipeline> {
+    self
+      .pipelines
+      .get(tag)
+      .ok_or_else(|| anyhow!("Pipeline {} not found", tag))
   }
 }
 

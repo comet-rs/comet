@@ -8,42 +8,42 @@ mod connection;
 mod packet;
 mod rwpair;
 
-pub use connection::{Connection, UdpRequest};
+pub use connection::{Connection, DestAddr, UdpRequest};
 pub use packet::{AsyncPacketIO, PacketIO};
 pub use rwpair::RWPair;
 
 #[derive(Debug, Clone)]
-pub enum Address {
+pub enum AddrKind {
     Domain(SmolStr),
     Ip(IpAddr),
 }
 
-impl fmt::Display for Address {
+impl fmt::Display for AddrKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Address::Domain(s) => s.fmt(f),
-            Address::Ip(a) => a.fmt(f),
+            AddrKind::Domain(s) => s.fmt(f),
+            AddrKind::Ip(a) => a.fmt(f),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct SocketDomainAddr {
-    pub addr: Address,
+    pub addr: AddrKind,
     pub port: u16,
 }
 
 impl SocketDomainAddr {
-    pub fn new(addr: Address, port: u16) -> SocketDomainAddr {
+    pub fn new(addr: AddrKind, port: u16) -> SocketDomainAddr {
         SocketDomainAddr { addr, port }
     }
 
     pub fn new_domain<T: Into<SmolStr>>(addr: T, port: u16) -> SocketDomainAddr {
-        SocketDomainAddr::new(Address::Domain(addr.into()), port)
+        SocketDomainAddr::new(AddrKind::Domain(addr.into()), port)
     }
 
     pub fn new_ip<T: Into<IpAddr>>(addr: T, port: u16) -> SocketDomainAddr {
-        SocketDomainAddr::new(Address::Ip(addr.into()), port)
+        SocketDomainAddr::new(AddrKind::Ip(addr.into()), port)
     }
 }
 

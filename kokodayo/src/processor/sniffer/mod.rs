@@ -55,7 +55,6 @@ impl Processor for SnifferProcessor {
         let mut http_failed = !self.config.types.contains(&SniffType::Http);
         let mut tls_failed = !self.config.types.contains(&SniffType::Tls);
 
-        let dest_port = conn.dest_addr.as_ref().unwrap().port;
         while attempts < 5 && buffer.remaining_mut() > 0 {
             let read_bytes = stream.read_buf(&mut buffer).await?;
             if read_bytes == 0 {
@@ -73,14 +72,11 @@ impl Processor for SnifferProcessor {
                         if let Some(idx) = s.rfind(':') {
                             s.split_at(idx);
                         }
-                        conn.set_var("sniffed_dest", &s);
                         conn.set_var("protocol", "http");
-                        if self.config.override_dest {
-                            conn.dest_addr = Some(if let Ok(addr) = IpAddr::from_str(&s) {
-                                SocketDomainAddr::new_ip(addr, dest_port)
-                            } else {
-                                SocketDomainAddr::new_domain(s, dest_port)
-                            })
+                        if let Ok(ip) = IpAddr::from_str(&s) {
+                            conn.dest_addr.set_ip(ip);
+                        } else {
+                            conn.dest_addr.set_domain(s);
                         }
                         return Ok(stream.prepend_data(buffer));
                     }
@@ -93,11 +89,8 @@ impl Processor for SnifferProcessor {
                         tls_failed = true;
                     }
                     SniffStatus::Success(s) => {
-                        conn.set_var("sniffed_dest", &s);
                         conn.set_var("protocol", "tls");
-                        if self.config.override_dest {
-                            conn.dest_addr = Some(SocketDomainAddr::new_domain(s, dest_port));
-                        }
+                        conn.dest_addr.set_domain(s);
                         return Ok(stream.prepend_data(buffer));
                     }
                 }

@@ -80,16 +80,15 @@ impl DnsService {
         Ok(())
     }
 
-    pub async fn resolve_addr(&self, addr: &Address) -> Result<Vec<IpAddr>> {
-        Ok(match addr {
-            Address::Ip(ip) => vec![*ip],
-            Address::Domain(s) => {
-                let s: &str = s.borrow();
-                tokio::net::lookup_host((s, 443))
-                    .await?
-                    .map(|a| a.ip())
-                    .collect()
-            }
-        })
+    pub async fn resolve_addr(&self, addr: &DestAddr) -> Result<Vec<IpAddr>> {
+        if let Some(ip) = addr.ip {
+            vec![ip]
+        } else {
+            let domain = addr.domain_or_error()?;
+            tokio::net::lookup_host((domain, 443))
+                .await?
+                .map(|a| a.ip())
+                .collect()?
+        }
     }
 }

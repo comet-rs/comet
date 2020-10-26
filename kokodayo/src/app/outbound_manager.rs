@@ -57,8 +57,7 @@ impl OutboundManager {
     port: u16,
     ctx: &AppContextRef,
   ) -> Result<RWPair> {
-    let outbound = self.outbounds.get(tag).unwrap();
-    assert!(outbound.transport.r#type == TransportType::Tcp);
+    let outbound = self.get_outbound(tag, TransportType::Tcp)?;
 
     let port = outbound.transport.port.unwrap_or(port);
     let addr = outbound.transport.addr.unwrap_or(addr);
@@ -95,8 +94,7 @@ impl OutboundManager {
     dest_addr: SocketAddr,
     _ctx: &AppContextRef,
   ) -> Result<Arc<UdpSocket>> {
-    let outbound = self.outbounds.get(tag).unwrap();
-    assert!(outbound.transport.r#type == TransportType::Udp);
+    let outbound = self.get_outbound(tag, TransportType::Udp)?;
 
     if let Some(entry) = self.udp_sockets.pin().get(&conn.src_addr) {
       if entry.refresh() && dest_addr == entry.dest {
@@ -118,13 +116,24 @@ impl OutboundManager {
     Ok(socket)
   }
 
-  pub fn get_pipeline(&self, tag: &str, transport_type: TransportType) -> Option<&str> {
-    let outbound = self.outbounds.get(tag).unwrap();
-    assert!(outbound.transport.r#type == transport_type);
+  pub fn get_pipeline(&self, tag: &str, transport_type: TransportType) -> Result<Option<&str>> {
+    Ok(
+      match self.get_outbound(tag, transport_type)?.pipeline.as_ref() {
+        Some(r) => Some(r),
+        None => None,
+      },
+    )
+  }
 
-    match outbound.pipeline.as_ref() {
-      Some(r) => Some(r),
-      None => None,
+  pub fn get_outbound(&self, tag: &str, transport_type: TransportType) -> Result<&Outbound> {
+    let outbound = self
+      .outbounds
+      .get(tag)
+      .ok_or_else(|| anyhow!("Outbound {} not found", tag))?;
+    if outbound.transport.r#type == transport_type {
+      Ok(outbound)
+    } else {
+      Err(anyhow!("Outbound {} transport type mismatch", tag))
     }
   }
 }

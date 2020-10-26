@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use anyhow::anyhow;
-use std::net::IpAddr;
 
 mod v5 {
   pub const VERSION: u8 = 5;
@@ -52,28 +51,27 @@ impl Processor for Socks5ProxyServerProcessor {
       }
       buffer[3]
     };
-    let address = match addr_type {
+    match addr_type {
       v5::TYPE_IPV4 => {
         let mut buffer = [0; 4];
         stream.read_exact(&mut buffer).await?;
-        Address::Ip(IpAddr::from(buffer))
+        conn.dest_addr.set_ip(buffer);
       }
       v5::TYPE_IPV6 => {
         let mut buffer = [0; 16];
         stream.read_exact(&mut buffer).await?;
-        Address::Ip(IpAddr::from(buffer))
+        conn.dest_addr.set_ip(buffer);
       }
       v5::TYPE_DOMAIN => {
         let mut buffer = [0; 255];
         let len = stream.read_u8().await? as usize;
         stream.read_exact(&mut buffer[0..len]).await?;
         let s = String::from_utf8_lossy(&buffer[0..len]);
-        Address::Domain(s.into())
+        conn.dest_addr.set_domain(s);
       }
       _ => return Err(anyhow!("Invalid ATYP")),
-    };
-    let port = stream.read_u16().await?;
-    conn.dest_addr = Some(SocketDomainAddr::new(address, port));
+    }
+    conn.dest_addr.set_port(stream.read_u16().await?);
 
     // Send reply
     stream

@@ -32,20 +32,24 @@ async fn handle_tcp_conn(
 
   info!("Accepted {:?}", conn);
 
-  let dest_addr = conn.dest_addr.clone().unwrap();
-  let dest_addr_ips = ctx.dns.resolve_addr(&dest_addr.addr).await?;
+  let dest_addr_ips = ctx.dns.resolve_addr(&conn.dest_addr).await?;
 
   let outbound_tag = ctx.router.try_match(&conn, &ctx);
 
   let mut outbound = ctx
     .outbound_manager
-    .connect_tcp_multi(outbound_tag, dest_addr_ips, dest_addr.port, &ctx)
+    .connect_tcp_multi(
+      outbound_tag,
+      dest_addr_ips,
+      conn.dest_addr.port_or_error()?,
+      &ctx,
+    )
     .await?;
   info!("Connected outbound: {:?}", outbound_tag);
 
   if let Some(outbound_pipeline) = ctx
     .outbound_manager
-    .get_pipeline(outbound_tag, TransportType::Tcp)
+    .get_pipeline(outbound_tag, TransportType::Tcp)?
   {
     let ret = ctx
       .clone_plumber()
@@ -68,8 +72,7 @@ async fn handle_udp_conn(
     .clone_plumber()
     .process_packet(&conn.inbound_pipeline.clone(), conn, req, ctx.clone())
     .await?;
-  let dest_addr = conn.dest_addr.clone().unwrap();
-  let dest_addr_ips = ctx.dns.resolve_addr(&dest_addr.addr).await?;
+  let dest_addr_ips = ctx.dns.resolve_addr(&conn.dest_addr).await?;
 
   let outbound_tag = ctx.router.try_match(&conn, &ctx);
 
@@ -78,14 +81,14 @@ async fn handle_udp_conn(
     .connect_udp(
       outbound_tag,
       &conn,
-      SocketAddr::new(dest_addr_ips[0], dest_addr.port),
+      SocketAddr::new(dest_addr_ips[0], conn.dest_addr.port_or_error()?),
       &ctx,
     )
     .await?;
 
   if let Some(outbound_pipeline) = ctx
     .outbound_manager
-    .get_pipeline(outbound_tag, TransportType::Udp)
+    .get_pipeline(outbound_tag, TransportType::Udp)?
   {
     let ret = ctx
       .clone_plumber()

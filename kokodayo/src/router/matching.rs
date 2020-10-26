@@ -45,12 +45,10 @@ impl MatchCondition {
         true
       }
       MatchCondition::DestAddr(conds) => {
-        if let Some(addr) = &conn.dest_addr {
-          if let Address::Ip(ip) = &addr.addr {
-            for cond in conds {
-              if cond.is_match(ip) {
-                return true;
-              }
+        if let Some(ip) = &conn.dest_addr.ip {
+          for cond in conds {
+            if cond.is_match(ip) {
+              return true;
             }
           }
         }
@@ -66,10 +64,8 @@ impl MatchCondition {
         false
       }
       MatchCondition::DestDomain(cond) => {
-        if let Some(addr) = &conn.dest_addr {
-          if let Address::Domain(domain) = &addr.addr {
-            return cond.is_match(domain);
-          }
+        if let Some(domain) = &conn.dest_addr.domain {
+          return cond.is_match(domain);
         }
         false
       }

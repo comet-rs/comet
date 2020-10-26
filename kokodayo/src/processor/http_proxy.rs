@@ -23,9 +23,15 @@ impl Processor for HttpProxyClientProcessor {
     conn: &mut Connection,
     _ctx: AppContextRef,
   ) -> Result<RWPair> {
+    let dest_addr = if let Some(domain) = &conn.dest_addr.domain {
+      domain.to_string()
+    } else {
+      conn.dest_addr.ip_or_error()?.to_string()
+    };
     let request = format!(
-      "CONNECT {0} HTTP/1.1\r\nHost: {0}\r\n\r\n",
-      conn.dest_addr.as_ref().unwrap()
+      "CONNECT {0}:{1} HTTP/1.1\r\nHost: {0}\r\n\r\n",
+      dest_addr,
+      conn.dest_addr.port_or_error()?
     );
     stream.write(request.as_bytes()).await?;
     let mut buffer = BytesMut::with_capacity(1024);

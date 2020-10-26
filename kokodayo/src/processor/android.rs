@@ -1,7 +1,6 @@
 use crate::app::plumber::UdpProcessor;
 use crate::prelude::*;
 use anyhow::anyhow;
-use std::net::SocketAddr;
 
 pub struct AndroidNatProcessor {}
 
@@ -16,7 +15,8 @@ impl AndroidNatProcessor {
 
     match entry {
       Some((dest_addr, dest_port)) => {
-        conn.dest_addr = Some(SocketAddr::new(dest_addr, dest_port).into());
+        conn.dest_addr.set_ip(dest_addr);
+        conn.dest_addr.set_port(dest_port);
         Ok(())
       }
       None => Err(anyhow!("Entry not found in NAT table")),

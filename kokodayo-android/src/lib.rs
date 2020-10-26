@@ -1,6 +1,5 @@
 use anyhow::Result;
-use jni::objects::JClass;
-use jni::objects::JString;
+use jni::objects::{JString, JClass, JMap};
 use jni::sys::jint;
 use jni::JNIEnv;
 use kokodayo::run_android;

@@ -94,7 +94,7 @@ impl OutboundManager {
     dest_addr: SocketAddr,
     _ctx: &AppContextRef,
   ) -> Result<Arc<UdpSocket>> {
-    let outbound = self.get_outbound(tag, TransportType::Udp)?;
+    let _outbound = self.get_outbound(tag, TransportType::Udp)?;
 
     if let Some(entry) = self.udp_sockets.pin().get(&conn.src_addr) {
       if entry.refresh() && dest_addr == entry.dest {

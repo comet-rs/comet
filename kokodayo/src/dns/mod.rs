@@ -3,7 +3,6 @@ use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
 use anyhow::anyhow;
 use log::info;
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
@@ -82,13 +81,13 @@ impl DnsService {
 
     pub async fn resolve_addr(&self, addr: &DestAddr) -> Result<Vec<IpAddr>> {
         if let Some(ip) = addr.ip {
-            vec![ip]
+            Ok(vec![ip])
         } else {
             let domain = addr.domain_or_error()?;
-            tokio::net::lookup_host((domain, 443))
+            Ok(tokio::net::lookup_host((domain, 443))
                 .await?
                 .map(|a| a.ip())
-                .collect()?
+                .collect::<Vec<_>>())
         }
     }
 }

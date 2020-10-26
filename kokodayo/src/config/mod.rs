@@ -84,6 +84,7 @@ pub enum ProcessorConfig {
   // VmessClient,
 
   AndroidNat(processor::android::AndroidNatConfig),
+  AssociateUid(processor::unix::AssociateUidConfig)
 
   // Switch {
   //   cases: Vec<processor::switch::SwitchCase>,

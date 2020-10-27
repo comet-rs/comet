@@ -38,7 +38,7 @@ impl AssociateUidProcessor {
     Ok(AssociateUidProcessor {})
   }
 
-  pub async fn process_conn(&self, conn: &mut Connection, ctx: &AppContextRef) -> Result<()> {
+  pub async fn process_conn(&self, conn: &mut Connection, _ctx: &AppContextRef) -> Result<()> {
     match conn.typ {
       TransportType::Tcp => {
         for path in &["/proc/net/tcp6", "/proc/net/tcp"] {

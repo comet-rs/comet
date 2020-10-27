@@ -1,3 +1,4 @@
+#![cfg(target_os = "android")]
 use crate::app::plumber::UdpProcessor;
 use crate::prelude::*;
 use anyhow::anyhow;

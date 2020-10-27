@@ -15,7 +15,6 @@ use crate::prelude::*;
 use anyhow::Context;
 use log::{error, info};
 use std::net::SocketAddr;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
@@ -161,7 +160,14 @@ pub async fn run_bin() -> Result<()> {
   Ok(())
 }
 
-pub async fn run_android(fd: u16, config_path: &str, running: Arc<AtomicBool>) -> Result<()> {
+#[cfg(target_os = "android")]
+pub async fn run_android(
+  fd: u16,
+  config_path: &str,
+  uid_map: HashMap<u16, SmolStr>,
+  running: Arc<std::sync::atomic::AtomicBool>,
+) -> Result<()> {
+  info!("{:?}", uid_map);
   let config = config::load_file(config_path)
     .await
     .with_context(|| "Failed to read config file")?;
@@ -186,6 +192,7 @@ pub mod prelude {
   pub use log::*;
   pub use serde::Deserialize;
   pub use smol_str::SmolStr;
+  pub use std::collections::HashMap;
   pub use std::sync::Arc;
   pub use tokio::prelude::*;
 }

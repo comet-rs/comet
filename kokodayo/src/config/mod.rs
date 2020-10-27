@@ -82,7 +82,7 @@ pub enum ProcessorConfig {
 
   // VmessServer,
   // VmessClient,
-
+  #[cfg(target_os = "android")]
   AndroidNat(processor::android::AndroidNatConfig),
   AssociateUid(processor::unix::AssociateUidConfig)
 

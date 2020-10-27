@@ -88,15 +88,21 @@ impl Pipeline {
 }
 
 macro_rules! processor_item {
-  ($($variant:ident => $processor:ty), *) => {
+  ($($variant:ident => $processor:ty $([$($cond_key:ident $(= $cond_value:literal)?),*])?), *) => {
     pub enum ProcessorItem {
-      $($variant(Arc<$processor>)),*
+      $(
+        $(#[cfg(any($($cond_key $(= $cond_value)?),*))])?
+        $variant(Arc<$processor>)
+      ),*
     }
 
     impl ProcessorItem {
       pub fn new(config: &ProcessorConfig) -> Result<Self> {
         Ok(match config {
-          $(ProcessorConfig::$variant(c) => ProcessorItem::$variant(Arc::new(<$processor>::new(c)?))),*,
+          $(
+            $(#[cfg(any($($cond_key $(= $cond_value)?),*))])?
+            ProcessorConfig::$variant(c) => ProcessorItem::$variant(Arc::new(<$processor>::new(c)?))
+          ),*,
         })
       }
       async fn process(
@@ -107,6 +113,7 @@ macro_rules! processor_item {
       ) -> Result<RWPair> {
         match *self {
           $(
+            $(#[cfg(any($($cond_key $(= $cond_value)?),*))])?
             ProcessorItem::$variant(ref s) =>
                   Arc::clone(s).process(stream, conn, ctx).await
           ),*
@@ -117,7 +124,10 @@ macro_rules! processor_item {
     impl std::fmt::Debug for ProcessorItem {
       fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-          $(ProcessorItem::$variant(_) => stringify!($variant)),*
+          $(
+            $(#[cfg(any($($cond_key $(= $cond_value)?),*))])?
+            ProcessorItem::$variant(_) => stringify!($variant)
+          ),*
         };
         write!(f, "ProcessorItem::{}", s)
       }
@@ -126,7 +136,7 @@ macro_rules! processor_item {
 }
 
 macro_rules! processor_item_udp {
-  ($($variant:ident => $processor:ty), *) => {
+  ($($variant:ident => $processor:ty $([$($cond_key:ident $(= $cond_value:literal)?),*])?), *) => {
     impl ProcessorItem {
       async fn process_udp(&self,
         req: UdpRequest,
@@ -134,6 +144,7 @@ macro_rules! processor_item_udp {
         ctx: AppContextRef,) -> Result<UdpRequest> {
           match *self {
             $(
+              $(#[cfg(any($($cond_key $(= $cond_value)?),*))])?
               ProcessorItem::$variant(ref s) =>
                     Arc::clone(s).process_udp(req, conn, ctx).await
             ),*,
@@ -148,13 +159,13 @@ processor_item!(
   Sniffer => processor::sniffer::SnifferProcessor,
   Socks5ProxyServer => processor::socks5_proxy::Socks5ProxyServerProcessor,
   HttpProxyClient => processor::http_proxy::HttpProxyClientProcessor,
-  AndroidNat => processor::android::AndroidNatProcessor,
-  AssociateUid => processor::unix::AssociateUidProcessor
+  AndroidNat => processor::android::AndroidNatProcessor[target_os = "android"],
+  AssociateUid => processor::unix::AssociateUidProcessor[target_os = "linux"]
 );
 
 processor_item_udp!(
-  AndroidNat => processor::android::AndroidNatProcessor,
-  AssociateUid => processor::unix::AssociateUidProcessor
+  AndroidNat => processor::android::AndroidNatProcessor[target_os = "android"],
+  AssociateUid => processor::unix::AssociateUidProcessor[target_os = "linux"]
 );
 
 #[async_trait]

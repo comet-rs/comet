@@ -602,6 +602,7 @@ dependencies = [
  "jni",
  "kokodayo",
  "log 0.4.11",
+ "smol_str",
  "tokio 0.3.1",
 ]
 

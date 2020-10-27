@@ -1,4 +1,3 @@
-pub mod android;
 pub mod app;
 pub mod common;
 pub mod config;
@@ -9,6 +8,9 @@ pub mod processor;
 pub mod router;
 pub mod transport;
 pub mod utils;
+
+// #[cfg(target_os = "android")]
+pub mod android;
 
 use crate::context::AppContext;
 use crate::prelude::*;

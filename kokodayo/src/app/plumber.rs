@@ -160,12 +160,12 @@ processor_item!(
   Socks5ProxyServer => processor::socks5_proxy::Socks5ProxyServerProcessor,
   HttpProxyClient => processor::http_proxy::HttpProxyClientProcessor,
   AndroidNat => processor::android::AndroidNatProcessor[target_os = "android"],
-  AssociateUid => processor::unix::AssociateUidProcessor[target_os = "linux"]
+  AssociateUid => processor::unix::AssociateUidProcessor[target_os = "linux", target_os = "android"]
 );
 
 processor_item_udp!(
   AndroidNat => processor::android::AndroidNatProcessor[target_os = "android"],
-  AssociateUid => processor::unix::AssociateUidProcessor[target_os = "linux"]
+  AssociateUid => processor::unix::AssociateUidProcessor[target_os = "linux", target_os = "android"]
 );
 
 #[async_trait]

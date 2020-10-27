@@ -1,5 +1,4 @@
 use crate::dns::DnsService;
-use crate::android::nat_manager::NatManager;
 use crate::app::inbound_manager::InboundManager;
 use crate::app::metrics::Metrics;
 use crate::app::outbound_manager::OutboundManager;
@@ -7,6 +6,9 @@ use crate::app::plumber::Plumber;
 use crate::config::Config;
 use crate::prelude::*;
 use crate::router::Router;
+
+#[cfg(target_os = "android")]
+use crate::android::nat_manager::NatManager;
 
 pub type AppContextRef = Arc<AppContext>;
 
@@ -16,6 +18,7 @@ pub struct AppContext {
   pub outbound_manager: OutboundManager,
   pub metrics: Metrics,
   pub router: Router,
+  #[cfg(target_os = "android")]
   pub nat_manager: NatManager,
   pub dns: DnsService,
 }
@@ -28,6 +31,7 @@ impl AppContext {
       outbound_manager: OutboundManager::new(config),
       metrics: Metrics::new(config),
       router: Router::new(config),
+      #[cfg(target_os = "android")]
       nat_manager: NatManager::new(config),
       dns: DnsService::new(config)
     })

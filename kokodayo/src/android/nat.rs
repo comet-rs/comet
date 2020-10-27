@@ -1,4 +1,5 @@
 use super::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
+use crate::utils::unix_ts;
 use anyhow::{anyhow, Result};
 use pnet::packet;
 use pnet::packet::tcp::MutableTcpPacket;
@@ -13,6 +14,8 @@ use nix::unistd;
 use pnet::packet::ip::*;
 use pnet::packet::MutablePacket;
 use std::collections::VecDeque;
+
+static GC_INTERVAL: u64 = 300;
 
 #[derive(Debug)]
 struct TcpFlags {
@@ -288,6 +291,8 @@ pub fn run_router(fd: u16, ctx: AppContextRef, running: Arc<AtomicBool>) -> Resu
     let mut error_set = FdSet::new();
     let mut write_queue: VecDeque<Vec<u8>> = VecDeque::with_capacity(QUEUE_CAP);
 
+    let mut last_gc = unix_ts().as_secs();
+
     while running.load(Ordering::Relaxed) {
         let qlen = write_queue.len();
         read_set.clear();
@@ -326,6 +331,12 @@ pub fn run_router(fd: u16, ctx: AppContextRef, running: Arc<AtomicBool>) -> Resu
             // Writing available
             let buffer = write_queue.pop_front().unwrap();
             unistd::write(raw_fd, &buffer)?;
+        }
+
+        let now = unix_ts().as_secs();
+        if now - last_gc > GC_INTERVAL {
+            ctx.nat_manager.gc();
+            last_gc = now;
         }
     }
 

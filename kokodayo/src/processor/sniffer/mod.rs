@@ -59,7 +59,7 @@ impl Processor for SnifferProcessor {
             let read_bytes = stream.read_buf(&mut buffer).await?;
             if read_bytes == 0 {
                 warn!("Got EOF while sniffing: {:?}", buffer);
-                return Ok(stream.prepend_data(buffer));
+                return Ok(stream.prepend_read(buffer));
             }
 
             if !http_failed {
@@ -78,7 +78,7 @@ impl Processor for SnifferProcessor {
                         } else {
                             conn.dest_addr.set_domain(s);
                         }
-                        return Ok(stream.prepend_data(buffer));
+                        return Ok(stream.prepend_read(buffer));
                     }
                 }
             }
@@ -91,7 +91,7 @@ impl Processor for SnifferProcessor {
                     SniffStatus::Success(s) => {
                         conn.set_var("protocol", "tls");
                         conn.dest_addr.set_domain(s);
-                        return Ok(stream.prepend_data(buffer));
+                        return Ok(stream.prepend_read(buffer));
                     }
                 }
             }
@@ -100,7 +100,7 @@ impl Processor for SnifferProcessor {
             }
             attempts += 1;
         }
-        Ok(stream.prepend_data(buffer))
+        Ok(stream.prepend_read(buffer))
     }
 }
 

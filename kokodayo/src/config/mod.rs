@@ -75,7 +75,8 @@ pub enum ProcessorConfig {
   HttpProxyClient(processor::http_proxy::HttpProxyClientConfig),
 
   // ShadowsocksServer,
-  // ShadowsocksClient,
+  ShadowsocksClient(processor::shadowsocks::ShadowsocksClientConfig),
+  ShadowsocksClientHandshake(processor::shadowsocks::handshake::ShadowsocksClientHandshakeConfig),
 
   // SsrObfsServer,
   // SsrObfsClient,
@@ -85,10 +86,6 @@ pub enum ProcessorConfig {
   #[cfg(target_os = "android")]
   AndroidNat(processor::android::AndroidNatConfig),
   AssociateUid(processor::unix::AssociateUidConfig)
-
-  // Switch {
-  //   cases: Vec<processor::switch::SwitchCase>,
-  // },
 }
 
 #[derive(Debug, Deserialize, Clone)]

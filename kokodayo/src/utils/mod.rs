@@ -1,4 +1,5 @@
 pub mod metered_stream;
+pub mod io;
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 

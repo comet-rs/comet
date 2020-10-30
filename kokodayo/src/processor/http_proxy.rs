@@ -42,7 +42,7 @@ impl Processor for HttpProxyClientProcessor {
       match res.parse(&buffer[..])? {
         httparse::Status::Complete(len) => {
           buffer.advance(len);
-          return Ok(stream.prepend_data(buffer));
+          return Ok(stream.prepend_read(buffer));
         }
         httparse::Status::Partial => {
           if n == 0 {

@@ -8,8 +8,9 @@ pub mod processor;
 pub mod router;
 pub mod transport;
 pub mod utils;
+pub mod crypto;
 
-// #[cfg(target_os = "android")]
+#[cfg(target_os = "android")]
 pub mod android;
 
 use crate::context::AppContext;
@@ -197,4 +198,5 @@ pub mod prelude {
   pub use std::collections::HashMap;
   pub use std::sync::Arc;
   pub use tokio::prelude::*;
+  pub use bytes::*;
 }

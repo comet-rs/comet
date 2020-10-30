@@ -14,10 +14,16 @@ pipelines:
       types: [tls, http]
   http_client:
     - type: http_proxy_client
+  shadowsocks:
+    - type: shadowsocks_client
+      password: "barfoo!"
+      method: "aes-256-cfb"
+    - type: shadowsocks_client_handshake
+
 
 router:
   defaults:
-    tcp: direct_tcp
+    tcp: shadowsocks
   rules:
     - target: fiddler
       rule:
@@ -35,6 +41,12 @@ outbounds:
       type: tcp
       addr: "192.168.1.105"
       port: 8888
+  shadowsocks:
+    pipeline: shadowsocks
+    transport:
+      type: tcp
+      addr: "127.0.0.1"
+      port: 8388
 
 android:
   ports:

@@ -2,9 +2,13 @@ use crate::crypto::*;
 use crate::prelude::*;
 use crate::utils::io::*;
 use futures::ready;
+use pin_project_lite::pin_project;
 use std::cmp;
+use std::mem::MaybeUninit;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use tokio::io::AsyncBufRead;
+use tokio::io::ReadBuf;
 
 pub mod auth;
 pub mod handshake;
@@ -102,7 +106,8 @@ impl Processor for ShadowsocksClientProcessor {
     _ctx: AppContextRef,
   ) -> Result<RWPair> {
     let writer = ShadowsocksEncryptWriter::new(stream.write_half, self.method, &self.master_key)?;
-    Ok(RWPair::new_parts(stream.read_half, writer))
+    let reader = ShadowsocksDecryptReader::new(stream.read_half, self.method, &self.master_key);
+    Ok(RWPair::new_parts(reader, writer))
   }
 }
 
@@ -136,27 +141,25 @@ impl<W: AsyncWrite + Unpin> ShadowsocksEncryptWriter<W> {
 
 impl<W: AsyncWrite + Unpin> AsyncWrite for ShadowsocksEncryptWriter<W> {
   fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<io::Result<usize>> {
-    const TAG_SIZE: usize = 16;
     loop {
       match self.state {
         WriteState::Waiting => {
           let me = &mut *self;
 
-          let consumed = cmp::min(buf.len(), me.buf.remaining_mut() - TAG_SIZE);
+          let consumed = cmp::min(buf.len(), me.buf.remaining_mut());
           assert!(consumed > 0);
 
           let old_len = me.buf.len();
           unsafe {
-            me.buf.set_len(old_len + consumed + TAG_SIZE);
+            me.buf.set_len(old_len + consumed);
           }
-          let crypto_output = &mut me.buf[old_len..old_len + consumed + TAG_SIZE];
+          let crypto_output = &mut me.buf[old_len..old_len + consumed];
 
           match &mut me.encrypter {
             ShadowsocksCrypter::Stream(bc) => {
               let n = bc
                 .update(&buf[0..consumed], crypto_output)
                 .map_err(|_| crypto_error())?;
-              assert_eq!(n, consumed);
               me.buf.truncate(old_len + n);
             }
           }
@@ -194,14 +197,85 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for ShadowsocksEncryptWriter<W> {
 }
 
 enum ReadState {
-  Salt { read: usize },
-  Data,
+  ReadSalt {
+    master_key: Bytes,
+    method: ShadowsocksCipherKind,
+  },
+  ReadData(ShadowsocksCrypter),
+}
+pin_project! {
+  struct ShadowsocksDecryptReader<R> {
+    #[pin]
+    inner: R,
+    state: ReadState,
+    buf: BytesMut,
+  }
 }
 
-struct ShadowsocksDecryptReader<R> {
-  encrypter: ShadowsocksCrypter,
-  inner: R,
-  state: ReadState,
-  buf: BytesMut,
-  salt: BytesMut,
+impl<R: AsyncRead> ShadowsocksDecryptReader<R> {
+  fn new(reader: R, method: ShadowsocksCipherKind, master_key: &[u8]) -> Self {
+    Self {
+      inner: reader,
+      state: ReadState::ReadSalt {
+        master_key: Bytes::copy_from_slice(master_key),
+        method,
+      },
+      buf: BytesMut::with_capacity(8192),
+    }
+  }
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for ShadowsocksDecryptReader<R> {
+  fn poll_read(
+    mut self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    buf: &mut tokio::io::ReadBuf<'_>,
+  ) -> Poll<io::Result<()>> {
+    const SALT_SIZE: usize = 16;
+    let me = &mut *self;
+
+    if buf.remaining() == 0 {
+      return Poll::Ready(Ok(()));
+    }
+
+    loop {
+      match &mut me.state {
+        ReadState::ReadSalt { master_key, method } => {
+          ready!(Pin::new(&mut me.inner).poll_read_buf(cx, &mut me.buf))?;
+          if me.buf.len() >= SALT_SIZE {
+            let salt = me.buf.split_to(SALT_SIZE);
+            let dec = ShadowsocksCrypter::new(CrypterMode::Decrypt, *method, &master_key, &salt)
+              .map_err(|_| crypto_error())?;
+            me.state = ReadState::ReadData(dec);
+          }
+        }
+        ReadState::ReadData(ref mut dec) => {
+          if me.buf.is_empty() {
+            let n = ready!(Pin::new(&mut me.inner).poll_read_buf(cx, &mut me.buf))?;
+            if n == 0 {
+              // EOF
+              return Poll::Ready(Ok(()));
+            }
+          }
+          let consumed = cmp::min(me.buf.len(), buf.remaining());
+          unsafe {
+            buf.assume_init(consumed);
+          }
+
+          match dec {
+            ShadowsocksCrypter::Stream(bc) => {
+              let n = bc
+                .update(&me.buf[..consumed], &mut buf.initialized_mut()[..consumed])
+                .map_err(|_| crypto_error())?;
+              assert_eq!(n, consumed);
+              buf.set_filled(n);
+            }
+          }
+
+          me.buf.advance(consumed);
+          return Poll::Ready(Ok(()));
+        }
+      }
+    }
+  }
 }

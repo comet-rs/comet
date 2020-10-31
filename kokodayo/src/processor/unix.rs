@@ -24,8 +24,7 @@ fn find_uid(content: &str, port: u16) -> Result<Option<String>> {
 
     if local_port == port {
       let uid = split
-        .skip(uid_pos - 4)
-        .next()
+        .nth(uid_pos - 4)
         .ok_or_else(|| anyhow!("Unable to parse uid"))?;
       return Ok(Some(uid.to_string()));
     }
@@ -41,6 +40,7 @@ impl AssociateUidProcessor {
   pub async fn process_conn(&self, conn: &mut Connection, _ctx: &AppContextRef) -> Result<()> {
     match conn.typ {
       TransportType::Tcp => {
+        // Android seems to assign IPv4 connections to `tcp6`, wtf?
         for path in &["/proc/net/tcp6", "/proc/net/tcp"] {
           let content = tokio::fs::read_to_string(&path).await?;
           if let Some(uid) = find_uid(&content, conn.src_addr.port())? {

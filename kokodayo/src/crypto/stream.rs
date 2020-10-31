@@ -1,9 +1,17 @@
 use super::CrypterMode;
 use crate::prelude::*;
 use openssl::symm;
+use std::slice;
 
 pub trait StreamCrypter {
   fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize>;
+  fn update_in_place(&mut self, in_out: &mut [u8]) -> Result<usize> {
+    let in_raw = in_out.as_ptr();
+    self.update(
+      unsafe { slice::from_raw_parts(in_raw, in_out.len()) },
+      in_out,
+    )
+  }
 }
 
 impl StreamCrypter for symm::Crypter {

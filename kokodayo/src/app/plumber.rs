@@ -158,7 +158,8 @@ macro_rules! processor_item_udp {
 processor_item!(
   Sniffer => processor::sniffer::SnifferProcessor,
   Socks5ProxyServer => processor::socks5_proxy::Socks5ProxyServerProcessor,
-  HttpProxyClient => processor::http_proxy::HttpProxyClientProcessor,
+  HttpProxyClient => processor::http::client::ClientProcessor,
+  HttpProxyServer => processor::http::server::ServerProcessor,
   ShadowsocksClient => processor::shadowsocks::ShadowsocksClientProcessor,
   ShadowsocksClientHandshake => processor::shadowsocks::handshake::ShadowsocksClientHandshakeProcessor,
   SsrClientAuth => processor::shadowsocks::auth::SsrClientAuthProcessor,

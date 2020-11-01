@@ -71,8 +71,8 @@ pub enum ProcessorConfig {
   Socks5ProxyServer(processor::socks5_proxy::Socks5ProxyServerConfig),
   // Socks5ProxyClient,
 
-  // HttpProxyServer,
-  HttpProxyClient(processor::http_proxy::HttpProxyClientConfig),
+  HttpProxyServer(processor::http::server::ServerConfig),
+  HttpProxyClient(processor::http::client::ClientConfig),
 
   // ShadowsocksServer,
   ShadowsocksClient(processor::shadowsocks::ShadowsocksClientConfig),

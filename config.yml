@@ -1,6 +1,6 @@
 inbounds:
-  socks5:
-    pipeline: socks5
+  inbound:
+    pipeline: http_in
     transport:
       type: tcp
       port: 8333
@@ -12,6 +12,13 @@ pipelines:
     - type: sniffer
       override_dest: true
       types: [tls, http]
+  http_in:
+    - type: http_proxy_server
+    - type: associate_uid
+    - type: sniffer
+      override_dest: true
+      types: [tls, http]
+
   http_client:
     - type: http_proxy_client
   shadowsocks:
@@ -26,7 +33,7 @@ pipelines:
 
 router:
   defaults:
-    tcp: shadowsocks
+    tcp: direct_tcp
   rules:
     - target: fiddler
       rule:

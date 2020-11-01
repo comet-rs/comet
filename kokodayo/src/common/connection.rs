@@ -43,6 +43,10 @@ impl DestAddr {
     pub fn port_or_error(&self) -> Result<u16> {
         self.port.ok_or_else(|| anyhow!("Dest port unknown"))
     }
+
+    pub fn is_valid(&self) -> bool {
+        (self.domain.is_some() || self.ip.is_some()) && self.port.is_some()
+    }
 }
 
 #[derive(Debug)]

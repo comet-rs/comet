@@ -1,4 +1,4 @@
-pub mod http_proxy;
+pub mod http;
 pub mod sniffer;
 pub mod socks5_proxy;
 pub mod switch;

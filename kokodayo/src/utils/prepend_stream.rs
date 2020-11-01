@@ -14,10 +14,12 @@ pub struct PrependReader<R> {
 
 impl<R: AsyncRead> PrependReader<R> {
   pub fn new(inner: R, prepend: BytesMut) -> Self {
-    PrependReader {
-      inner,
-      prepend: Some(prepend),
-    }
+    let prepend = if prepend.is_empty() {
+      None
+    } else {
+      Some(prepend)
+    };
+    PrependReader { inner, prepend }
   }
 }
 
@@ -53,9 +55,14 @@ pub struct PrependWriter<W> {
 
 impl<W: AsyncWrite> PrependWriter<W> {
   pub fn new(inner: W, prepend: BytesMut) -> Self {
+    let prepend = if prepend.is_empty() {
+      None
+    } else {
+      Some(prepend)
+    };
     PrependWriter {
       inner,
-      prepend: Some(prepend),
+      prepend: prepend,
       len_before_concat: None,
       written: 0,
     }

@@ -5,19 +5,19 @@ use bytes::{Buf, BytesMut};
 use serde::Deserialize;
 use tokio::prelude::*;
 
-pub struct HttpProxyClientProcessor {}
+pub struct ClientProcessor {}
 
-impl HttpProxyClientProcessor {
-  pub fn new(_config: &HttpProxyClientConfig) -> Result<Self> {
-    Ok(HttpProxyClientProcessor {})
+impl ClientProcessor {
+  pub fn new(_config: &ClientConfig) -> Result<Self> {
+    Ok(ClientProcessor {})
   }
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct HttpProxyClientConfig {}
+pub struct ClientConfig {}
 
 #[async_trait]
-impl Processor for HttpProxyClientProcessor {
+impl Processor for ClientProcessor {
   async fn process(
     self: Arc<Self>,
     mut stream: RWPair,
@@ -36,6 +36,7 @@ impl Processor for HttpProxyClientProcessor {
     );
     stream.write(request.as_bytes()).await?;
     let mut buffer = BytesMut::with_capacity(1024);
+    
     loop {
       let mut headers = [httparse::EMPTY_HEADER; 16];
       let mut res = httparse::Response::new(&mut headers);

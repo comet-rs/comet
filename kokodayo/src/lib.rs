@@ -207,6 +207,8 @@ pub mod prelude {
   pub use serde::Deserialize;
   pub use smol_str::SmolStr;
   pub use std::collections::HashMap;
+  pub use std::pin::Pin;
   pub use std::sync::Arc;
+  pub use std::task::Poll;
   pub use tokio::prelude::*;
 }

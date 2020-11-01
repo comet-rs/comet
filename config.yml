@@ -16,9 +16,11 @@ pipelines:
     - type: http_proxy_client
   shadowsocks:
     - type: shadowsocks_client
-      password: "barfoo!"
+      password: "barfo"
       method: "aes-256-cfb"
     - type: ssr_client_auth
+      user_id: 56256
+      protocol: auth_aes128_sha1
     - type: shadowsocks_client_handshake
 
 

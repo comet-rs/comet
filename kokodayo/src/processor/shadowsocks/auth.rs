@@ -16,9 +16,6 @@ use xorshift::Rng;
 
 const PACK_UNIT_SIZE: usize = 2000;
 
-#[derive(Deserialize, Debug, Clone)]
-pub struct SsrClientAuthConfig {}
-
 struct SsrIds {
   client_id: u32,
   connection_id: u32,
@@ -49,14 +46,32 @@ impl SsrIds {
   }
 }
 
+#[derive(Deserialize, Debug, Clone, Copy)]
+pub enum SsrClientAuthType {
+  #[serde(rename = "auth_aes128_md5")]
+  AuthAes128Md5,
+  #[serde(rename = "auth_aes128_sha1")]
+  AuthAes128Sha1,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct SsrClientAuthConfig {
+  user_id: Option<u32>,
+  protocol: SsrClientAuthType,
+}
+
 pub struct SsrClientAuthProcessor {
   ids: Mutex<SsrIds>,
+  user_id: Option<u32>,
+  protocol: SsrClientAuthType,
 }
 
 impl SsrClientAuthProcessor {
-  pub fn new(_config: &SsrClientAuthConfig) -> Result<Self> {
+  pub fn new(config: &SsrClientAuthConfig) -> Result<Self> {
     Ok(Self {
       ids: Mutex::new(SsrIds::new()),
+      user_id: config.user_id,
+      protocol: config.protocol,
     })
   }
   fn new_connection(&self) -> (u32, u32) {
@@ -73,19 +88,21 @@ impl Processor for SsrClientAuthProcessor {
     conn: &mut Connection,
     _ctx: AppContextRef,
   ) -> Result<RWPair> {
-    let user_id = Some(56256);
     let user_key: &Bytes = conn
       .get_var("ss-key")
       .ok_or_else(|| anyhow!("Key not found"))?;
     let write_iv: &Bytes = conn
       .get_var("ss-salt")
       .ok_or_else(|| anyhow!("Key not found"))?;
+
     let stream = AuthAes128ClientStream::new(
       stream,
       self.clone(),
-      user_id,
       user_key.clone(),
-      hashing::HashKind::Md5,
+      match self.protocol {
+        SsrClientAuthType::AuthAes128Md5 => hashing::HashKind::Md5,
+        SsrClientAuthType::AuthAes128Sha1 => hashing::HashKind::Sha1,
+      },
       write_iv.clone(),
     );
 
@@ -109,7 +126,6 @@ struct AuthAes128ClientStream<RW> {
   inner: RW,
   // Writing
   processor: Arc<SsrClientAuthProcessor>,
-  user_id: Option<u32>,
   user_key: Bytes,
   write_chunk_id: u32,
   header_sent: bool,
@@ -126,7 +142,6 @@ impl<RW> AuthAes128ClientStream<RW> {
   fn new(
     inner: RW,
     processor: Arc<SsrClientAuthProcessor>,
-    user_id: Option<u32>,
     user_key: Bytes,
     hash_kind: hashing::HashKind,
     write_iv: Bytes,
@@ -134,7 +149,6 @@ impl<RW> AuthAes128ClientStream<RW> {
     Self {
       inner,
       processor,
-      user_id,
       user_key,
       write_chunk_id: 0,
       header_sent: false,
@@ -183,7 +197,7 @@ impl<RW> AuthAes128ClientStream<RW> {
     |  4  |             16             |     4    |
     +-----+----------------------------+----------+
     */
-    ret.put_u32_le(self.user_id.unwrap_or_else(|| rng.gen()));
+    ret.put_u32_le(self.processor.user_id.unwrap_or_else(|| rng.gen()));
 
     /*
     +-----+-----+---------------+-------------+---------------------+

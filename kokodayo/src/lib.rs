@@ -2,13 +2,13 @@ pub mod app;
 pub mod common;
 pub mod config;
 pub mod context;
+pub mod crypto;
 pub mod dns;
 pub mod net_wrapper;
 pub mod processor;
 pub mod router;
 pub mod transport;
 pub mod utils;
-pub mod crypto;
 
 #[cfg(target_os = "android")]
 pub mod android;
@@ -27,7 +27,7 @@ async fn handle_tcp_conn(
   stream: RWPair,
   ctx: AppContextRef,
 ) -> Result<Connection> {
-  let (mut conn, mut stream) = ctx
+  let (mut conn, stream) = ctx
     .clone_plumber()
     .process_stream(&conn.inbound_pipeline.clone(), conn, stream, ctx.clone())
     .await?;
@@ -35,7 +35,6 @@ async fn handle_tcp_conn(
   info!("Accepted {:?}", conn);
 
   let dest_addr_ips = ctx.dns.resolve_addr(&conn.dest_addr).await?;
-
   let outbound_tag = ctx.router.try_match(&conn, &ctx);
 
   let mut outbound = ctx
@@ -61,7 +60,18 @@ async fn handle_tcp_conn(
     outbound = ret.1;
   }
 
-  stream.bidi_copy(&mut outbound).await?;
+  {
+    use futures::try_join;
+    use tokio::io::{copy, split};
+
+    let mut uplink = split(outbound);
+    let mut downlink = split(stream);
+
+    let c2s = copy(&mut downlink.0, &mut uplink.1);
+    let s2c = copy(&mut uplink.0, &mut downlink.1);
+    try_join!(c2s, s2c)?;
+  }
+
   Ok(conn)
 }
 
@@ -192,11 +202,11 @@ pub mod prelude {
   pub use crate::context::AppContextRef;
   pub use anyhow::Result;
   pub use async_trait::async_trait;
+  pub use bytes::*;
   pub use log::*;
   pub use serde::Deserialize;
   pub use smol_str::SmolStr;
   pub use std::collections::HashMap;
   pub use std::sync::Arc;
   pub use tokio::prelude::*;
-  pub use bytes::*;
 }

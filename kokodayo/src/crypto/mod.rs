@@ -2,6 +2,7 @@ pub mod aead;
 pub mod hashing;
 pub mod rand;
 pub mod stream;
+pub mod block;
 
 pub enum CrypterMode {
   Encrypt,

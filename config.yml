@@ -18,6 +18,7 @@ pipelines:
     - type: shadowsocks_client
       password: "barfoo!"
       method: "aes-256-cfb"
+    - type: ssr_client_auth
     - type: shadowsocks_client_handshake
 
 
@@ -46,7 +47,7 @@ outbounds:
     transport:
       type: tcp
       addr: "127.0.0.1"
-      port: 8388
+      port: 8383
 
 android:
   ports:

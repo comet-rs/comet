@@ -1,4 +1,7 @@
 use crate::prelude::*;
+use crate::utils::io::io_other_error;
+use crate::utils::prepend_stream::PrependWriter;
+use std::io;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ShadowsocksClientHandshakeConfig {}
@@ -8,6 +11,22 @@ pub struct ShadowsocksClientHandshakeProcessor {}
 impl ShadowsocksClientHandshakeProcessor {
   pub fn new(_config: &ShadowsocksClientHandshakeConfig) -> Result<Self> {
     Ok(Self {})
+  }
+
+  pub fn header_len(buf: &[u8]) -> io::Result<usize> {
+    if buf.len() < 4 {
+      return Err(io_other_error("header incomplete"));
+    }
+    let expected_len = match buf[0] {
+      3 => 2 + buf[1] + 2,
+      1 => 1 + 4 + 2,
+      4 => 1 + 16 + 2,
+      _ => return Err(io_other_error("invalid addr type")),
+    } as usize;
+    if buf.len() < expected_len {
+      return Err(io_other_error("header incomplete"));
+    }
+    Ok(expected_len)
   }
 }
 
@@ -46,6 +65,6 @@ impl Processor for ShadowsocksClientHandshakeProcessor {
     };
     buf.put_u16(dest_addr.port_or_error()?);
 
-    Ok(stream.prepend_write(buf))
+    Ok(RWPair::new(PrependWriter::new(stream, buf)))
   }
 }

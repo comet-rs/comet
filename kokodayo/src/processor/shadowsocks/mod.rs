@@ -58,7 +58,7 @@ impl ShadowsocksCipherKind {
 }
 
 pub enum ShadowsocksCrypter {
-  Stream(Box<dyn stream::StreamCrypter + Send + 'static>),
+  Stream(Box<dyn stream::StreamCrypter + 'static>),
 }
 
 impl ShadowsocksCrypter {
@@ -99,12 +99,15 @@ impl Processor for ShadowsocksClientProcessor {
   async fn process(
     self: Arc<Self>,
     stream: RWPair,
-    _conn: &mut Connection,
+    conn: &mut Connection,
     _ctx: AppContextRef,
   ) -> Result<RWPair> {
-    let writer = ShadowsocksEncryptWriter::new(stream.write_half, self.method, &self.master_key)?;
-    let reader = ShadowsocksDecryptReader::new(stream.read_half, self.method, &self.master_key);
-    Ok(RWPair::new_parts(reader, writer))
+    let salt = self.method.generate_salt()?;
+    let stream = ShadowsocksClientStream::new(stream, self.method, &self.master_key, &salt)?;
+    conn.set_var("ss-salt", salt);
+    conn.set_var("ss-key", self.master_key.clone());
+
+    Ok(RWPair::new(stream))
   }
 }
 
@@ -113,44 +116,62 @@ enum WriteState {
   Writing { consumed: usize, written: usize },
 }
 
-struct ShadowsocksEncryptWriter<W> {
-  encrypter: ShadowsocksCrypter,
-  inner: W,
-  state: WriteState,
-  buf: BytesMut,
+enum ReadState {
+  ReadSalt {
+    master_key: Bytes,
+    method: ShadowsocksCipherKind,
+    salt_buf: Limit<BytesMut>,
+  },
+  ReadData(ShadowsocksCrypter),
 }
 
-impl<W: AsyncWrite + Unpin> ShadowsocksEncryptWriter<W> {
-  fn new(writer: W, method: ShadowsocksCipherKind, master_key: &[u8]) -> Result<Self> {
-    let salt = method.generate_salt()?;
+struct ShadowsocksClientStream<RW> {
+  inner: RW,
+  // Writing
+  encrypter: ShadowsocksCrypter,
+  write_state: WriteState,
+  write_buf: BytesMut,
+  // Reading
+  read_state: ReadState,
+}
+
+impl<RW> ShadowsocksClientStream<RW> {
+  fn new(inner: RW, method: ShadowsocksCipherKind, master_key: &[u8], salt: &[u8]) -> Result<Self> {
     let encrypter = ShadowsocksCrypter::new(CrypterMode::Encrypt, method, master_key, &salt)?;
     let mut buf = BytesMut::with_capacity(8192);
     buf.put_slice(&salt);
 
     Ok(Self {
+      inner,
+
       encrypter,
-      inner: writer,
-      buf,
-      state: WriteState::Waiting,
+      write_buf: buf,
+      write_state: WriteState::Waiting,
+
+      read_state: ReadState::ReadSalt {
+        master_key: Bytes::copy_from_slice(master_key),
+        method,
+        salt_buf: BytesMut::with_capacity(16).limit(16),
+      },
     })
   }
 }
 
-impl<W: AsyncWrite + Unpin> AsyncWrite for ShadowsocksEncryptWriter<W> {
+impl<RW: AsyncWrite + Unpin> AsyncWrite for ShadowsocksClientStream<RW> {
   fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<io::Result<usize>> {
     loop {
-      match self.state {
+      match self.write_state {
         WriteState::Waiting => {
           let me = &mut *self;
 
-          let consumed = cmp::min(buf.len(), me.buf.remaining_mut());
+          let consumed = cmp::min(buf.len(), me.write_buf.remaining_mut());
           assert!(consumed > 0);
 
-          let old_len = me.buf.len();
+          let old_len = me.write_buf.len();
           unsafe {
-            me.buf.set_len(old_len + consumed);
+            me.write_buf.set_len(old_len + consumed);
           }
-          let mut crypto_output = &mut me.buf[old_len..old_len + consumed];
+          let mut crypto_output = &mut me.write_buf[old_len..old_len + consumed];
           crypto_output.copy_from_slice(&buf[0..consumed]);
 
           match &mut me.encrypter {
@@ -158,10 +179,10 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for ShadowsocksEncryptWriter<W> {
               let n = bc
                 .update_in_place(&mut crypto_output)
                 .map_err(|_| crypto_error())?;
-              me.buf.truncate(old_len + n);
+              me.write_buf.truncate(old_len + n);
             }
           }
-          self.state = WriteState::Writing {
+          self.write_state = WriteState::Writing {
             consumed,
             written: 0,
           };
@@ -171,16 +192,16 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for ShadowsocksEncryptWriter<W> {
           mut written,
         } => {
           let me = &mut *self;
-          let n = ready!(Pin::new(&mut me.inner).poll_write(cx, &me.buf[written..]))?;
+          let n = ready!(Pin::new(&mut me.inner).poll_write(cx, &me.write_buf[written..]))?;
 
           written += n;
-          if written >= me.buf.len() {
+          if written >= me.write_buf.len() {
             // Writing complete
-            me.state = WriteState::Waiting;
-            me.buf.clear();
+            me.write_state = WriteState::Waiting;
+            me.write_buf.clear();
             return Poll::Ready(Ok(consumed));
           }
-          self.state = WriteState::Writing { consumed, written };
+          self.write_state = WriteState::Writing { consumed, written };
         }
       }
     }
@@ -194,34 +215,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for ShadowsocksEncryptWriter<W> {
   }
 }
 
-enum ReadState {
-  ReadSalt {
-    master_key: Bytes,
-    method: ShadowsocksCipherKind,
-    salt_buf: Limit<BytesMut>,
-  },
-  ReadData(ShadowsocksCrypter),
-}
-
-struct ShadowsocksDecryptReader<R> {
-  inner: R,
-  state: ReadState,
-}
-
-impl<R: AsyncRead> ShadowsocksDecryptReader<R> {
-  fn new(reader: R, method: ShadowsocksCipherKind, master_key: &[u8]) -> Self {
-    Self {
-      inner: reader,
-      state: ReadState::ReadSalt {
-        master_key: Bytes::copy_from_slice(master_key),
-        method,
-        salt_buf: BytesMut::with_capacity(16).limit(16),
-      },
-    }
-  }
-}
-
-impl<R: AsyncRead + Unpin> AsyncRead for ShadowsocksDecryptReader<R> {
+impl<RW: AsyncRead + Unpin> AsyncRead for ShadowsocksClientStream<RW> {
   fn poll_read(
     mut self: Pin<&mut Self>,
     cx: &mut Context<'_>,
@@ -234,13 +228,16 @@ impl<R: AsyncRead + Unpin> AsyncRead for ShadowsocksDecryptReader<R> {
     }
 
     loop {
-      match &mut me.state {
+      match &mut me.read_state {
         ReadState::ReadSalt {
           master_key,
           method,
           salt_buf,
         } => {
-          ready!(Pin::new(&mut me.inner).poll_read_buf(cx, salt_buf))?;
+          let n = ready!(Pin::new(&mut me.inner).poll_read_buf(cx, salt_buf))?;
+          if n == 0 {
+            return Poll::Ready(Ok(()));
+          }
           if !salt_buf.has_remaining_mut() {
             let dec = ShadowsocksCrypter::new(
               CrypterMode::Decrypt,
@@ -249,7 +246,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for ShadowsocksDecryptReader<R> {
               &salt_buf.get_ref(),
             )
             .map_err(|_| crypto_error())?;
-            me.state = ReadState::ReadData(dec);
+            me.read_state = ReadState::ReadData(dec);
           }
         }
         ReadState::ReadData(dec) => {

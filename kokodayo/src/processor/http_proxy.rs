@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::utils::prepend_stream::PrependReader;
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
 use serde::Deserialize;
@@ -42,7 +43,7 @@ impl Processor for HttpProxyClientProcessor {
       match res.parse(&buffer[..])? {
         httparse::Status::Complete(len) => {
           buffer.advance(len);
-          return Ok(stream.prepend_read(buffer));
+          return Ok(RWPair::new(PrependReader::new(stream, buffer)));
         }
         httparse::Status::Partial => {
           if n == 0 {

@@ -1,33 +1,25 @@
 use super::CrypterMode;
 use crate::prelude::*;
 use openssl::symm;
-use std::slice;
 
-pub trait StreamCrypter: Send + Sync {
+pub trait BlockCrypter: Send + Sync {
   fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize>;
-  fn update_in_place(&mut self, in_out: &mut [u8]) -> Result<usize> {
-    let in_raw = in_out.as_ptr();
-    self.update(
-      unsafe { slice::from_raw_parts(in_raw, in_out.len()) },
-      in_out,
-    )
-  }
 }
 
-impl StreamCrypter for symm::Crypter {
+impl BlockCrypter for symm::Crypter {
   fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize> {
     Ok(self.update(input, output)?)
   }
 }
 
-pub enum StreamCipherKind {
-  Aes256Cfb,
+pub enum BlockCipherKind {
+  Aes128Cbc,
 }
 
-impl StreamCipherKind {
+impl BlockCipherKind {
   fn get_openssl_cipher(&self) -> symm::Cipher {
     match self {
-      StreamCipherKind::Aes256Cfb => symm::Cipher::aes_256_cfb128(),
+      BlockCipherKind::Aes128Cbc => symm::Cipher::aes_128_cbc(),
     }
   }
 
@@ -48,13 +40,15 @@ impl StreamCipherKind {
     mode: CrypterMode,
     key: &'a [u8],
     iv: impl Into<Option<&'a [u8]>>,
-  ) -> Result<Box<dyn StreamCrypter>> {
+    padding: bool
+  ) -> Result<Box<dyn BlockCrypter>> {
     let openssl_mode = match mode {
       CrypterMode::Decrypt => symm::Mode::Decrypt,
       CrypterMode::Encrypt => symm::Mode::Encrypt,
     };
 
-    let crypter = symm::Crypter::new(self.get_openssl_cipher(), openssl_mode, key, iv.into())?;
+    let mut crypter = symm::Crypter::new(self.get_openssl_cipher(), openssl_mode, key, iv.into())?;
+    crypter.pad(padding);
     Ok(Box::new(crypter))
   }
 }

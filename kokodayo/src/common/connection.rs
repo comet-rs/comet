@@ -1,6 +1,7 @@
 use crate::TransportType;
 use anyhow::{anyhow, Result};
 use smol_str::SmolStr;
+use std::any::Any;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -50,7 +51,7 @@ pub struct Connection {
     pub inbound_pipeline: SmolStr,
     pub src_addr: SocketAddr,
     pub dest_addr: DestAddr,
-    pub variables: HashMap<SmolStr, SmolStr>,
+    pub variables: HashMap<SmolStr, Box<dyn Any + Send + Sync>>,
     pub typ: TransportType,
     pub internal: bool,
 }
@@ -73,12 +74,12 @@ impl Connection {
         }
     }
 
-    pub fn set_var<K: Into<SmolStr>, V: Into<SmolStr>>(&mut self, key: K, value: V) {
-        self.variables.insert(key.into(), value.into());
+    pub fn set_var<K: Into<SmolStr>, V: Any + Send + Sync>(&mut self, key: K, value: V) {
+        self.variables.insert(key.into(), Box::new(value));
     }
 
-    pub fn get_var(&self, key: &str) -> Option<&str> {
-        self.variables.get(key).map(|v| v.borrow())
+    pub fn get_var<T: Any + Send + Sync>(&self, key: &str) -> Option<&T> {
+        self.variables.get(key).and_then(|v| v.downcast_ref::<T>())
     }
 }
 

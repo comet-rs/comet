@@ -1,7 +1,6 @@
 use crate::config::{Config, Outbound};
 use crate::prelude::*;
-use crate::utils::metered_stream::MeteredReader;
-use crate::utils::metered_stream::MeteredWriter;
+use crate::utils::metered_stream::MeteredStream;
 use crate::utils::unix_ts;
 use anyhow::anyhow;
 use std::collections::HashMap;
@@ -63,12 +62,12 @@ impl OutboundManager {
     let addr = outbound.transport.addr.unwrap_or(addr);
 
     let stream = crate::net_wrapper::connect_tcp(&SocketAddr::from((addr, port))).await?;
-    let splitted = stream.into_split();
-
-    Ok(RWPair::new_parts(
-      BufReader::new(MeteredReader::new_outbound(splitted.0, &tag, ctx)),
-      MeteredWriter::new_outbound(splitted.1, &tag, ctx),
-    ))
+    
+    Ok(RWPair::new(MeteredStream::new_outbound(
+      BufReader::new(stream),
+      &tag,
+      &ctx,
+    )))
   }
 
   pub async fn connect_tcp_multi(

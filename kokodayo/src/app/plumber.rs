@@ -161,6 +161,7 @@ processor_item!(
   HttpProxyClient => processor::http_proxy::HttpProxyClientProcessor,
   ShadowsocksClient => processor::shadowsocks::ShadowsocksClientProcessor,
   ShadowsocksClientHandshake => processor::shadowsocks::handshake::ShadowsocksClientHandshakeProcessor,
+  SsrClientAuth => processor::shadowsocks::auth::SsrClientAuthProcessor,
   AndroidNat => processor::android::AndroidNatProcessor[target_os = "android"],
   AssociateUid => processor::unix::AssociateUidProcessor[target_os = "linux", target_os = "android"]
 );

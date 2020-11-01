@@ -9,26 +9,26 @@ use std::pin::Pin;
 use tokio::io::ReadBuf;
 
 pin_project! {
-  pub struct MeteredReader<R> {
+  pub struct MeteredStream<RW> {
     #[pin]
-    inner: R,
+    inner: RW,
     values: Arc<MetricsValues>
   }
 }
 
-impl<R: AsyncRead> MeteredReader<R> {
-  pub fn new_inbound(inner: R, tag: &str, ctx: &AppContextRef) -> Self {
+impl<RW> MeteredStream<RW> {
+  pub fn new_inbound(inner: RW, tag: &str, ctx: &AppContextRef) -> Self {
     let values = ctx.metrics.get_inbound(tag).unwrap();
-    MeteredReader { inner, values }
+    Self { inner, values }
   }
 
-  pub fn new_outbound(inner: R, tag: &str, ctx: &AppContextRef) -> Self {
+  pub fn new_outbound(inner: RW, tag: &str, ctx: &AppContextRef) -> Self {
     let values = ctx.metrics.get_outbound(tag).unwrap();
-    MeteredReader { inner, values }
+    Self { inner, values }
   }
 }
 
-impl<R: AsyncRead> AsyncRead for MeteredReader<R> {
+impl<R: AsyncRead> AsyncRead for MeteredStream<R> {
   fn poll_read(
     self: Pin<&mut Self>,
     cx: &mut Context<'_>,
@@ -47,32 +47,8 @@ impl<R: AsyncRead> AsyncRead for MeteredReader<R> {
   }
 }
 
-pin_project! {
-  pub struct MeteredWriter<W> {
-    #[pin]
-    inner: W,
-    values: Arc<MetricsValues>
-  }
-}
-
-impl<W: AsyncWrite> MeteredWriter<W> {
-  pub fn new_inbound(inner: W, tag: &str, ctx: &AppContextRef) -> Self {
-    let values = ctx.metrics.get_inbound(tag).unwrap();
-    MeteredWriter { inner, values }
-  }
-
-  pub fn new_outbound(inner: W, tag: &str, ctx: &AppContextRef) -> Self {
-    let values = ctx.metrics.get_outbound(tag).unwrap();
-    MeteredWriter { inner, values }
-  }
-}
-
-impl<W: AsyncWrite> AsyncWrite for MeteredWriter<W> {
-  fn poll_write(
-    self: Pin<&mut Self>,
-    cx: &mut Context<'_>,
-    buf: &[u8],
-  ) -> Poll<io::Result<usize>> {
+impl<W: AsyncWrite> AsyncWrite for MeteredStream<W> {
+  fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
     let values = self.values.clone();
     let me = self.project();
     let r = ready!(me.inner.poll_write(cx, buf))?;
@@ -88,12 +64,5 @@ impl<W: AsyncWrite> AsyncWrite for MeteredWriter<W> {
   fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
     let me = self.project();
     me.inner.poll_shutdown(cx)
-  }
-}
-
-pin_project! {
-  pub struct MeteredStream<RW> {
-    #[pin]
-    inner: MeteredReader<MeteredWriter<RW>>
   }
 }

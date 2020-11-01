@@ -77,6 +77,7 @@ pub enum ProcessorConfig {
   // ShadowsocksServer,
   ShadowsocksClient(processor::shadowsocks::ShadowsocksClientConfig),
   ShadowsocksClientHandshake(processor::shadowsocks::handshake::ShadowsocksClientHandshakeConfig),
+  SsrClientAuth(processor::shadowsocks::auth::SsrClientAuthConfig),
 
   // SsrObfsServer,
   // SsrObfsClient,

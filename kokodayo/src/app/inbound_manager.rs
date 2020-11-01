@@ -1,6 +1,6 @@
 use crate::config::{Config, Inbound};
 use crate::prelude::*;
-use crate::utils::metered_stream::{MeteredReader, MeteredWriter};
+use crate::utils::metered_stream::MeteredStream;
 use log::info;
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
@@ -52,17 +52,13 @@ impl InboundManager {
             loop {
               let (stream, src_addr) = listener.accept().await.unwrap();
               let conn = Connection::new(src_addr, tag.clone(), pipe.clone(), TransportType::Tcp);
-              let splitted = stream.into_split();
               info!("Inbound {}/TCP accepted from {}", tag, src_addr);
-              sender
-                .send((
-                  conn,
-                  RWPair::new_parts(
-                    BufReader::new(MeteredReader::new_inbound(splitted.0, &tag, &ctx)),
-                    MeteredWriter::new_inbound(splitted.1, &tag, &ctx),
-                  ),
-                ))
-                .unwrap();
+              let stream = RWPair::new(MeteredStream::new_inbound(
+                BufReader::new(stream),
+                &tag,
+                &ctx,
+              ));
+              sender.send((conn, stream)).unwrap();
             }
           });
         }

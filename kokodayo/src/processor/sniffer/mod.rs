@@ -1,6 +1,7 @@
 mod http;
 mod tls;
 use crate::prelude::*;
+use crate::utils::prepend_stream::PrependReader;
 use bytes::{BufMut, BytesMut};
 use log::warn;
 use std::net::IpAddr;
@@ -59,7 +60,7 @@ impl Processor for SnifferProcessor {
             let read_bytes = stream.read_buf(&mut buffer).await?;
             if read_bytes == 0 {
                 warn!("Got EOF while sniffing: {:?}", buffer);
-                return Ok(stream.prepend_read(buffer));
+                return Ok(RWPair::new(PrependReader::new(stream, buffer)));
             }
 
             if !http_failed {
@@ -78,7 +79,7 @@ impl Processor for SnifferProcessor {
                         } else {
                             conn.dest_addr.set_domain(s);
                         }
-                        return Ok(stream.prepend_read(buffer));
+                        return Ok(RWPair::new(PrependReader::new(stream, buffer)));
                     }
                 }
             }
@@ -91,7 +92,7 @@ impl Processor for SnifferProcessor {
                     SniffStatus::Success(s) => {
                         conn.set_var("protocol", "tls");
                         conn.dest_addr.set_domain(s);
-                        return Ok(stream.prepend_read(buffer));
+                        return Ok(RWPair::new(PrependReader::new(stream, buffer)));
                     }
                 }
             }
@@ -100,7 +101,7 @@ impl Processor for SnifferProcessor {
             }
             attempts += 1;
         }
-        Ok(stream.prepend_read(buffer))
+        Ok(RWPair::new(PrependReader::new(stream, buffer)))
     }
 }
 

@@ -1,5 +1,5 @@
 [package]
-name = "kokodayo"
+name = "comet"
 version = "0.1.0"
 authors = ["Comet <comet@email.com>"]
 edition = "2018"

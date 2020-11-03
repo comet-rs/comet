@@ -1,11 +1,11 @@
 [package]
-name = "kokodayo-bin"
+name = "comet-bin"
 version = "0.1.0"
 authors = ["Comet <comet@email.com>"]
 edition = "2018"
 
 [dependencies]
-kokodayo = { path = "../kokodayo" }
+comet = { path = "../comet" }
 env_logger = "0.8"
 anyhow = "1.0"
 tokio = { version = "0.3.1", features = ["full"] }

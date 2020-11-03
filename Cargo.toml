@@ -1,9 +1,9 @@
 [workspace]
 
 members = [
-    "kokodayo",
-    "kokodayo-bin",
-    "kokodayo-android",
+    "comet",
+    "comet-bin",
+    "comet-android",
 ]
 
 [profile.release]

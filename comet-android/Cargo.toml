@@ -1,5 +1,5 @@
 [package]
-name = "kokodayo-android"
+name = "comet-android"
 version = "0.1.0"
 authors = ["Comet <comet@email.com>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 crate_type=["cdylib"]
 
 [dependencies]
-kokodayo = { path = "../kokodayo" }
+comet = { path = "../comet" }
 android_logger = "0.9.0"
 jni = "0.18.0"
 anyhow = "1.0"

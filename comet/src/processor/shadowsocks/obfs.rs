@@ -169,6 +169,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for StripHttpHeaderStream<R> {
 }
 delegate_write_all!(StripHttpHeaderStream);
 
+#[derive(Deserialize, Debug, Clone)]
 enum ObfsHttpMethod {
   Get,
   Post,

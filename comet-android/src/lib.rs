@@ -3,7 +3,7 @@ use anyhow::Result;
 use jni::objects::{JObject, JClass, JMap, JString};
 use jni::sys::jint;
 use jni::JNIEnv;
-use kokodayo::run_android;
+use comet::run_android;
 use smol_str::SmolStr;
 use std::borrow::Cow;
 use std::collections::HashMap;

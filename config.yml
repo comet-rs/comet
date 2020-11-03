@@ -1,19 +1,24 @@
 inbounds:
-  inbound:
+  inbound_http:
     pipeline: http_in
     transport:
       type: tcp
       port: 8333
+  inbound_socks:
+    pipeline: socks_in
+    transport:
+      type: tcp
+      port: 8334
 
 pipelines:
-  socks5:
+  socks_in:
     - type: socks5_proxy_server
     - type: associate_uid
     - type: sniffer
       override_dest: true
       types: [tls, http]
   http_in:
-    - type: socks5_proxy_server
+    - type: http_proxy_server
     - type: associate_uid
     - type: sniffer
       override_dest: true

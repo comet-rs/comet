@@ -1,5 +1,5 @@
 use anyhow::Result;
-use kokodayo::run_bin;
+use comet::run_bin;
 use tokio::signal;
 
 use log::info;

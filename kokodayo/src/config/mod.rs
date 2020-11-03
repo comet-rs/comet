@@ -25,6 +25,8 @@ pub struct Config {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Inbound {
   pub pipeline: SmolStr,
+  #[serde(default)]
+  pub metering: bool,
   pub transport: TransportConfig,
 }
 
@@ -38,6 +40,8 @@ pub struct TransportConfig {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Outbound {
   pub pipeline: Option<SmolStr>,
+  #[serde(default)]
+  pub metering: bool,
   pub transport: OutboundTransportConfig,
 }
 

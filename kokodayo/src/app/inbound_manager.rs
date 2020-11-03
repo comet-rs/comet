@@ -41,6 +41,7 @@ impl InboundManager {
       let tag = inbound.0.clone();
       let pipe = inbound.1.pipeline.clone();
       let port = transport.port;
+      let metering = inbound.1.metering;
 
       match transport.r#type {
         TransportType::Tcp => {
@@ -53,11 +54,15 @@ impl InboundManager {
               let (stream, src_addr) = listener.accept().await.unwrap();
               let conn = Connection::new(src_addr, tag.clone(), pipe.clone(), TransportType::Tcp);
               info!("Inbound {}/TCP accepted from {}", tag, src_addr);
-              let stream = RWPair::new(MeteredStream::new_inbound(
-                BufReader::new(stream),
-                &tag,
-                &ctx,
-              ));
+              let stream = if metering {
+                RWPair::new(MeteredStream::new_inbound(
+                  BufReader::new(stream),
+                  &tag,
+                  &ctx,
+                ))
+              } else {
+                RWPair::new(BufReader::new(stream))
+              };
               sender.send((conn, stream)).unwrap();
             }
           });

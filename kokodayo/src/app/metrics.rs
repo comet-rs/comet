@@ -30,12 +30,16 @@ impl Metrics {
     let mut inbounds = HashMap::new();
     let mut outbounds = HashMap::new();
 
-    for tag in config.inbounds.keys() {
-      inbounds.insert(tag.clone(), Arc::new(MetricsValues::default()));
+    for (tag, inbound) in &config.inbounds {
+      if inbound.metering {
+        inbounds.insert(tag.clone(), Arc::new(MetricsValues::default()));
+      }
     }
 
-    for tag in config.outbounds.keys() {
-      outbounds.insert(tag.clone(), Arc::new(MetricsValues::default()));
+    for (tag, outbound) in &config.outbounds {
+      if outbound.metering {
+        outbounds.insert(tag.clone(), Arc::new(MetricsValues::default()));
+      }
     }
 
     Self {

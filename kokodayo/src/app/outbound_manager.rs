@@ -62,11 +62,15 @@ impl OutboundManager {
     let addr = outbound.transport.addr.unwrap_or(addr);
 
     let stream = crate::net_wrapper::connect_tcp(&SocketAddr::from((addr, port))).await?;
-    Ok(RWPair::new(MeteredStream::new_outbound(
-      BufReader::new(stream),
-      &tag,
-      &ctx,
-    )))
+    Ok(if outbound.metering {
+      RWPair::new(MeteredStream::new_outbound(
+        BufReader::new(stream),
+        &tag,
+        &ctx,
+      ))
+    } else {
+      RWPair::new(BufReader::new(stream))
+    })
   }
 
   pub async fn connect_tcp_multi(

@@ -58,6 +58,7 @@ outbounds:
       port: 8888
   shadowsocks:
     pipeline: shadowsocks
+    metering: true
     transport:
       type: tcp
       addr: "47.106.59.183"

@@ -1,11 +1,15 @@
 use crate::config::Config;
+use crate::crypto::rand::xor_rng;
 use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
 use anyhow::anyhow;
-use log::info;
+use lru_cache::LruCache;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
+use tokio::sync::Mutex;
+use tokio::sync::RwLock;
+use xorshift::Rng;
 
 use trust_dns_proto::op::{Message, MessageType, OpCode, Query};
 use trust_dns_proto::rr::{Name, Record, RecordType};
@@ -14,8 +18,6 @@ use trust_dns_proto::serialize::binary::BinEncodable;
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8;
 
 fn new_lookup(query: &Query) -> Message {
-    info!("querying: {:?}", query);
-
     let mut message: Message = Message::new();
     let id: u16 = rand::random();
 
@@ -49,14 +51,17 @@ async fn xfer_message(query: Message) -> Result<Message> {
 
 pub struct DnsService {
     cache: HashMap<Query, Record>,
+    fake_map: Option<RwLock<LruCache<u16, SmolStr>>>,
 }
 
 impl DnsService {
     pub fn new(_config: &Config) -> Self {
         Self {
             cache: HashMap::new(),
+            fake_map: Some(RwLock::new(LruCache::new(512))),
         }
     }
+
     pub async fn process_query(&self, bytes: &[u8]) -> Result<Vec<u8>> {
         let message_query = Message::from_vec(bytes)?;
 
@@ -89,5 +94,32 @@ impl DnsService {
                 .map(|a| a.ip())
                 .collect::<Vec<_>>())
         }
+    }
+
+    /// Blindly insert an item into the map
+    pub async fn fake_set(&mut self, domain: &str) -> Ipv4Addr {
+        let map_ref = self.fake_map.as_ref().unwrap();
+        let mut map_ref_write = map_ref.write().await;
+        let mut rng = xor_rng();
+        // This is not optimal, but probably faster than iterating again.
+        loop {
+            let id: u16 = rng.gen();
+            if !map_ref_write.contains_key(&id) {
+                map_ref_write.insert(id, SmolStr::from(domain));
+                let bytes = id.to_be_bytes();
+                let ip = Ipv4Addr::new(10, 233, bytes[0], bytes[1]);
+                break ip;
+            }
+        }
+    }
+
+    pub async fn fake_get(&mut self, addr: &Ipv4Addr) -> Option<SmolStr> {
+        let map_ref = self.fake_map.as_ref().unwrap();
+        let mut map_ref_write = map_ref.write().await;
+
+        let octets = addr.octets();
+        let id = u16::from_be_bytes([octets[2], octets[3]]);
+
+        map_ref_write.get_mut(&id).map(|domain| domain.clone())
     }
 }

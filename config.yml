@@ -13,7 +13,7 @@ pipelines:
       override_dest: true
       types: [tls, http]
   http_in:
-    - type: http_proxy_server
+    - type: socks5_proxy_server
     - type: associate_uid
     - type: sniffer
       override_dest: true
@@ -22,18 +22,23 @@ pipelines:
   http_client:
     - type: http_proxy_client
   shadowsocks:
+    - type: ssr_client_obfs
+      obfs: http_simple
+      port: 8088
+      hosts: ['08e7556256.download.windowsupdate.com']
     - type: shadowsocks_client
-      password: "barfo"
+      password: "ssmu"
       method: "aes-256-cfb"
     - type: ssr_client_auth
       user_id: 56256
-      protocol: auth_aes128_sha1
+      user_key: "******"
+      protocol: auth_aes128_md5
     - type: shadowsocks_client_handshake
 
 
 router:
   defaults:
-    tcp: direct_tcp
+    tcp: shadowsocks
   rules:
     - target: fiddler
       rule:
@@ -55,8 +60,8 @@ outbounds:
     pipeline: shadowsocks
     transport:
       type: tcp
-      addr: "127.0.0.1"
-      port: 8383
+      addr: "47.106.59.183"
+      port: 8088
 
 android:
   ports:

@@ -163,6 +163,7 @@ processor_item!(
   ShadowsocksClient => processor::shadowsocks::ShadowsocksClientProcessor,
   ShadowsocksClientHandshake => processor::shadowsocks::handshake::ShadowsocksClientHandshakeProcessor,
   SsrClientAuth => processor::shadowsocks::auth::SsrClientAuthProcessor,
+  SsrClientObfs => processor::shadowsocks::obfs::ClientProcessor,
   AndroidNat => processor::android::AndroidNatProcessor[target_os = "android"],
   AssociateUid => processor::unix::AssociateUidProcessor[target_os = "linux", target_os = "android"]
 );

@@ -64,8 +64,19 @@ macro_rules! delegate_write_all {
   ($type:ident) => {
     impl<W: AsyncWrite + Unpin> AsyncWrite for $type<W> {
       crate::delegate_write!();
-      delegate_flush!();
-      delegate_shutdown!();
+      crate::delegate_flush!();
+      crate::delegate_shutdown!();
     }
   };
+}
+
+#[macro_export]
+macro_rules! check_eof {
+  ($s:expr) => {{
+    let n = $s;
+    if n == 0 {
+      return Poll::Ready(Ok(()));
+    }
+    n
+  }};
 }

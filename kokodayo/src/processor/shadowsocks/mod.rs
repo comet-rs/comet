@@ -9,6 +9,7 @@ use std::task::{Context, Poll};
 
 pub mod auth;
 pub mod handshake;
+pub mod obfs;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ShadowsocksClientConfig {

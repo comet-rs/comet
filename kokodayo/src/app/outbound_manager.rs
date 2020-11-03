@@ -62,7 +62,6 @@ impl OutboundManager {
     let addr = outbound.transport.addr.unwrap_or(addr);
 
     let stream = crate::net_wrapper::connect_tcp(&SocketAddr::from((addr, port))).await?;
-    
     Ok(RWPair::new(MeteredStream::new_outbound(
       BufReader::new(stream),
       &tag,
@@ -77,10 +76,19 @@ impl OutboundManager {
     port: u16,
     ctx: &AppContextRef,
   ) -> Result<RWPair> {
-    for addr in addrs {
+    let outbound = self.get_outbound(tag, TransportType::Tcp)?;
+    if let Some(addr) = outbound.transport.addr {
+      // Dest addr overridden
       match self.connect_tcp(tag, addr, port, ctx).await {
         Ok(stream) => return Ok(stream),
         Err(err) => error!("Trying {}:{} failed: {}", addr, port, err),
+      }
+    } else {
+      for addr in addrs {
+        match self.connect_tcp(tag, addr, port, ctx).await {
+          Ok(stream) => return Ok(stream),
+          Err(err) => error!("Trying {}:{} failed: {}", addr, port, err),
+        }
       }
     }
     Err(anyhow!("All attempts failed"))

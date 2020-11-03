@@ -5,7 +5,6 @@ use std::io;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ShadowsocksClientHandshakeConfig {}
-
 pub struct ShadowsocksClientHandshakeProcessor {}
 
 impl ShadowsocksClientHandshakeProcessor {

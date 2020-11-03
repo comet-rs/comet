@@ -74,16 +74,11 @@ pub enum ProcessorConfig {
   HttpProxyServer(processor::http::server::ServerConfig),
   HttpProxyClient(processor::http::client::ClientConfig),
 
-  // ShadowsocksServer,
   ShadowsocksClient(processor::shadowsocks::ShadowsocksClientConfig),
   ShadowsocksClientHandshake(processor::shadowsocks::handshake::ShadowsocksClientHandshakeConfig),
   SsrClientAuth(processor::shadowsocks::auth::SsrClientAuthConfig),
+  SsrClientObfs(processor::shadowsocks::obfs::ClientConfig),
 
-  // SsrObfsServer,
-  // SsrObfsClient,
-
-  // VmessServer,
-  // VmessClient,
   #[cfg(target_os = "android")]
   AndroidNat(processor::android::AndroidNatConfig),
   AssociateUid(processor::unix::AssociateUidConfig)

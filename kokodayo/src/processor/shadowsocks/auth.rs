@@ -1,4 +1,5 @@
 use super::handshake::ShadowsocksClientHandshakeProcessor;
+use crate::check_eof;
 use crate::crypto::rand::xor_rng;
 use crate::crypto::*;
 use crate::prelude::*;
@@ -58,20 +59,32 @@ pub enum SsrClientAuthType {
 pub struct SsrClientAuthConfig {
   user_id: Option<u32>,
   protocol: SsrClientAuthType,
+  user_key: Option<SmolStr>,
 }
 
 pub struct SsrClientAuthProcessor {
   ids: Mutex<SsrIds>,
   user_id: Option<u32>,
+  user_key: Option<Bytes>,
   protocol: SsrClientAuthType,
 }
 
 impl SsrClientAuthProcessor {
   pub fn new(config: &SsrClientAuthConfig) -> Result<Self> {
+    let user_key = config.user_key.as_ref().map(|key| match config.protocol {
+      SsrClientAuthType::AuthAes128Md5 => {
+        hashing::hash_bytes(hashing::HashKind::Md5, key.as_bytes()).unwrap()
+      }
+      SsrClientAuthType::AuthAes128Sha1 => {
+        hashing::hash_bytes(hashing::HashKind::Sha1, key.as_bytes()).unwrap()
+      }
+    });
+
     Ok(Self {
       ids: Mutex::new(SsrIds::new()),
       user_id: config.user_id,
       protocol: config.protocol,
+      user_key,
     })
   }
   fn new_connection(&self) -> (u32, u32) {
@@ -88,17 +101,18 @@ impl Processor for SsrClientAuthProcessor {
     conn: &mut Connection,
     _ctx: AppContextRef,
   ) -> Result<RWPair> {
-    let user_key: &Bytes = conn
+    let write_key: &Bytes = conn
       .get_var("ss-key")
       .ok_or_else(|| anyhow!("Key not found"))?;
     let write_iv: &Bytes = conn
       .get_var("ss-salt")
-      .ok_or_else(|| anyhow!("Key not found"))?;
+      .ok_or_else(|| anyhow!("WriteIV not found"))?;
 
     let stream = AuthAes128ClientStream::new(
       stream,
       self.clone(),
-      user_key.clone(),
+      self.user_key.as_ref().unwrap_or(write_key).clone(),
+      write_key.clone(),
       match self.protocol {
         SsrClientAuthType::AuthAes128Md5 => hashing::HashKind::Md5,
         SsrClientAuthType::AuthAes128Sha1 => hashing::HashKind::Sha1,
@@ -127,6 +141,7 @@ struct AuthAes128ClientStream<RW> {
   // Writing
   processor: Arc<SsrClientAuthProcessor>,
   user_key: Bytes,
+  write_key: Bytes,
   write_chunk_id: u32,
   header_sent: bool,
   write_iv: Bytes,
@@ -143,6 +158,7 @@ impl<RW> AuthAes128ClientStream<RW> {
     inner: RW,
     processor: Arc<SsrClientAuthProcessor>,
     user_key: Bytes,
+    write_key: Bytes,
     hash_kind: hashing::HashKind,
     write_iv: Bytes,
   ) -> Self {
@@ -150,6 +166,7 @@ impl<RW> AuthAes128ClientStream<RW> {
       inner,
       processor,
       user_key,
+      write_key,
       write_chunk_id: 0,
       header_sent: false,
       write_iv,
@@ -165,7 +182,7 @@ impl<RW> AuthAes128ClientStream<RW> {
 
     let mut part12_hmac_key = BytesMut::with_capacity(self.user_key.len() + self.write_iv.len());
     part12_hmac_key.extend_from_slice(&self.write_iv);
-    part12_hmac_key.extend_from_slice(&self.user_key);
+    part12_hmac_key.extend_from_slice(&self.write_key);
 
     // Part 2-1
     let rnd_len = if buf.len() > 400 {
@@ -346,7 +363,7 @@ impl<RW> AuthAes128ClientStream<RW> {
       chunks.push_back(self.pack_chunk(&buf[..PACK_UNIT_SIZE], full_len)?);
       buf.advance(PACK_UNIT_SIZE);
     }
-    if buf.len() > 0 {
+    if !buf.is_empty() {
       chunks.push_back(self.pack_chunk(&buf, full_len)?);
     }
     Ok(chunks)
@@ -370,14 +387,12 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for AuthAes128ClientStream<RW> {
             let divide_pos = cmp::min(buf.len(), header_len + xor_rng().gen_range(0, 31));
             let header = me
               .pack_auth_data(&buf[..divide_pos])
-              .map_err(|e| io_other_error(e))?;
-            let mut chunks = me
-              .pack_data(&buf[divide_pos..])
-              .map_err(|e| io_other_error(e))?;
+              .map_err(io_other_error)?;
+            let mut chunks = me.pack_data(&buf[divide_pos..]).map_err(io_other_error)?;
             chunks.push_front(header);
             chunks
           } else {
-            me.pack_data(buf).map_err(|e| io_other_error(e))?
+            me.pack_data(buf).map_err(io_other_error)?
           };
           me.write_state = WriteState::Writing { chunks };
         }
@@ -406,16 +421,6 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for AuthAes128ClientStream<RW> {
   fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
     Pin::new(&mut self.inner).poll_shutdown(cx)
   }
-}
-
-macro_rules! check_eof {
-  ($s:expr) => {{
-    let n = $s;
-    if n == 0 {
-      return Poll::Ready(Ok(()));
-    }
-    n
-  }};
 }
 
 impl<RW: AsyncRead + Unpin> AsyncRead for AuthAes128ClientStream<RW> {
@@ -476,23 +481,21 @@ impl<RW: AsyncRead + Unpin> AsyncRead for AuthAes128ClientStream<RW> {
             buf.put_slice(&me.read_buf.split_to(n));
             *payload_len -= n;
             return Poll::Ready(Ok(()));
-          } else {
-            if *payload_len > 0 {
-              // Have unread data, read directly to target without overshooting
-              let mut taken_buf = buf.take(*payload_len);
-              let rem = taken_buf.remaining();
-              ready!(Pin::new(&mut me.inner).poll_read(cx, &mut taken_buf))?;
-              let n = rem - taken_buf.remaining();
-              if n == 0 {
-                return Poll::Ready(Ok(()));
-              }
-
-              buf.advance(n);
-              *payload_len -= n;
+          } else if *payload_len > 0 {
+            // Have unread data, read directly to target without overshooting
+            let mut taken_buf = buf.take(*payload_len);
+            let rem = taken_buf.remaining();
+            ready!(Pin::new(&mut me.inner).poll_read(cx, &mut taken_buf))?;
+            let n = rem - taken_buf.remaining();
+            if n == 0 {
               return Poll::Ready(Ok(()));
-            } else {
-              me.read_state = ReadState::Hmac;
             }
+
+            buf.advance(n);
+            *payload_len -= n;
+            return Poll::Ready(Ok(()));
+          } else {
+            me.read_state = ReadState::Hmac;
           }
         }
         ReadState::Hmac => {

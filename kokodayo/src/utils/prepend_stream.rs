@@ -62,7 +62,7 @@ impl<W: AsyncWrite> PrependWriter<W> {
     };
     PrependWriter {
       inner,
-      prepend: prepend,
+      prepend,
       len_before_concat: None,
       written: 0,
     }

@@ -3,7 +3,6 @@ use crate::utils::prepend_stream::PrependReader;
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
 use serde::Deserialize;
-use std::future::Future;
 use std::net::IpAddr;
 use std::str::FromStr;
 use tokio::prelude::*;
@@ -65,7 +64,7 @@ impl Processor for ServerProcessor {
             // Strip header if doing CONNECTs
             buffer.advance(len);
           }
-          let response = "HTTP/1.1 200 OK\r\n\r\n";
+          let response = "HTTP/1.1 200 Connection Established\r\n\r\n";
           stream.write(response.as_bytes()).await?;
           
           return Ok(RWPair::new(PrependReader::new(stream, buffer)));

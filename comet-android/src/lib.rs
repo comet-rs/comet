@@ -44,7 +44,7 @@ fn init_logger() {
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_com_sayori_kokodayo_NativeModule_start(
+pub unsafe extern "system" fn Java_com_sayori_comet_NativeModule_start(
     env: JNIEnv,
     _: JClass,
     fd: jint,
@@ -75,7 +75,7 @@ pub unsafe extern "system" fn Java_com_sayori_kokodayo_NativeModule_start(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_com_sayori_kokodayo_NativeModule_stop(_env: JNIEnv, _: JClass) {
+pub unsafe extern "system" fn Java_com_sayori_comet_NativeModule_stop(_env: JNIEnv, _: JClass) {
     if let Some(sender) = STOP_SENDER.take() {
         sender.send(()).unwrap();
     }

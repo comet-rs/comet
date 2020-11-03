@@ -49,7 +49,7 @@ impl OutboundManager {
     }
   }
 
-  pub async fn connect_tcp(
+  async fn connect_tcp(
     &self,
     tag: &str,
     addr: IpAddr,
@@ -72,11 +72,16 @@ impl OutboundManager {
   pub async fn connect_tcp_multi(
     &self,
     tag: &str,
-    addrs: Vec<IpAddr>,
-    port: u16,
+    conn: &mut Connection,
     ctx: &AppContextRef,
   ) -> Result<RWPair> {
     let outbound = self.get_outbound(tag, TransportType::Tcp)?;
+    let port = if let Some(port) = outbound.transport.port {
+      port
+    } else {
+      conn.dest_addr.port_or_error()?
+    };
+
     if let Some(addr) = outbound.transport.addr {
       // Dest addr overridden
       match self.connect_tcp(tag, addr, port, ctx).await {
@@ -84,10 +89,11 @@ impl OutboundManager {
         Err(err) => error!("Trying {}:{} failed: {}", addr, port, err),
       }
     } else {
-      for addr in addrs {
-        match self.connect_tcp(tag, addr, port, ctx).await {
+      let ips = ctx.dns.resolve_addr(&conn.dest_addr).await?;
+      for ip in ips {
+        match self.connect_tcp(tag, ip, port, ctx).await {
           Ok(stream) => return Ok(stream),
-          Err(err) => error!("Trying {}:{} failed: {}", addr, port, err),
+          Err(err) => error!("Trying {}:{} failed: {}", ip, port, err),
         }
       }
     }

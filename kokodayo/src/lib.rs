@@ -34,15 +34,13 @@ async fn handle_tcp_conn(
 
   info!("Accepted {:?}", conn);
 
-  let dest_addr_ips = ctx.dns.resolve_addr(&conn.dest_addr).await?;
   let outbound_tag = ctx.router.try_match(&conn, &ctx);
 
   let mut outbound = ctx
     .outbound_manager
     .connect_tcp_multi(
       outbound_tag,
-      dest_addr_ips,
-      conn.dest_addr.port_or_error()?,
+      &mut conn,
       &ctx,
     )
     .await?;

@@ -62,9 +62,3 @@ outbounds:
       type: tcp
       addr: "47.106.59.183"
       port: 8088
-
-android:
-  ports:
-    tcp: 10800
-    udp: 10801
-    dns: 10802

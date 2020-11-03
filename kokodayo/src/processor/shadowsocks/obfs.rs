@@ -211,9 +211,9 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for SimpleHttpWriter<W> {
           full_header_buf.reserve(encode_len * 3);
           for byte in &buf[..encode_len] {
             let s = format!("{:x}", byte);
-            full_header_buf.put_u8('%' as u8);
+            full_header_buf.put_u8(b'%');
             if s.len() == 1 {
-              full_header_buf.put_u8('0' as u8);
+              full_header_buf.put_u8(b'0');
             }
             full_header_buf.put_slice(s.as_bytes());
           }

@@ -18,6 +18,7 @@ pub struct Config {
   #[serde(default)]
   pub outbounds: HashMap<SmolStr, Outbound>,
   pub router: RouterConfig,
+  #[cfg(target_os = "android")]
   pub android: AndroidConfig
 }
 

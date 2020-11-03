@@ -173,7 +173,7 @@ impl<RW> AuthAes128ClientStream<RW> {
       hash_kind,
       write_state: WriteState::PreparingData,
       read_state: ReadState::Size,
-      read_buf: BytesMut::with_capacity(1024),
+      read_buf: BytesMut::with_capacity(1500),
       last_write_len: 0,
     }
   }

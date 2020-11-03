@@ -579,6 +579,7 @@ dependencies = [
  "futures",
  "httparse",
  "ipnetwork 0.17.0",
+ "lazy_static 1.4.0",
  "libc",
  "log 0.4.11",
  "net2",

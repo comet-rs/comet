@@ -4,11 +4,29 @@ use crate::prelude::*;
 use crate::utils::io::eof;
 use crate::{delegate_flush, delegate_read, delegate_shutdown, delegate_write_all};
 use futures::ready;
+use lazy_static::lazy_static;
 use std::cmp;
 use std::io;
 use std::task::Context;
 use tokio::io::ReadBuf;
 use xorshift::Rng;
+
+lazy_static! {
+  static ref USER_AGENTS: Vec<&'static str> = vec![
+    "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0",
+    "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:40.0) Gecko/20100101 Firefox/44.0",
+    "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/11.10 Chromium/27.0.1453.93 Chrome/27.0.1453.93 Safari/537.36",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:35.0) Gecko/20100101 Firefox/35.0",
+    "Mozilla/5.0 (compatible; WOW64; MSIE 10.0; Windows NT 6.2)",
+    "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US) AppleWebKit/533.20.25 (KHTML, like Gecko) Version/5.0.4 Safari/533.20.27",
+    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.3; Trident/7.0; .NET4.0E; .NET4.0C)",
+    "Mozilla/5.0 (Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko",
+    "Mozilla/5.0 (Linux; Android 4.4; Nexus 5 Build/BuildID) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/30.0.0.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (iPad; CPU OS 5_0 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Version/5.1 Mobile/9A334 Safari/7534.48.3",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 5_0 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Version/5.1 Mobile/9A334 Safari/7534.48.3"
+  ];
+}
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "obfs")]
@@ -66,22 +84,8 @@ impl Processor for ClientProcessor {
         header_buf.put_slice(b"\r\n");
 
         if headers.is_empty() {
-          let user_agents = vec![
-            "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0",
-            "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:40.0) Gecko/20100101 Firefox/44.0",
-            "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/11.10 Chromium/27.0.1453.93 Chrome/27.0.1453.93 Safari/537.36",
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:35.0) Gecko/20100101 Firefox/35.0",
-            "Mozilla/5.0 (compatible; WOW64; MSIE 10.0; Windows NT 6.2)",
-            "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US) AppleWebKit/533.20.25 (KHTML, like Gecko) Version/5.0.4 Safari/533.20.27",
-            "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.3; Trident/7.0; .NET4.0E; .NET4.0C)",
-            "Mozilla/5.0 (Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko",
-            "Mozilla/5.0 (Linux; Android 4.4; Nexus 5 Build/BuildID) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/30.0.0.0 Mobile Safari/537.36",
-            "Mozilla/5.0 (iPad; CPU OS 5_0 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Version/5.1 Mobile/9A334 Safari/7534.48.3",
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 5_0 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Version/5.1 Mobile/9A334 Safari/7534.48.3"
-          ];
           header_buf.put_slice(b"User-Agent: ");
-          header_buf.put_slice(rand::xor_rng().choose(&user_agents).unwrap().as_bytes());
+          header_buf.put_slice(rand::xor_rng().choose(&USER_AGENTS).unwrap().as_bytes());
           header_buf.put_slice(b"\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nDNT: 1\r\nConnection: keep-alive\r\n");
         } else {
           for (name, value) in headers {
@@ -113,7 +117,7 @@ impl<RW> StripHttpHeaderStream<RW> {
     Self {
       inner,
       state: StripState::Stripping,
-      buf: Some(BytesMut::with_capacity(8192)),
+      buf: Some(BytesMut::with_capacity(512)),
     }
   }
 }
@@ -133,6 +137,9 @@ impl<R: AsyncRead + Unpin> AsyncRead for StripHttpHeaderStream<R> {
       match &mut me.state {
         StripState::Stripping => {
           let me_buf = me.buf.as_mut().unwrap();
+          if me_buf.remaining_mut() == 0 {
+            me_buf.reserve(512);
+          }
           check_eof!(ready!(Pin::new(&mut me.inner).poll_read_buf(cx, me_buf))?);
           for i in 0..me_buf.len() - 4 {
             if &me_buf[i..i + 4] == b"\r\n\r\n" {
@@ -140,12 +147,6 @@ impl<R: AsyncRead + Unpin> AsyncRead for StripHttpHeaderStream<R> {
               me.state = StripState::WritingBuf;
               break;
             }
-          }
-          if me_buf.remaining_mut() == 0 {
-            return Poll::Ready(Err(io::Error::new(
-              io::ErrorKind::Other,
-              "Internal buffer is full",
-            )));
           }
         }
         StripState::WritingBuf => {

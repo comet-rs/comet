@@ -28,10 +28,13 @@ impl Processor for ServerProcessor {
     conn: &mut Connection,
     _ctx: AppContextRef,
   ) -> Result<RWPair> {
-    let mut buffer = BytesMut::with_capacity(2048);
+    let mut buffer = BytesMut::with_capacity(512);
     loop {
       let mut headers = [httparse::EMPTY_HEADER; 32];
       let mut req = Request::new(&mut headers);
+      if !buffer.has_remaining_mut() {
+        buffer.reserve(512);
+      }
       let n = stream.read_buf(&mut buffer).await?;
 
       match req.parse(&buffer[..])? {

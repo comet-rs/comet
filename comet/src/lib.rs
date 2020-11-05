@@ -90,7 +90,8 @@ pub async fn run_android(
     .await
     .with_context(|| "Failed to read config file")?;
   let ctx = Arc::new(AppContext::new(&config)?);
-
+  drop(config);
+  
   let ctx1 = ctx.clone();
   std::thread::spawn(move || match android::nat::run_router(fd, ctx1, running) {
     Ok(_) => info!("Android router exited"),

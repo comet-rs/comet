@@ -43,7 +43,6 @@ impl ShadowsocksStreamCipherKind {
       password.as_ref(),
       cipher_kind.key_len(),
     )
-    .into()
   }
   fn generate_salt(&self) -> Result<Bytes> {
     let cipher_kind: StreamCipherKind = (*self).into();
@@ -63,7 +62,7 @@ impl ShadowsocksStreamCipherKind {
     salt: &[u8],
   ) -> Result<Box<dyn stream::StreamCrypter>> {
     let cipher_kind: stream::StreamCipherKind = (*self).into();
-    cipher_kind.to_crypter(mode, key, salt).into()
+    cipher_kind.to_crypter(mode, key, salt)
   }
 }
 

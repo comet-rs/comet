@@ -120,6 +120,6 @@ impl DnsService {
         let octets = addr.octets();
         let id = u16::from_be_bytes([octets[2], octets[3]]);
 
-        map_ref_write.get_mut(&id).map(|domain| domain.clone())
+        map_ref_write.get_mut(&id).cloned()
     }
 }

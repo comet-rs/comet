@@ -8,6 +8,14 @@ use std::net::IpAddr;
 use std::str;
 use std::str::FromStr;
 
+pub fn register(plumber: &mut Plumber) {
+    plumber.register("android_nat", |conf| {
+        Ok(Box::new(SnifferProcessor {
+            config: from_value(conf)?,
+        }))
+    });
+}
+
 #[derive(Debug)]
 pub enum SniffStatus {
     NoClue,
@@ -32,14 +40,6 @@ pub struct SnifferConfig {
 
 pub struct SnifferProcessor {
     config: SnifferConfig,
-}
-
-impl SnifferProcessor {
-    pub fn new(config: &SnifferConfig) -> Result<Self> {
-        Ok(SnifferProcessor {
-            config: config.clone(),
-        })
-    }
 }
 
 #[async_trait]

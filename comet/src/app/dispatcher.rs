@@ -1,8 +1,7 @@
 use crate::prelude::*;
-use tokio::time::timeout;
 use std::net::SocketAddr;
 use std::time::Duration;
-
+use tokio::time::timeout;
 
 pub async fn handle_tcp_conn(
   conn: Connection,
@@ -14,19 +13,15 @@ pub async fn handle_tcp_conn(
     .process_stream(&conn.inbound_pipeline.clone(), conn, stream, ctx.clone())
     .await?;
 
-  info!("Accepted {:?}", conn);
+  info!("Accepted {}", conn);
 
   let outbound_tag = ctx.router.try_match(&conn, &ctx);
 
   let mut outbound = ctx
     .outbound_manager
-    .connect_tcp_multi(
-      outbound_tag,
-      &mut conn,
-      &ctx,
-    )
+    .connect_tcp_multi(outbound_tag, &mut conn, &ctx)
     .await?;
-  info!("Connected outbound: {:?}", outbound_tag);
+  info!("Connected outbound: {}", outbound_tag);
 
   if let Some(outbound_pipeline) = ctx
     .outbound_manager

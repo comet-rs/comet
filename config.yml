@@ -12,33 +12,33 @@ inbounds:
 
 pipelines:
   socks_in:
-    - type: socks5_proxy_server
+    - type: socks5_server
     - type: associate_uid
-    - type: sniffer
-      override_dest: true
-      types: [tls, http]
+    # - type: sniffer
+    #   override_dest: true
+    #   types: [tls, http]
   http_in:
     - type: http_proxy_server
     - type: associate_uid
-    - type: sniffer
-      override_dest: true
-      types: [tls, http]
+    # - type: sniffer
+    #   override_dest: true
+    #   types: [tls, http]
 
   http_client:
     - type: http_proxy_client
   shadowsocks:
-    - type: ssr_client_obfs
+    - type: ssr_obfs_client
       obfs: http_simple
       port: 8088
-      hosts: ['08e7556256.download.windowsupdate.com']
-    - type: shadowsocks_client
+      hosts: ['7f37f56256.download.windowsupdate.com']
+    - type: ss_stream_cipher_client
       password: "ssmu"
       method: "aes-256-cfb"
-    - type: ssr_client_auth
+    - type: ssr_auth_client
       user_id: 56256
       user_key: "******"
       protocol: auth_aes128_md5
-    - type: shadowsocks_client_handshake
+    - type: ss_handshake_client
 
 
 router:

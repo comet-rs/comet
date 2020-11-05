@@ -11,6 +11,14 @@ use std::task::Context;
 use tokio::io::ReadBuf;
 use xorshift::Rng;
 
+pub fn register(plumber: &mut Plumber) {
+  plumber.register("ssr_obfs_client", |conf| {
+    Ok(Box::new(ClientProcessor {
+      config: from_value(conf)?,
+    }))
+  });
+}
+
 lazy_static! {
   static ref USER_AGENTS: Vec<&'static str> = vec![
     "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0",
@@ -40,16 +48,10 @@ pub enum ClientConfig {
     port: u16,
   },
 }
+
+#[derive(Debug)]
 pub struct ClientProcessor {
   config: ClientConfig,
-}
-
-impl ClientProcessor {
-  pub fn new(config: &ClientConfig) -> Result<Self> {
-    Ok(Self {
-      config: config.clone(),
-    })
-  }
 }
 
 #[async_trait]

@@ -3,15 +3,16 @@ use crate::utils::io::io_other_error;
 use crate::utils::prepend_stream::PrependWriter;
 use std::io;
 
-#[derive(Deserialize, Debug, Clone)]
-pub struct ShadowsocksClientHandshakeConfig {}
+pub fn register(plumber: &mut Plumber) {
+  plumber.register("ss_handshake_client", |_| {
+    Ok(Box::new(ShadowsocksClientHandshakeProcessor {}))
+  });
+}
+
+#[derive(Debug)]
 pub struct ShadowsocksClientHandshakeProcessor {}
 
 impl ShadowsocksClientHandshakeProcessor {
-  pub fn new(_config: &ShadowsocksClientHandshakeConfig) -> Result<Self> {
-    Ok(Self {})
-  }
-
   pub fn header_len(buf: &[u8]) -> io::Result<usize> {
     if buf.len() < 4 {
       return Err(io_other_error("header incomplete"));

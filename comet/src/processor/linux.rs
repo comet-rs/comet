@@ -1,6 +1,9 @@
-use crate::app::plumber::UdpProcessor;
 use crate::prelude::*;
 use anyhow::anyhow;
+
+pub fn register(plumber: &mut Plumber) {
+  plumber.register("associate_uid", |_| Ok(Box::new(AssociateUidProcessor {})));
+}
 
 pub struct AssociateUidProcessor {}
 
@@ -33,10 +36,6 @@ fn find_uid(content: &str, port: u16) -> Result<Option<String>> {
 }
 
 impl AssociateUidProcessor {
-  pub fn new(_config: &AssociateUidConfig) -> Result<Self> {
-    Ok(AssociateUidProcessor {})
-  }
-
   pub async fn process_conn(&self, conn: &mut Connection, _ctx: &AppContextRef) -> Result<()> {
     match conn.typ {
       TransportType::Tcp => {
@@ -63,9 +62,6 @@ impl AssociateUidProcessor {
   }
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct AssociateUidConfig {}
-
 #[async_trait]
 impl Processor for AssociateUidProcessor {
   async fn process(
@@ -77,10 +73,7 @@ impl Processor for AssociateUidProcessor {
     self.process_conn(conn, &ctx).await?;
     Ok(stream)
   }
-}
 
-#[async_trait]
-impl UdpProcessor for AssociateUidProcessor {
   async fn process_udp(
     self: Arc<Self>,
     req: UdpRequest,

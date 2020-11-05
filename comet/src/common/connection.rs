@@ -4,6 +4,7 @@ use smol_str::SmolStr;
 use std::any::Any;
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::fmt;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -49,6 +50,12 @@ impl DestAddr {
     }
 }
 
+impl fmt::Display for DestAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "[{:?}/{:?}]:{:?}", self.domain, self.ip, self.port)
+    }
+}
+
 #[derive(Debug)]
 pub struct Connection {
     pub inbound_tag: SmolStr,
@@ -84,6 +91,16 @@ impl Connection {
 
     pub fn get_var<T: Any + Send + Sync>(&self, key: &str) -> Option<&T> {
         self.variables.get(key).and_then(|v| v.downcast_ref::<T>())
+    }
+}
+
+impl fmt::Display for Connection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "[{:?}]{}@{} -> {}",
+            self.typ, self.src_addr, self.inbound_tag, self.dest_addr
+        )
     }
 }
 

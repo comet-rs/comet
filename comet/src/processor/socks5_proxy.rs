@@ -1,6 +1,10 @@
 use crate::prelude::*;
 use anyhow::anyhow;
 
+pub fn register(plumber: &mut Plumber) {
+  plumber.register("socks5_server", |_| Ok(Box::new(Socks5ProxyServerProcessor {})));
+}
+
 mod v5 {
   pub const VERSION: u8 = 5;
   pub const METH_NO_AUTH: u8 = 0;
@@ -11,15 +15,6 @@ mod v5 {
 }
 
 pub struct Socks5ProxyServerProcessor {}
-
-impl Socks5ProxyServerProcessor {
-  pub fn new(_config: &Socks5ProxyServerConfig) -> Result<Self> {
-    Ok(Socks5ProxyServerProcessor {})
-  }
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct Socks5ProxyServerConfig {}
 
 #[async_trait]
 impl Processor for Socks5ProxyServerProcessor {

@@ -17,6 +17,28 @@ use xorshift::Rng;
 
 const PACK_UNIT_SIZE: usize = 2000;
 
+pub fn register(plumber: &mut Plumber) {
+  plumber.register("ssr_auth_client", |conf| {
+    let config: SsrClientAuthConfig = from_value(conf)?;
+    let user_key = config.user_key.as_ref().map(|key| match config.protocol {
+      SsrClientAuthType::AuthAes128Md5 => {
+        hashing::hash_bytes(hashing::HashKind::Md5, key.as_bytes()).unwrap()
+      }
+      SsrClientAuthType::AuthAes128Sha1 => {
+        hashing::hash_bytes(hashing::HashKind::Sha1, key.as_bytes()).unwrap()
+      }
+    });
+
+    Ok(Box::new(SsrClientAuthProcessor {
+      ids: Mutex::new(SsrIds::new()),
+      user_id: config.user_id,
+      protocol: config.protocol,
+      user_key,
+    }))
+  });
+}
+
+#[derive(Debug)]
 struct SsrIds {
   client_id: u32,
   connection_id: u32,
@@ -62,6 +84,7 @@ pub struct SsrClientAuthConfig {
   user_key: Option<SmolStr>,
 }
 
+#[derive(Debug)]
 pub struct SsrClientAuthProcessor {
   ids: Mutex<SsrIds>,
   user_id: Option<u32>,
@@ -70,23 +93,6 @@ pub struct SsrClientAuthProcessor {
 }
 
 impl SsrClientAuthProcessor {
-  pub fn new(config: &SsrClientAuthConfig) -> Result<Self> {
-    let user_key = config.user_key.as_ref().map(|key| match config.protocol {
-      SsrClientAuthType::AuthAes128Md5 => {
-        hashing::hash_bytes(hashing::HashKind::Md5, key.as_bytes()).unwrap()
-      }
-      SsrClientAuthType::AuthAes128Sha1 => {
-        hashing::hash_bytes(hashing::HashKind::Sha1, key.as_bytes()).unwrap()
-      }
-    });
-
-    Ok(Self {
-      ids: Mutex::new(SsrIds::new()),
-      user_id: config.user_id,
-      protocol: config.protocol,
-      user_key,
-    })
-  }
   fn new_connection(&self) -> (u32, u32) {
     let mut ids = self.ids.lock().unwrap();
     ids.new_connection()

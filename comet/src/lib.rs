@@ -35,7 +35,7 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
             info!("Done handling {:?}", r);
           }
           Err(err) => {
-            error!("Failed to handle accepted connection: {:?}", err);
+            error!("Failed to handle accepted connection: {}", err);
           }
         }
       });
@@ -50,7 +50,7 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
         match dispatcher::handle_udp_conn(conn, req, ctx).await {
           Ok(_) => {}
           Err(err) => {
-            error!("Failed to handle accepted connection: {:?}", err);
+            error!("Failed to handle accepted connection: {}", err);
           }
         }
       });
@@ -116,4 +116,6 @@ pub mod prelude {
   pub use std::sync::Arc;
   pub use std::task::Poll;
   pub use tokio::prelude::*;
+  pub use serde_yaml::{from_value, Value as YamlValue, Mapping};
+  pub use crate::app::plumber::Plumber;
 }

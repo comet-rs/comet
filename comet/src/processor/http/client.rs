@@ -2,19 +2,13 @@ use crate::prelude::*;
 use crate::utils::prepend_stream::PrependReader;
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
-use serde::Deserialize;
 use tokio::prelude::*;
 
-pub struct ClientProcessor {}
-
-impl ClientProcessor {
-  pub fn new(_config: &ClientConfig) -> Result<Self> {
-    Ok(ClientProcessor {})
-  }
+pub fn register(plumber: &mut Plumber) {
+  plumber.register("http_proxy_client", |_| Ok(Box::new(ClientProcessor {})));
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct ClientConfig {}
+pub struct ClientProcessor {}
 
 #[async_trait]
 impl Processor for ClientProcessor {

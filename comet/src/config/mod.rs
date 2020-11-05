@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::processor;
 use crate::router::matching::MatchCondition;
 use anyhow::Result;
 use serde::Deserialize;
@@ -14,12 +13,12 @@ pub struct Config {
   #[serde(default)]
   pub inbounds: HashMap<SmolStr, Inbound>,
   #[serde(default)]
-  pub pipelines: HashMap<SmolStr, Vec<ProcessorConfig>>,
+  pub pipelines: HashMap<SmolStr, Vec<YamlValue>>,
   #[serde(default)]
   pub outbounds: HashMap<SmolStr, Outbound>,
   pub router: RouterConfig,
   #[cfg(target_os = "android")]
-  pub android: AndroidConfig
+  pub android: AndroidConfig,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -54,7 +53,7 @@ pub struct OutboundTransportConfig {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct AndroidConfig {
-  pub ports: AndroidPorts
+  pub ports: AndroidPorts,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -67,28 +66,6 @@ pub struct AndroidPorts {
   pub dns_v6: Option<u16>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all(deserialize = "snake_case"))]
-#[serde(tag = "type")]
-pub enum ProcessorConfig {
-  Sniffer(processor::sniffer::SnifferConfig),
-
-  Socks5ProxyServer(processor::socks5_proxy::Socks5ProxyServerConfig),
-  // Socks5ProxyClient,
-
-  HttpProxyServer(processor::http::server::ServerConfig),
-  HttpProxyClient(processor::http::client::ClientConfig),
-
-  ShadowsocksClient(processor::shadowsocks::ShadowsocksClientConfig),
-  ShadowsocksClientHandshake(processor::shadowsocks::handshake::ShadowsocksClientHandshakeConfig),
-  SsrClientAuth(processor::shadowsocks::auth::SsrClientAuthConfig),
-  SsrClientObfs(processor::shadowsocks::obfs::ClientConfig),
-
-  #[cfg(target_os = "android")]
-  AndroidNat(processor::android::AndroidNatConfig),
-  AssociateUid(processor::unix::AssociateUidConfig)
-}
-
 #[derive(Debug, Deserialize, Clone)]
 pub struct RouterConfig {
   pub rules: Vec<RouterRule>,
@@ -98,7 +75,7 @@ pub struct RouterConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct RouterDefaults {
   pub tcp: SmolStr,
-  pub udp: Option<SmolStr>
+  pub udp: Option<SmolStr>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

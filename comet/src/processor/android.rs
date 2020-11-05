@@ -1,15 +1,14 @@
 #![cfg(target_os = "android")]
-use crate::app::plumber::UdpProcessor;
 use crate::prelude::*;
 use anyhow::anyhow;
+
+pub fn register(plumber: &mut Plumber) {
+  plumber.register("android_nat", |_| Ok(Box::new(AndroidNatProcessor {})));
+}
 
 pub struct AndroidNatProcessor {}
 
 impl AndroidNatProcessor {
-  pub fn new(_config: &AndroidNatConfig) -> Result<Self> {
-    Ok(AndroidNatProcessor {})
-  }
-
   pub fn process_conn(&self, conn: &mut Connection, ctx: &AppContextRef) -> Result<()> {
     let manager = &ctx.nat_manager;
     let entry = manager.get_entry(conn.typ, conn.src_addr.port(), conn.src_addr.ip());
@@ -39,10 +38,7 @@ impl Processor for AndroidNatProcessor {
     self.process_conn(conn, &ctx)?;
     Ok(stream)
   }
-}
 
-#[async_trait]
-impl UdpProcessor for AndroidNatProcessor {
   async fn process_udp(
     self: Arc<Self>,
     req: UdpRequest,

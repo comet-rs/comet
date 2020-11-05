@@ -2,23 +2,17 @@ use crate::prelude::*;
 use crate::utils::prepend_stream::PrependReader;
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
-use serde::Deserialize;
 use std::net::IpAddr;
 use std::str::FromStr;
 use tokio::prelude::*;
 
 use httparse::{Request, Status};
 
-pub struct ServerProcessor {}
-
-impl ServerProcessor {
-  pub fn new(_config: &ServerConfig) -> Result<Self> {
-    Ok(ServerProcessor {})
-  }
+pub fn register(plumber: &mut Plumber) {
+  plumber.register("http_proxy_server", |_| Ok(Box::new(ServerProcessor {})));
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct ServerConfig {}
+pub struct ServerProcessor {}
 
 #[async_trait]
 impl Processor for ServerProcessor {

@@ -22,6 +22,16 @@ pub enum TransportType {
     Udp,
 }
 
+impl std::fmt::Display for TransportType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        let s = match self {
+            TransportType::Tcp => "TCP",
+            TransportType::Udp => "UDP"
+        };
+        write!(f, "{}", s)
+    }
+}
+
 pub trait MyAsyncReadExt: AsyncRead {
     /// Based on `read_buf`
     fn poll_read_buf<B: BufMut>(

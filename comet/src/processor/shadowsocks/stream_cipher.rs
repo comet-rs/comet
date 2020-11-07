@@ -156,7 +156,7 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for ClientStream<RW> {
 
           let n = me
             .encrypter
-            .update_in_place(&mut crypto_output)
+            .update(&mut crypto_output)
             .map_err(|_| crypto_error())?;
           me.write_buf.truncate(old_len + n);
 
@@ -242,7 +242,7 @@ impl<RW: AsyncRead + Unpin> AsyncRead for ClientStream<RW> {
           }
 
           let n = dec
-            .update_in_place(&mut buf.filled_mut()[filled_orig..])
+            .update(&mut buf.filled_mut()[filled_orig..])
             .map_err(|_| crypto_error())?;
           debug_assert_eq!(n, buf.filled().len() - filled_orig);
           buf.set_filled(filled_orig + n);

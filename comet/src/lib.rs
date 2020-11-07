@@ -18,7 +18,6 @@ use crate::context::AppContext;
 use crate::prelude::*;
 
 use anyhow::Context;
-use log::{error, info};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -31,9 +30,7 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
       let ctx = ctx_tcp.clone();
       tokio::spawn(async move {
         match dispatcher::handle_tcp_conn(conn, stream, ctx).await {
-          Ok(r) => {
-            info!("Done handling {:?}", r);
-          }
+          Ok(_) => {}
           Err(err) => {
             error!("Failed to handle accepted connection: {}", err);
           }
@@ -74,6 +71,8 @@ pub async fn run_bin() -> Result<()> {
     .with_context(|| "Failed to read config file")?;
   println!("{:#?}", config);
   let ctx = Arc::new(AppContext::new(&config)?);
+  drop(config);
+  
   run(ctx).await?;
   Ok(())
 }
@@ -91,7 +90,7 @@ pub async fn run_android(
     .with_context(|| "Failed to read config file")?;
   let ctx = Arc::new(AppContext::new(&config)?);
   drop(config);
-  
+
   let ctx1 = ctx.clone();
   std::thread::spawn(move || match android::nat::run_router(fd, ctx1, running) {
     Ok(_) => info!("Android router exited"),

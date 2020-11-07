@@ -52,7 +52,13 @@ impl DestAddr {
 
 impl fmt::Display for DestAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "[{:?}/{:?}]:{:?}", self.domain, self.ip, self.port)
+        write!(
+            f,
+            "[{:?}/{:?}]:{}",
+            self.domain,
+            self.ip,
+            self.port.unwrap_or(0)
+        )
     }
 }
 
@@ -98,7 +104,7 @@ impl fmt::Display for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
             f,
-            "[{:?}]{}@{} -> {}",
+            "[{}] {}@{} -> {}",
             self.typ, self.src_addr, self.inbound_tag, self.dest_addr
         )
     }

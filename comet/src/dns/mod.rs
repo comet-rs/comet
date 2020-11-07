@@ -4,10 +4,8 @@ use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
 use anyhow::anyhow;
 use lru_cache::LruCache;
-use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::str::FromStr;
-use tokio::sync::Mutex;
+use std::time::SystemTime;
 use tokio::sync::RwLock;
 use xorshift::Rng;
 
@@ -49,15 +47,41 @@ async fn xfer_message(query: Message) -> Result<Message> {
     Ok(Message::from_vec(&buffer[0..size])?)
 }
 
+struct DnsEntry {
+    time: SystemTime,
+    result: Vec<IpAddr>,
+}
+
+impl DnsEntry {
+    fn new(result: Vec<IpAddr>) -> Self {
+        Self {
+            time: SystemTime::now(),
+            result,
+        }
+    }
+
+    fn expired(&self) -> bool {
+        if let Ok(elapsed) = self.time.elapsed() {
+            elapsed.as_secs() > 3600
+        } else {
+            false
+        }
+    }
+
+    fn clone_result(&self) -> Vec<IpAddr> {
+        self.result.clone()
+    }
+}
+
 pub struct DnsService {
-    cache: HashMap<Query, Record>,
+    cache: flurry::HashMap<SmolStr, DnsEntry>,
     fake_map: Option<RwLock<LruCache<u16, SmolStr>>>,
 }
 
 impl DnsService {
     pub fn new(_config: &Config) -> Self {
         Self {
-            cache: HashMap::new(),
+            cache: flurry::HashMap::new(),
             fake_map: Some(RwLock::new(LruCache::new(512))),
         }
     }
@@ -79,9 +103,26 @@ impl DnsService {
         Ok(upstream_response.to_vec()?)
     }
 
-    pub async fn resolve(&self, domain: &str) -> Result<()> {
-        let query = Query::query(Name::from_str(domain)?, RecordType::A);
-        Ok(())
+    pub async fn resolve(&self, domain: &str) -> Result<Vec<IpAddr>> {
+        {
+            let cache_ref = self.cache.pin();
+            if let Some(cached) = cache_ref.get(domain) {
+                if !cached.expired() {
+                    return Ok(cached.clone_result());
+                }
+            }
+        }
+
+        let result = tokio::net::lookup_host((domain, 443))
+            .await?
+            .map(|a| a.ip())
+            .collect::<Vec<_>>();
+
+        let cache_ref = self.cache.pin();
+        cache_ref.insert(SmolStr::from(domain), DnsEntry::new(result.clone()));
+        
+        info!("Resolved {} -> {:?}", domain, result);
+        Ok(result)
     }
 
     pub async fn resolve_addr(&self, addr: &DestAddr) -> Result<Vec<IpAddr>> {
@@ -89,10 +130,7 @@ impl DnsService {
             Ok(vec![ip])
         } else {
             let domain = addr.domain_or_error()?;
-            Ok(tokio::net::lookup_host((domain, 443))
-                .await?
-                .map(|a| a.ip())
-                .collect::<Vec<_>>())
+            self.resolve(domain).await
         }
     }
 

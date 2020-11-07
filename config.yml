@@ -66,5 +66,5 @@ outbounds:
     metering: true
     transport:
       type: tcp
-      addr: "47.106.59.183"
+      addr: "16b7b89e-9b8d-4a1d-b921-a1ddd48e7585.hk.****"
       port: 8088

@@ -1,4 +1,4 @@
-use crate::config::{Config, Outbound};
+use crate::config::{Config, Outbound, OutboundAddr};
 use crate::prelude::*;
 use crate::utils::metered_stream::MeteredStream;
 use crate::utils::unix_ts;
@@ -59,7 +59,6 @@ impl OutboundManager {
     let outbound = self.get_outbound(tag, TransportType::Tcp)?;
 
     let port = outbound.transport.port.unwrap_or(port);
-    let addr = outbound.transport.addr.unwrap_or(addr);
 
     let stream = crate::net_wrapper::connect_tcp(&SocketAddr::from((addr, port))).await?;
     Ok(if outbound.metering {
@@ -86,19 +85,20 @@ impl OutboundManager {
       conn.dest_addr.port_or_error()?
     };
 
-    if let Some(addr) = outbound.transport.addr {
+    let ips = if let Some(addr) = &outbound.transport.addr {
       // Dest addr overridden
-      match self.connect_tcp(tag, addr, port, ctx).await {
-        Ok(stream) => return Ok(stream),
-        Err(err) => error!("Trying {}:{} failed: {}", addr, port, err),
+      match addr {
+        OutboundAddr::Ip(ip) => vec![*ip],
+        OutboundAddr::Domain(domain) => ctx.dns.resolve(&domain).await?,
       }
     } else {
-      let ips = ctx.dns.resolve_addr(&conn.dest_addr).await?;
-      for ip in ips {
-        match self.connect_tcp(tag, ip, port, ctx).await {
-          Ok(stream) => return Ok(stream),
-          Err(err) => error!("Trying {}:{} failed: {}", ip, port, err),
-        }
+      ctx.dns.resolve_addr(&conn.dest_addr).await?
+    };
+
+    for ip in ips {
+      match self.connect_tcp(tag, ip, port, ctx).await {
+        Ok(stream) => return Ok(stream),
+        Err(err) => error!("Trying {}:{} failed: {}", ip, port, err),
       }
     }
     Err(anyhow!("All attempts failed"))

@@ -59,6 +59,7 @@ pub async fn handle_udp_conn(
     .clone_plumber()
     .process_packet(&conn.inbound_pipeline.clone(), conn, req, ctx.clone())
     .await?;
+
   let dest_addr_ips = ctx.dns.resolve_addr(&conn.dest_addr).await?;
 
   let outbound_tag = ctx.router.try_match(&conn, &ctx);
@@ -84,6 +85,7 @@ pub async fn handle_udp_conn(
     conn = ret.0;
     req = ret.1;
   }
+
   outbound.send(&req.packet).await?;
 
   let mut buffer = [0u8; 4096];

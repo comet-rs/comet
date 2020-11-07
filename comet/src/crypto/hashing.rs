@@ -1,7 +1,4 @@
 use crate::prelude::*;
-use openssl::hash::{Hasher as OpensslHasher, MessageDigest};
-use openssl::pkey::{PKey, Private};
-use openssl::sign::Signer as _OpensslSigner;
 use std::cmp::min;
 
 #[derive(Debug, Copy, Clone)]
@@ -19,70 +16,29 @@ impl HashKind {
   }
 }
 
-impl Into<MessageDigest> for HashKind {
-  fn into(self) -> MessageDigest {
-    match self {
-      HashKind::Md5 => MessageDigest::md5(),
-      HashKind::Sha1 => MessageDigest::sha1(),
-    }
-  }
-}
-
 pub trait Hasher {
   fn update(&mut self, data: &[u8]) -> Result<()>;
   fn finish(&mut self) -> Result<Bytes>;
 }
 
-impl Hasher for OpensslHasher {
-  fn update(&mut self, data: &[u8]) -> Result<()> {
-    Ok(OpensslHasher::update(self, data)?)
-  }
-
-  fn finish(&mut self) -> Result<Bytes> {
-    let digest = OpensslHasher::finish(self)?;
-    Ok(Bytes::copy_from_slice(digest.as_ref()))
-  }
-}
-
 pub trait Signer {
   fn update(&mut self, data: &[u8]) -> Result<()>;
-  fn finish(&self) -> Result<Bytes>;
-}
-
-struct OpensslSigner {
-  signer: _OpensslSigner<'static>,
-  _pkey: Box<PKey<Private>>,
-}
-
-impl OpensslSigner {
-  fn new(kind: HashKind, key: &[u8]) -> Result<Self> {
-    let pkey = Box::into_raw(Box::new(PKey::hmac(key)?));
-    let signer = _OpensslSigner::new(kind.into(), unsafe { pkey.as_ref().unwrap() })?;
-    let s = Self {
-      _pkey: unsafe { Box::from_raw(pkey) },
-      signer,
-    };
-    Ok(s)
-  }
-}
-
-impl Signer for OpensslSigner {
-  fn update(&mut self, data: &[u8]) -> Result<()> {
-    Ok(self.signer.update(data)?)
-  }
-  fn finish(&self) -> Result<Bytes> {
-    let max_len = self.signer.len()?;
-    let mut buf = BytesMut::with_capacity(max_len);
-    unsafe { buf.set_len(max_len); }
-    let n = self.signer.sign(&mut buf)?;
-    buf.truncate(n);
-    Ok(buf.freeze())
-  }
+  fn finish(&mut self) -> Result<Bytes>;
 }
 
 pub fn new_hasher(kind: HashKind) -> Result<Box<dyn Hasher>> {
-  let hasher = Box::new(OpensslHasher::new(kind.into())?);
-  Ok(hasher)
+  #[cfg(target_os = "windows")]
+  {
+    use self::windows::WindowsHasher;
+    let hasher = Box::new(WindowsHasher::new(kind)?);
+    return Ok(hasher);
+  }
+  #[cfg(not(target_os = "windows"))]
+  {
+    use self::openssl::OpensslHasher;
+    let hasher = Box::new(OpensslHasher::new(kind.into())?);
+    return Ok(hasher);
+  }
 }
 
 pub fn hash_bytes(kind: HashKind, input: &[u8]) -> Result<Bytes> {
@@ -92,8 +48,18 @@ pub fn hash_bytes(kind: HashKind, input: &[u8]) -> Result<Bytes> {
 }
 
 pub fn new_signer(kind: HashKind, key: &[u8]) -> Result<Box<dyn Signer>> {
-  let signer = Box::new(OpensslSigner::new(kind, key)?);
-  Ok(signer)
+  #[cfg(target_os = "windows")]
+  {
+    use self::rust::RustSigner;
+    let hasher = Box::new(RustSigner::new(kind, key)?);
+    return Ok(hasher);
+  }
+  #[cfg(not(target_os = "windows"))]
+  {
+    use self::openssl::OpensslSigner;
+    let signer = Box::new(OpensslSigner::new(kind, key)?);
+    return Ok(signer);
+  }
 }
 
 pub fn sign_bytes(kind: HashKind, key: &[u8], input: &[u8]) -> Result<Bytes> {
@@ -133,5 +99,159 @@ mod test {
       &b"\x90\x01P\x98<\xd2O\xb0\xd6\x96?}(\xe1\x7fr\xea\x0b1\xe1\x08z\"\xbcS\x94\xa6cnn\xd3K"[..],
       &key[..]
     );
+  }
+}
+
+#[cfg(not(target_os = "windows"))]
+mod openssl {
+  use super::{HashKind, Hasher, Signer};
+  use crate::prelude::*;
+
+  pub use openssl::hash::Hasher as OpensslHasher;
+  use openssl::hash::MessageDigest;
+  use openssl::pkey::{PKey, Private};
+  use openssl::sign::Signer as _OpensslSigner;
+
+  impl Into<MessageDigest> for HashKind {
+    fn into(self) -> MessageDigest {
+      match self {
+        HashKind::Md5 => MessageDigest::md5(),
+        HashKind::Sha1 => MessageDigest::sha1(),
+      }
+    }
+  }
+
+  impl Hasher for OpensslHasher {
+    fn update(&mut self, data: &[u8]) -> Result<()> {
+      Ok(OpensslHasher::update(self, data)?)
+    }
+    fn finish(&mut self) -> Result<Bytes> {
+      let digest = OpensslHasher::finish(self)?;
+      Ok(Bytes::copy_from_slice(digest.as_ref()))
+    }
+  }
+
+  pub struct OpensslSigner {
+    signer: _OpensslSigner<'static>,
+    _pkey: Box<PKey<Private>>,
+  }
+
+  impl OpensslSigner {
+    pub fn new(kind: HashKind, key: &[u8]) -> Result<Self> {
+      let pkey = Box::into_raw(Box::new(PKey::hmac(key)?));
+      let signer = _OpensslSigner::new(kind.into(), unsafe { pkey.as_ref().unwrap() })?;
+      let s = Self {
+        _pkey: unsafe { Box::from_raw(pkey) },
+        signer,
+      };
+      Ok(s)
+    }
+  }
+
+  impl Signer for OpensslSigner {
+    fn update(&mut self, data: &[u8]) -> Result<()> {
+      Ok(self.signer.update(data)?)
+    }
+    fn finish(&mut self) -> Result<Bytes> {
+      let max_len = self.signer.len()?;
+      let mut buf = BytesMut::with_capacity(max_len);
+      unsafe {
+        buf.set_len(max_len);
+      }
+      let n = self.signer.sign(&mut buf)?;
+      buf.truncate(n);
+      Ok(buf.freeze())
+    }
+  }
+}
+
+#[cfg(target_os = "windows")]
+mod windows {
+  use super::{HashKind, Hasher};
+  use crate::prelude::*;
+
+  use win_crypto_ng::hash::{Hash, HashAlgorithm, HashAlgorithmId};
+
+  pub struct WindowsHasher {
+    inner: Option<Hash>,
+  }
+
+  impl WindowsHasher {
+    pub fn new(kind: HashKind) -> Result<Self> {
+      let algo = HashAlgorithm::open(match kind {
+        HashKind::Md5 => HashAlgorithmId::Md5,
+        HashKind::Sha1 => HashAlgorithmId::Sha1,
+      })?;
+      Ok(Self {
+        inner: Some(algo.new_hash()?),
+      })
+    }
+  }
+
+  impl Hasher for WindowsHasher {
+    fn update(&mut self, data: &[u8]) -> Result<()> {
+      Ok(self.inner.as_mut().unwrap().hash(data)?)
+    }
+    fn finish(&mut self) -> Result<Bytes> {
+      let inner = self.inner.take().unwrap();
+      let buffer = inner.finish()?;
+      Ok(Bytes::copy_from_slice(buffer.as_slice()))
+    }
+  }
+}
+
+#[cfg(target_os = "windows")]
+mod rust {
+  use super::{HashKind, Signer};
+  use crate::prelude::*;
+
+  use hmac::{Hmac, Mac, NewMac};
+  use md5::Md5;
+  use sha1::Sha1;
+
+  pub struct RustSigner {
+    inner: Option<RustSignerInner>,
+  }
+
+  impl RustSigner {
+    pub fn new(kind: HashKind, key: &[u8]) -> Result<Self> {
+      let ret = match kind {
+        HashKind::Md5 => RustSignerInner::Md5(Hmac::new_varkey(key).unwrap()),
+        HashKind::Sha1 => RustSignerInner::Sha1(Hmac::new_varkey(key).unwrap()),
+      };
+
+      Ok(Self { inner: Some(ret) })
+    }
+  }
+
+  pub enum RustSignerInner {
+    Md5(Hmac<Md5>),
+    Sha1(Hmac<Sha1>),
+  }
+
+  impl RustSignerInner {
+    fn update(&mut self, data: &[u8]) {
+      match self {
+        Self::Md5(m) => m.update(data),
+        Self::Sha1(m) => m.update(data),
+      }
+    }
+
+    fn finish(self) -> Bytes {
+      match self {
+        Self::Md5(m) => Bytes::copy_from_slice(&m.finalize().into_bytes()),
+        Self::Sha1(m) => Bytes::copy_from_slice(&m.finalize().into_bytes()),
+      }
+    }
+  }
+
+  impl Signer for RustSigner {
+    fn update(&mut self, data: &[u8]) -> Result<()> {
+      Ok(self.inner.as_mut().unwrap().update(data))
+    }
+    fn finish(&mut self) -> Result<Bytes> {
+      let inner = self.inner.take().unwrap();
+      Ok(inner.finish())
+    }
   }
 }

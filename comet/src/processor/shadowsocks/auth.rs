@@ -264,7 +264,7 @@ impl<RW> AuthAes128ClientStream<RW> {
         .to_crypter(
           CrypterMode::Encrypt,
           &part2_enc_key,
-          Some(&part2_enc_iv[..]),
+          &part2_enc_iv[..],
           false,
         )?
         .update(&part2_enc[..], &mut part2_enc_out)?;

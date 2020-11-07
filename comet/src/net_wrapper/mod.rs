@@ -3,6 +3,7 @@ use std::io;
 use std::net::SocketAddr;
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
 
+#[cfg(target_os = "android")]
 mod protect;
 
 pub async fn connect_tcp(addr: &SocketAddr) -> io::Result<TcpStream> {

@@ -48,7 +48,14 @@ pub struct Outbound {
 pub struct OutboundTransportConfig {
   pub r#type: TransportType,
   pub port: Option<u16>,
-  pub addr: Option<IpAddr>,
+  pub addr: Option<OutboundAddr>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum OutboundAddr {
+  Ip(IpAddr),
+  Domain(SmolStr)
 }
 
 #[derive(Deserialize, Clone, Debug)]

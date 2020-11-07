@@ -79,11 +79,12 @@ mod openssl {
   }
 }
 
+#[cfg(target_os = "windows")]
 mod rust {
   use super::{BlockCipherKind, BlockCrypter, CrypterMode};
   use crate::prelude::*;
   use aes::Aes128;
-  use block_modes::block_padding::{NoPadding, Pkcs7};
+  use block_modes::block_padding::NoPadding;
   use block_modes::{BlockMode, Cbc};
 
   enum BlockCrypterInner {

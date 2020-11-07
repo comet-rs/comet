@@ -89,7 +89,7 @@ mod openssl {
 mod rust {
   use super::{CrypterMode, StreamCipherKind, StreamCrypter};
   use crate::prelude::*;
-  use aes::{Aes128, Aes192, Aes256};
+  use aes::Aes256;
   use cfb_mode::Cfb;
   use cipher::{NewStreamCipher, StreamCipher};
 

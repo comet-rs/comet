@@ -11,8 +11,8 @@ mod connection;
 mod packet;
 mod rwpair;
 
-pub use connection::{Connection, DestAddr, UdpRequest};
-pub use packet::{AsyncPacketIO, PacketIO};
+pub use connection::{Connection, DestAddr};
+pub use packet::UdpStream;
 pub use rwpair::RWPair;
 
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,7 +26,7 @@ impl std::fmt::Display for TransportType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         let s = match self {
             TransportType::Tcp => "TCP",
-            TransportType::Udp => "UDP"
+            TransportType::Udp => "UDP",
         };
         write!(f, "{}", s)
     }

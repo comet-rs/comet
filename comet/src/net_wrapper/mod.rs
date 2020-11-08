@@ -1,4 +1,4 @@
-use net2::UdpBuilder;
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use std::io;
 use std::net::SocketAddr;
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
@@ -22,10 +22,12 @@ pub async fn connect_tcp(addr: &SocketAddr) -> io::Result<TcpStream> {
 }
 
 pub async fn bind_udp(addr: &SocketAddr) -> io::Result<UdpSocket> {
-    let sock = match addr {
-        SocketAddr::V4(_) => UdpBuilder::new_v4(),
-        SocketAddr::V6(_) => UdpBuilder::new_v6(),
-    }?;
+    let domain = match addr {
+        SocketAddr::V4(_) => Domain::ipv4(),
+        SocketAddr::V6(_) => Domain::ipv6(),
+    };
+    let sock = Socket::new(domain, Type::dgram(), Some(Protocol::udp()))?;
+    sock.set_nonblocking(true)?;
 
     #[cfg(target_os = "android")]
     {
@@ -33,6 +35,6 @@ pub async fn bind_udp(addr: &SocketAddr) -> io::Result<UdpSocket> {
         let fd = sock.as_raw_fd();
         protect::protect_async(fd).await?;
     }
-    let s = sock.bind(&addr)?;
-    UdpSocket::from_std(s)
+    sock.bind(&SockAddr::from(addr.clone()))?;
+    UdpSocket::from_std(sock.into_udp_socket())
 }

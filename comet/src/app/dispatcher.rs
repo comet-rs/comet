@@ -1,7 +1,7 @@
 use crate::prelude::*;
-use std::net::SocketAddr;
 use std::time::Duration;
-use tokio::time::timeout;
+use tokio::stream::StreamExt;
+use tokio::time::sleep;
 
 pub async fn handle_tcp_conn(
   conn: Connection,
@@ -52,26 +52,21 @@ pub async fn handle_tcp_conn(
 
 pub async fn handle_udp_conn(
   conn: Connection,
-  req: UdpRequest,
+  stream: UdpStream,
   ctx: AppContextRef,
 ) -> Result<Connection> {
-  let (mut conn, mut req) = ctx
+  let (mut conn, mut stream) = ctx
     .clone_plumber()
-    .process_packet(&conn.inbound_pipeline.clone(), conn, req, ctx.clone())
+    .process_udp(&conn.inbound_pipeline.clone(), conn, stream, ctx.clone())
     .await?;
 
-  let dest_addr_ips = ctx.dns.resolve_addr(&conn.dest_addr).await?;
+  info!("Accepted {}", conn);
 
   let outbound_tag = ctx.router.try_match(&conn, &ctx);
 
   let outbound = ctx
     .outbound_manager
-    .connect_udp(
-      outbound_tag,
-      &conn,
-      SocketAddr::new(dest_addr_ips[0], conn.dest_addr.port_or_error()?),
-      &ctx,
-    )
+    .connect_udp(outbound_tag, &conn, &ctx)
     .await?;
 
   if let Some(outbound_pipeline) = ctx
@@ -80,16 +75,27 @@ pub async fn handle_udp_conn(
   {
     let ret = ctx
       .clone_plumber()
-      .process_packet(outbound_pipeline, conn, req, ctx.clone())
+      .process_udp(outbound_pipeline, conn, stream, ctx.clone())
       .await?;
     conn = ret.0;
-    req = ret.1;
+    stream = ret.1;
   }
 
-  outbound.send(&req.packet).await?;
+  loop {
+    let mut buffer = [0u8; 4096];
+    let mut sleep = sleep(Duration::from_secs(10));
 
-  let mut buffer = [0u8; 4096];
-  let n = timeout(Duration::from_secs(10), outbound.recv(&mut buffer)).await??;
-  req.socket.send_to(&buffer[0..n], conn.src_addr).await?;
+    tokio::select! {
+      Ok(n) = outbound.recv(&mut buffer) => {
+        stream.send(BytesMut::from(&buffer[..n])).await?;
+      },
+      Some(packet) = stream.next() => {
+        outbound.send(&packet).await?;
+      },
+      _ = &mut sleep => break,
+      else => break
+    }
+  }
+
   Ok(conn)
 }

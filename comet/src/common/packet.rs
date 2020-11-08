@@ -1,43 +1,38 @@
-use anyhow::Result;
-use async_trait::async_trait;
-use tokio::net::UdpSocket;
+use crate::prelude::*;
+use std::task::Context;
+use tokio::stream::Stream;
+use tokio::sync::mpsc::Sender;
 
-#[async_trait]
-pub trait AsyncPacketIO: Send + Sync + Unpin {
-    async fn send(&mut self, buf: &[u8]) -> Result<usize>;
-    async fn recv(&mut self, buf: &mut [u8]) -> Result<usize>;
+pub struct UdpStream {
+    read: Box<dyn Stream<Item = BytesMut> + Send + Sync + Unpin>,
+    write: Sender<BytesMut>,
 }
 
-pub struct PacketIO {
-    inner: Box<dyn AsyncPacketIO + 'static>,
+impl std::fmt::Debug for UdpStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "UdpStream")
+    }
 }
 
-impl PacketIO {
-    pub fn new<T: AsyncPacketIO + 'static>(inner: T) -> PacketIO {
-        PacketIO {
-            inner: Box::new(inner),
+impl UdpStream {
+    pub fn new<T: Stream<Item = BytesMut> + Send + Sync + Unpin + 'static>(
+        read: T,
+        write: Sender<BytesMut>,
+    ) -> Self {
+        Self {
+            read: Box::new(read),
+            write,
         }
     }
-}
 
-#[async_trait]
-impl AsyncPacketIO for PacketIO {
-    async fn send(&mut self, buf: &[u8]) -> Result<usize> {
-        self.inner.send(buf).await
-    }
-
-    async fn recv(&mut self, buf: &mut [u8]) -> Result<usize> {
-        self.inner.recv(buf).await
+    pub async fn send(&self, data: BytesMut) -> Result<()> {
+        Ok(self.write.send(data).await?)
     }
 }
 
-#[async_trait]
-impl AsyncPacketIO for UdpSocket {
-    async fn send(&mut self, buf: &[u8]) -> Result<usize> {
-        self.send(buf).await
-    }
-
-    async fn recv(&mut self, buf: &mut [u8]) -> Result<usize> {
-        self.recv(buf).await
+impl Stream for UdpStream {
+    type Item = BytesMut;
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut *self.read).poll_next(cx)
     }
 }

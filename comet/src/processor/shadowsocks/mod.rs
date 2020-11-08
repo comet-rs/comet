@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 pub mod auth;
 pub mod handshake;
 pub mod obfs;

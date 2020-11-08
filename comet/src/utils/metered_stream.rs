@@ -12,6 +12,7 @@ pin_project! {
   pub struct MeteredStream<RW> {
     #[pin]
     inner: RW,
+    conn_handle: Arc<()>,
     values: Arc<MetricsValues>
   }
 }
@@ -19,12 +20,20 @@ pin_project! {
 impl<RW> MeteredStream<RW> {
   pub fn new_inbound(inner: RW, tag: &str, ctx: &AppContextRef) -> Self {
     let values = ctx.metrics.get_inbound(tag).unwrap();
-    Self { inner, values }
+    Self {
+      inner,
+      conn_handle: values.clone_conn_handle(),
+      values,
+    }
   }
 
   pub fn new_outbound(inner: RW, tag: &str, ctx: &AppContextRef) -> Self {
     let values = ctx.metrics.get_outbound(tag).unwrap();
-    Self { inner, values }
+    Self {
+      inner,
+      conn_handle: values.clone_conn_handle(),
+      values,
+    }
   }
 }
 

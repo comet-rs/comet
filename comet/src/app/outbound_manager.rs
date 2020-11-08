@@ -1,51 +1,21 @@
 use crate::config::{Config, Outbound, OutboundAddr};
 use crate::prelude::*;
 use crate::utils::metered_stream::MeteredStream;
-use crate::utils::unix_ts;
 use anyhow::anyhow;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::io::BufReader;
 use tokio::net::UdpSocket;
 
-struct UdpSocketEntry {
-  dest: SocketAddr,
-  socket: Arc<UdpSocket>,
-  last_active: AtomicU64,
-}
-
-impl UdpSocketEntry {
-  fn new(dest: SocketAddr, socket: Arc<UdpSocket>) -> Self {
-    Self {
-      dest,
-      socket,
-      last_active: AtomicU64::new(unix_ts().as_secs()),
-    }
-  }
-
-  fn refresh(&self) -> bool {
-    let now = unix_ts().as_secs();
-    let last = self.last_active.swap(now, Ordering::Relaxed);
-    now - last < 3600
-  }
-
-  fn clone_socket(&self) -> Arc<UdpSocket> {
-    self.socket.clone()
-  }
-}
-
 pub struct OutboundManager {
   outbounds: HashMap<SmolStr, Outbound>,
-  udp_sockets: flurry::HashMap<SocketAddr, UdpSocketEntry>,
 }
 
 impl OutboundManager {
   pub fn new(config: &Config) -> Self {
     Self {
       outbounds: config.outbounds.clone(),
-      udp_sockets: flurry::HashMap::new(),
     }
   }
 
@@ -108,28 +78,29 @@ impl OutboundManager {
     &self,
     tag: &str,
     conn: &Connection,
-    dest_addr: SocketAddr,
-    _ctx: &AppContextRef,
+    ctx: &AppContextRef,
   ) -> Result<Arc<UdpSocket>> {
-    let _outbound = self.get_outbound(tag, TransportType::Udp)?;
+    let outbound = self.get_outbound(tag, TransportType::Udp)?;
+    let port = if let Some(port) = outbound.transport.port {
+      port
+    } else {
+      conn.dest_addr.port_or_error()?
+    };
 
-    if let Some(entry) = self.udp_sockets.pin().get(&conn.src_addr) {
-      if entry.refresh() && dest_addr == entry.dest {
-        warn!("Reusing UDP socket {} -> {}", conn.src_addr, dest_addr);
-        return Ok(entry.clone_socket());
+    let ips = if let Some(addr) = &outbound.transport.addr {
+      // Dest addr overridden
+      match addr {
+        OutboundAddr::Ip(ip) => vec![*ip],
+        OutboundAddr::Domain(domain) => ctx.dns.resolve(&domain).await?,
       }
-    }
+    } else {
+      ctx.dns.resolve_addr(&conn.dest_addr).await?
+    };
 
     let socket = Arc::new(
       crate::net_wrapper::bind_udp(&SocketAddr::new(IpAddr::from([0, 0, 0, 0]), 0)).await?,
     );
-    socket.connect(&dest_addr).await?;
-
-    self.udp_sockets.pin().insert(
-      conn.src_addr,
-      UdpSocketEntry::new(dest_addr, socket.clone()),
-    );
-
+    socket.connect(&SocketAddr::new(ips[0], port)).await?;
     Ok(socket)
   }
 

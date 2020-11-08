@@ -30,7 +30,9 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
       let ctx = ctx_tcp.clone();
       tokio::spawn(async move {
         match dispatcher::handle_tcp_conn(conn, stream, ctx).await {
-          Ok(_) => {}
+          Ok(conn) => {
+            info!("Finished handling {}", conn);
+          }
           Err(err) => {
             error!("Failed to handle accepted connection: {}", err);
           }
@@ -41,11 +43,13 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
 
   let ctx_udp = ctx.clone();
   let _udp_handle = tokio::spawn(async move {
-    while let Some((conn, req)) = udp_conns.recv().await {
+    while let Some((conn, stream)) = udp_conns.recv().await {
       let ctx = ctx_udp.clone();
       tokio::spawn(async move {
-        match dispatcher::handle_udp_conn(conn, req, ctx).await {
-          Ok(_) => {}
+        match dispatcher::handle_udp_conn(conn, stream, ctx).await {
+          Ok(conn) => {
+            info!("Finished handling {}", conn);
+          }
           Err(err) => {
             error!("Failed to handle accepted connection: {}", err);
           }
@@ -72,7 +76,6 @@ pub async fn run_bin() -> Result<()> {
   println!("{:#?}", config);
   let ctx = Arc::new(AppContext::new(&config)?);
   drop(config);
-  
   run(ctx).await?;
   Ok(())
 }
@@ -102,6 +105,7 @@ pub async fn run_android(
 }
 
 pub mod prelude {
+  pub use crate::app::plumber::Plumber;
   pub use crate::app::plumber::Processor;
   pub use crate::common::*;
   pub use crate::context::AppContextRef;
@@ -110,12 +114,11 @@ pub mod prelude {
   pub use bytes::*;
   pub use log::*;
   pub use serde::Deserialize;
+  pub use serde_yaml::{from_value, Mapping, Value as YamlValue};
   pub use smol_str::SmolStr;
   pub use std::collections::HashMap;
   pub use std::pin::Pin;
   pub use std::sync::Arc;
   pub use std::task::Poll;
   pub use tokio::prelude::*;
-  pub use serde_yaml::{from_value, Value as YamlValue, Mapping};
-  pub use crate::app::plumber::Plumber;
 }

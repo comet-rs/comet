@@ -7,8 +7,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::net::IpAddr;
 use std::net::SocketAddr;
-use std::sync::Arc;
-use tokio::net::UdpSocket;
 
 #[derive(Debug, Default, Clone)]
 pub struct DestAddr {
@@ -107,17 +105,5 @@ impl fmt::Display for Connection {
             "[{}] {}@{} -> {}",
             self.typ, self.src_addr, self.inbound_tag, self.dest_addr
         )
-    }
-}
-
-#[derive(Debug)]
-pub struct UdpRequest {
-    pub socket: Arc<UdpSocket>,
-    pub packet: Vec<u8>,
-}
-
-impl UdpRequest {
-    pub fn new(socket: Arc<UdpSocket>, packet: Vec<u8>) -> Self {
-        Self { socket, packet }
     }
 }

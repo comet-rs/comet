@@ -1,21 +1,38 @@
 use crate::config::Config;
 use crate::prelude::*;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct MetricsValues {
-  rx: AtomicU64,
-  tx: AtomicU64,
+  rx: AtomicUsize,
+  tx: AtomicUsize,
+  conn_handle: Arc<()>,
 }
 
 impl MetricsValues {
   pub fn add_rx(&self, value: usize) {
-    self.rx.fetch_add(value as u64, Ordering::SeqCst);
+    self.rx.fetch_add(value, Ordering::SeqCst);
   }
 
   pub fn add_tx(&self, value: usize) {
-    self.tx.fetch_add(value as u64, Ordering::SeqCst);
+    self.tx.fetch_add(value, Ordering::SeqCst);
+  }
+
+  pub fn clone_conn_handle(&self) -> Arc<()> {
+    self.conn_handle.clone()
+  }
+}
+
+impl std::fmt::Debug for MetricsValues {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    write!(
+      f,
+      "Rx: {:?}, Tx: {:?}, Conn: {}",
+      self.rx,
+      self.tx,
+      Arc::strong_count(&self.conn_handle) - 1
+    )
   }
 }
 

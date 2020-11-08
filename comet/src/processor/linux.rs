@@ -76,11 +76,11 @@ impl Processor for AssociateUidProcessor {
 
   async fn process_udp(
     self: Arc<Self>,
-    req: UdpRequest,
+    stream: UdpStream,
     conn: &mut Connection,
     ctx: AppContextRef,
-  ) -> Result<UdpRequest> {
+  ) -> Result<UdpStream> {
     self.process_conn(conn, &ctx).await?;
-    Ok(req)
+    Ok(stream)
   }
 }

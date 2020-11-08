@@ -9,6 +9,11 @@ inbounds:
     transport:
       type: tcp
       port: 8334
+  inbound_dns:
+    pipeline: dns_in
+    transport:
+      type: udp
+      port: 8353
 
 pipelines:
   socks_in:
@@ -23,6 +28,7 @@ pipelines:
     # - type: sniffer
     #   override_dest: true
     #   types: [tls, http]
+  dns_in: []
 
   http_client:
     - type: http_proxy_client
@@ -44,6 +50,7 @@ pipelines:
 router:
   defaults:
     tcp: shadowsocks
+    udp: direct_udp
   rules:
     - target: fiddler
       rule:
@@ -55,6 +62,11 @@ outbounds:
   direct_tcp:
     transport:
       type: tcp
+  direct_udp:
+    transport:
+      addr: "223.6.6.6"
+      type: udp
+      port: 53
   fiddler:
     pipeline: http_client
     transport:

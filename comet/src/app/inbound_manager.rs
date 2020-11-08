@@ -1,4 +1,4 @@
-use crate::config::{Config, Inbound};
+use crate::config::{Config, Inbound, InboundTransportType};
 use crate::prelude::*;
 use crate::utils::metered_stream::MeteredStream;
 use log::info;
@@ -45,7 +45,7 @@ impl InboundManager {
       let tag = inbound.0.clone();
 
       match transport.r#type {
-        TransportType::Tcp => {
+        InboundTransportType::Tcp => {
           let listener = TcpListener::bind(&(ip, port)).await?;
           let sender = tcp_channel.0.clone();
           info!("Inbound {}/TCP listening on {}:{}", tag, ip, port);
@@ -59,7 +59,7 @@ impl InboundManager {
               .await;
           });
         }
-        TransportType::Udp => {
+        InboundTransportType::Udp => {
           let socket = UdpSocket::bind(&(ip, port)).await?;
           let sender = udp_channel.0.clone();
           info!("Inbound {}/UDP listening on {}:{}", tag, ip, port);

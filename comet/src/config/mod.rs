@@ -26,12 +26,20 @@ pub struct Inbound {
   pub pipeline: SmolStr,
   #[serde(default)]
   pub metering: bool,
-  pub transport: TransportConfig,
+  pub transport: InboundTransportConfig,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(tag = "type", rename_all="snake_case")]
+pub enum InboundTransportType {
+  Tcp,
+  Udp,
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct TransportConfig {
-  pub r#type: TransportType,
+pub struct InboundTransportConfig {
+  #[serde(flatten)]
+  pub r#type: InboundTransportType,
   pub port: u16,
   pub listen: Option<IpAddr>,
 }
@@ -44,9 +52,17 @@ pub struct Outbound {
   pub transport: OutboundTransportConfig,
 }
 
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(tag = "type", rename_all="snake_case")]
+pub enum OutboundTransportType {
+  Tcp,
+  Udp,
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct OutboundTransportConfig {
-  pub r#type: TransportType,
+  #[serde(flatten)]
+  pub r#type: OutboundTransportType,
   pub port: Option<u16>,
   pub addr: Option<OutboundAddr>,
 }
@@ -55,7 +71,7 @@ pub struct OutboundTransportConfig {
 #[serde(untagged)]
 pub enum OutboundAddr {
   Ip(IpAddr),
-  Domain(SmolStr)
+  Domain(SmolStr),
 }
 
 #[derive(Deserialize, Clone, Debug)]

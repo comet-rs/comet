@@ -9,7 +9,7 @@ use std::str;
 use std::str::FromStr;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("android_nat", |conf| {
+    plumber.register("sniffer", |conf| {
         Ok(Box::new(SnifferProcessor {
             config: from_value(conf)?,
         }))

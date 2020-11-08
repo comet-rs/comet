@@ -1,4 +1,4 @@
-.PHONY: android-debug android-release windows
+.PHONY: android-debug android-release windows run
 android-debug:
   RUSTFLAGS=-g cargo ndk --platform 29 --target aarch64-linux-android build -p comet-android --lib
 
@@ -7,3 +7,6 @@ android-release:
 
 windows:
 	cargo build --target x86_64-pc-windows-gnu -p comet-bin --release
+
+run:
+	cargo run -p comet-bin

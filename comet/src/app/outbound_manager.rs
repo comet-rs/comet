@@ -1,4 +1,4 @@
-use crate::config::{Config, Outbound, OutboundAddr};
+use crate::config::{Config, Outbound, OutboundAddr, OutboundTransportType};
 use crate::prelude::*;
 use crate::utils::metered_stream::MeteredStream;
 use anyhow::anyhow;
@@ -118,7 +118,12 @@ impl OutboundManager {
       .outbounds
       .get(tag)
       .ok_or_else(|| anyhow!("Outbound {} not found", tag))?;
-    if outbound.transport.r#type == transport_type {
+    let matching = match transport_type {
+      TransportType::Tcp => outbound.transport.r#type == OutboundTransportType::Tcp,
+      TransportType::Udp => outbound.transport.r#type == OutboundTransportType::Udp,
+    };
+
+    if matching {
       Ok(outbound)
     } else {
       Err(anyhow!("Outbound {} transport type mismatch", tag))

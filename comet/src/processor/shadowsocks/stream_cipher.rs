@@ -82,16 +82,17 @@ pub struct ClientProcessor {
 impl Processor for ClientProcessor {
   async fn process(
     self: Arc<Self>,
-    stream: RWPair,
+    stream: ProxyStream,
     conn: &mut Connection,
     _ctx: AppContextRef,
-  ) -> Result<RWPair> {
+  ) -> Result<ProxyStream> {
+    let stream = stream.into_tcp()?;
     let salt = self.method.generate_salt()?;
     let stream = ClientStream::new(stream, self.method, &self.master_key, &salt)?;
     conn.set_var("ss-salt", salt);
     conn.set_var("ss-key", self.master_key.clone());
 
-    Ok(RWPair::new(stream))
+    Ok(RWPair::new(stream).into())
   }
 }
 

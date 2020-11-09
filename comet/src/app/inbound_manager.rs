@@ -15,8 +15,7 @@ pub type ConnReceiver<T> = UnboundedReceiver<(Connection, T)>;
 
 pub struct InboundManager {
   inbounds: HashMap<SmolStr, Inbound>,
-  tcp_sender: OnceCell<ConnSender<RWPair>>,
-  udp_sender: OnceCell<ConnSender<UdpStream>>,
+  sender: OnceCell<ConnSender<ProxyStream>>,
   udp_table: Mutex<HashMap<SocketAddr, Sender<BytesMut>>>,
 }
 
@@ -24,18 +23,13 @@ impl InboundManager {
   pub fn new(config: &Config) -> Self {
     InboundManager {
       inbounds: config.inbounds.clone(),
-      tcp_sender: OnceCell::new(),
-      udp_sender: OnceCell::new(),
+      sender: OnceCell::new(),
       udp_table: Mutex::new(HashMap::new()),
     }
   }
 
-  pub async fn start(
-    self: Arc<Self>,
-    ctx: AppContextRef,
-  ) -> Result<(ConnReceiver<RWPair>, ConnReceiver<UdpStream>)> {
-    let tcp_channel = unbounded_channel();
-    let udp_channel = unbounded_channel();
+  pub async fn start(self: Arc<Self>, ctx: AppContextRef) -> Result<ConnReceiver<ProxyStream>> {
+    let channel = unbounded_channel();
 
     for inbound in &self.inbounds {
       let ctx = ctx.clone();
@@ -47,7 +41,7 @@ impl InboundManager {
       match transport.r#type {
         InboundTransportType::Tcp => {
           let listener = TcpListener::bind(&(ip, port)).await?;
-          let sender = tcp_channel.0.clone();
+          let sender = channel.0.clone();
           info!("Inbound {}/TCP listening on {}:{}", tag, ip, port);
 
           let inbound = inbound.1.clone();
@@ -61,7 +55,7 @@ impl InboundManager {
         }
         InboundTransportType::Udp => {
           let socket = UdpSocket::bind(&(ip, port)).await?;
-          let sender = udp_channel.0.clone();
+          let sender = channel.0.clone();
           info!("Inbound {}/UDP listening on {}:{}", tag, ip, port);
 
           let inbound = inbound.1.clone();
@@ -76,9 +70,8 @@ impl InboundManager {
       };
     }
 
-    self.tcp_sender.set(tcp_channel.0.clone()).unwrap();
-    self.udp_sender.set(udp_channel.0.clone()).unwrap();
-    Ok((tcp_channel.1, udp_channel.1))
+    self.sender.set(channel.0.clone()).unwrap();
+    Ok(channel.1)
   }
 
   async fn handle_tcp(
@@ -86,7 +79,7 @@ impl InboundManager {
     listener: TcpListener,
     tag: SmolStr,
     inbound: Inbound,
-    sender: ConnSender<RWPair>,
+    sender: ConnSender<ProxyStream>,
     ctx: AppContextRef,
   ) {
     loop {
@@ -107,7 +100,7 @@ impl InboundManager {
       } else {
         RWPair::new(BufReader::new(stream))
       };
-      sender.send((conn, stream)).unwrap();
+      sender.send((conn, stream.into())).unwrap();
     }
   }
 
@@ -116,7 +109,7 @@ impl InboundManager {
     socket: UdpSocket,
     tag: SmolStr,
     inbound: Inbound,
-    sender: ConnSender<UdpStream>,
+    sender: ConnSender<ProxyStream>,
     _ctx: AppContextRef,
   ) {
     let socket = Arc::new(socket);
@@ -167,7 +160,10 @@ impl InboundManager {
       info!("Inbound {}/UDP accepted from {}", tag, src_addr);
 
       sender
-        .send((conn, UdpStream::new(read_receiver, write_sender.clone())))
+        .send((
+          conn,
+          UdpStream::new(read_receiver, write_sender.clone()).into(),
+        ))
         .unwrap();
     }
   }

@@ -22,31 +22,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 pub async fn run(ctx: AppContextRef) -> Result<()> {
-  let (mut tcp_conns, mut udp_conns) = ctx.clone_inbound_manager().start(ctx.clone()).await?;
+  let mut conns = ctx.clone_inbound_manager().start(ctx.clone()).await?;
 
   let ctx_tcp = ctx.clone();
-  let _tcp_handle = tokio::spawn(async move {
-    while let Some((conn, stream)) = tcp_conns.recv().await {
+  let _process_handle = tokio::spawn(async move {
+    while let Some((conn, stream)) = conns.recv().await {
       let ctx = ctx_tcp.clone();
       tokio::spawn(async move {
         match dispatcher::handle_tcp_conn(conn, stream, ctx).await {
-          Ok(conn) => {
-            info!("Finished handling {}", conn);
-          }
-          Err(err) => {
-            error!("Failed to handle accepted connection: {}", err);
-          }
-        }
-      });
-    }
-  });
-
-  let ctx_udp = ctx.clone();
-  let _udp_handle = tokio::spawn(async move {
-    while let Some((conn, stream)) = udp_conns.recv().await {
-      let ctx = ctx_udp.clone();
-      tokio::spawn(async move {
-        match dispatcher::handle_udp_conn(conn, stream, ctx).await {
           Ok(conn) => {
             info!("Finished handling {}", conn);
           }

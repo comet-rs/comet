@@ -18,10 +18,11 @@ pub struct ServerProcessor {}
 impl Processor for ServerProcessor {
   async fn process(
     self: Arc<Self>,
-    mut stream: RWPair,
+    mut stream: ProxyStream,
     conn: &mut Connection,
     _ctx: AppContextRef,
-  ) -> Result<RWPair> {
+  ) -> Result<ProxyStream> {
+    let mut stream = stream.into_tcp()?;
     let mut buffer = BytesMut::with_capacity(512);
     loop {
       let mut headers = [httparse::EMPTY_HEADER; 32];
@@ -63,8 +64,7 @@ impl Processor for ServerProcessor {
           }
           let response = "HTTP/1.1 200 Connection Established\r\n\r\n";
           stream.write(response.as_bytes()).await?;
-          
-          return Ok(RWPair::new(PrependReader::new(stream, buffer)));
+          return Ok(RWPair::new(PrependReader::new(stream, buffer)).into());
         }
         Status::Partial => {
           if n == 0 {

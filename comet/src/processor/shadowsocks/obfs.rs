@@ -58,10 +58,11 @@ pub struct ClientProcessor {
 impl Processor for ClientProcessor {
   async fn process(
     self: Arc<Self>,
-    stream: RWPair,
+    stream: ProxyStream,
     conn: &mut Connection,
     _ctx: AppContextRef,
-  ) -> Result<RWPair> {
+  ) -> Result<ProxyStream> {
+    let stream = stream.into_tcp()?;
     let stream = match &self.config {
       ClientConfig::HttpSimple {
         hosts,
@@ -98,7 +99,7 @@ impl Processor for ClientProcessor {
         SimpleHttpWriter::new(stream, ObfsHttpMethod::Get, header_buf)
       }
     };
-    Ok(RWPair::new(StripHttpHeaderStream::new(stream)))
+    Ok(RWPair::new(StripHttpHeaderStream::new(stream)).into())
   }
 }
 

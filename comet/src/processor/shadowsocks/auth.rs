@@ -103,10 +103,11 @@ impl SsrClientAuthProcessor {
 impl Processor for SsrClientAuthProcessor {
   async fn process(
     self: Arc<Self>,
-    stream: RWPair,
+    stream: ProxyStream,
     conn: &mut Connection,
     _ctx: AppContextRef,
-  ) -> Result<RWPair> {
+  ) -> Result<ProxyStream> {
+    let stream = stream.into_tcp()?;
     let write_key: &Bytes = conn
       .get_var("ss-key")
       .ok_or_else(|| anyhow!("Key not found"))?;
@@ -126,7 +127,7 @@ impl Processor for SsrClientAuthProcessor {
       write_iv.clone(),
     );
 
-    Ok(RWPair::new(stream))
+    Ok(RWPair::new(stream).into())
   }
 }
 

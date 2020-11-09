@@ -34,10 +34,11 @@ impl ShadowsocksClientHandshakeProcessor {
 impl Processor for ShadowsocksClientHandshakeProcessor {
   async fn process(
     self: Arc<Self>,
-    stream: RWPair,
+    stream: ProxyStream,
     conn: &mut Connection,
     _ctx: AppContextRef,
-  ) -> Result<RWPair> {
+  ) -> Result<ProxyStream> {
+    let stream = stream.into_tcp()?;
     let dest_addr = &conn.dest_addr;
     let mut buf = if let Some(domain) = &dest_addr.domain {
       let mut buf = BytesMut::with_capacity(2 + domain.len() + 1);
@@ -65,6 +66,6 @@ impl Processor for ShadowsocksClientHandshakeProcessor {
     };
     buf.put_u16(dest_addr.port_or_error()?);
 
-    Ok(RWPair::new(PrependWriter::new(stream, buf)))
+    Ok(RWPair::new(PrependWriter::new(stream, buf)).into())
   }
 }

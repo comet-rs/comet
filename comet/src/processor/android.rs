@@ -24,27 +24,14 @@ impl AndroidNatProcessor {
   }
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct AndroidNatConfig {}
-
 #[async_trait]
 impl Processor for AndroidNatProcessor {
   async fn process(
     self: Arc<Self>,
-    stream: RWPair,
+    stream: ProxyStream,
     conn: &mut Connection,
     ctx: AppContextRef,
-  ) -> Result<RWPair> {
-    self.process_conn(conn, &ctx)?;
-    Ok(stream)
-  }
-
-  async fn process_udp(
-    self: Arc<Self>,
-    stream: UdpStream,
-    conn: &mut Connection,
-    ctx: AppContextRef,
-  ) -> Result<UdpStream> {
+  ) -> Result<ProxyStream> {
     self.process_conn(conn, &ctx)?;
     Ok(stream)
   }

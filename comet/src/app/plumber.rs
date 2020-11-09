@@ -54,29 +54,14 @@ impl Plumber {
     Ok((create_fn.0, create_fn.1(config)?))
   }
 
-  pub async fn process_stream(
+  pub async fn process(
     self: Arc<Self>,
     tag: &str,
     conn: Connection,
-    stream: RWPair,
+    stream: ProxyStream,
     ctx: AppContextRef,
-  ) -> Result<(Connection, RWPair)> {
+  ) -> Result<(Connection, ProxyStream)> {
     Ok(self.get_pipeline(tag)?.process(stream, conn, ctx).await?)
-  }
-
-  pub async fn process_udp(
-    self: Arc<Self>,
-    tag: &str,
-    conn: Connection,
-    stream: UdpStream,
-    ctx: AppContextRef,
-  ) -> Result<(Connection, UdpStream)> {
-    Ok(
-      self
-        .get_pipeline(tag)?
-        .process_udp(stream, conn, ctx)
-        .await?,
-    )
   }
 
   pub fn get_pipeline(&self, tag: &str) -> Result<&Pipeline> {
@@ -113,29 +98,12 @@ impl Pipeline {
 
   pub async fn process(
     &self,
-    mut stream: RWPair,
+    mut stream: ProxyStream,
     mut conn: Connection,
     ctx: AppContextRef,
-  ) -> Result<(Connection, RWPair)> {
+  ) -> Result<(Connection, ProxyStream)> {
     for item in &self.items {
       let result = item.1.clone().process(stream, &mut conn, ctx.clone()).await;
-      stream = result.with_context(|| format!("Error running processor {}", item.0))?;
-    }
-    Ok((conn, stream))
-  }
-
-  pub async fn process_udp(
-    &self,
-    mut stream: UdpStream,
-    mut conn: Connection,
-    ctx: AppContextRef,
-  ) -> Result<(Connection, UdpStream)> {
-    for item in &self.items {
-      let result = item
-        .1
-        .clone()
-        .process_udp(stream, &mut conn, ctx.clone())
-        .await;
       stream = result.with_context(|| format!("Error running processor {}", item.0))?;
     }
     Ok((conn, stream))
@@ -146,19 +114,8 @@ impl Pipeline {
 pub trait Processor: Send + Sync {
   async fn process(
     self: Arc<Self>,
-    _stream: RWPair,
+    _stream: ProxyStream,
     _conn: &mut Connection,
     _ctx: AppContextRef,
-  ) -> Result<RWPair> {
-    Err(anyhow!("This processor doesn't support TCP"))
-  }
-
-  async fn process_udp(
-    self: Arc<Self>,
-    _stream: UdpStream,
-    _conn: &mut Connection,
-    _ctx: AppContextRef,
-  ) -> Result<UdpStream> {
-    Err(anyhow!("This processor doesn't support UDP"))
-  }
+  ) -> Result<ProxyStream>;
 }

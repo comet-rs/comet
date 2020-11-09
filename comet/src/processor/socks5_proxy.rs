@@ -2,7 +2,9 @@ use crate::prelude::*;
 use anyhow::anyhow;
 
 pub fn register(plumber: &mut Plumber) {
-  plumber.register("socks5_server", |_| Ok(Box::new(Socks5ProxyServerProcessor {})));
+  plumber.register("socks5_server", |_| {
+    Ok(Box::new(Socks5ProxyServerProcessor {}))
+  });
 }
 
 mod v5 {
@@ -20,10 +22,11 @@ pub struct Socks5ProxyServerProcessor {}
 impl Processor for Socks5ProxyServerProcessor {
   async fn process(
     self: Arc<Self>,
-    mut stream: RWPair,
+    stream: ProxyStream,
     conn: &mut Connection,
     _ctx: AppContextRef,
-  ) -> Result<RWPair> {
+  ) -> Result<ProxyStream> {
+    let mut stream = stream.into_tcp()?;
     // Read version
     let version = stream.read_u8().await?;
     if version != v5::VERSION {
@@ -74,6 +77,6 @@ impl Processor for Socks5ProxyServerProcessor {
       .await?;
 
     // And we are done
-    Ok(stream)
+    Ok(stream.into())
   }
 }

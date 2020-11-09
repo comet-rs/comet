@@ -14,10 +14,11 @@ pub struct ClientProcessor {}
 impl Processor for ClientProcessor {
   async fn process(
     self: Arc<Self>,
-    mut stream: RWPair,
+    stream: ProxyStream,
     conn: &mut Connection,
     _ctx: AppContextRef,
-  ) -> Result<RWPair> {
+  ) -> Result<ProxyStream> {
+    let mut stream = stream.into_tcp()?;
     let dest_addr = if let Some(domain) = &conn.dest_addr.domain {
       domain.to_string()
     } else {
@@ -30,7 +31,6 @@ impl Processor for ClientProcessor {
     );
     stream.write(request.as_bytes()).await?;
     let mut buffer = BytesMut::with_capacity(512);
-    
     loop {
       let mut headers = [httparse::EMPTY_HEADER; 16];
       let mut res = httparse::Response::new(&mut headers);
@@ -41,7 +41,7 @@ impl Processor for ClientProcessor {
       match res.parse(&buffer[..])? {
         httparse::Status::Complete(len) => {
           buffer.advance(len);
-          return Ok(RWPair::new(PrependReader::new(stream, buffer)));
+          return Ok(RWPair::new(PrependReader::new(stream, buffer)).into());
         }
         httparse::Status::Partial => {
           if n == 0 {

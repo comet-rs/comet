@@ -46,10 +46,11 @@ pub struct SnifferProcessor {
 impl Processor for SnifferProcessor {
     async fn process(
         self: Arc<Self>,
-        mut stream: RWPair,
+        stream: ProxyStream,
         conn: &mut Connection,
         _ctx: AppContextRef,
-    ) -> Result<RWPair> {
+    ) -> Result<ProxyStream> {
+        let mut stream = stream.into_tcp()?;
         let mut buffer = BytesMut::with_capacity(1024);
 
         let mut attempts: u8 = 0;
@@ -60,7 +61,7 @@ impl Processor for SnifferProcessor {
             let read_bytes = stream.read_buf(&mut buffer).await?;
             if read_bytes == 0 {
                 warn!("Got EOF while sniffing: {:?}", buffer);
-                return Ok(RWPair::new(PrependReader::new(stream, buffer)));
+                return Ok(RWPair::new(PrependReader::new(stream, buffer)).into());
             }
 
             if !http_failed {
@@ -79,7 +80,7 @@ impl Processor for SnifferProcessor {
                         } else {
                             conn.dest_addr.set_domain(s);
                         }
-                        return Ok(RWPair::new(PrependReader::new(stream, buffer)));
+                        return Ok(RWPair::new(PrependReader::new(stream, buffer)).into());
                     }
                 }
             }
@@ -92,7 +93,7 @@ impl Processor for SnifferProcessor {
                     SniffStatus::Success(s) => {
                         conn.set_var("protocol", "tls");
                         conn.dest_addr.set_domain(s);
-                        return Ok(RWPair::new(PrependReader::new(stream, buffer)));
+                        return Ok(RWPair::new(PrependReader::new(stream, buffer)).into());
                     }
                 }
             }
@@ -101,7 +102,7 @@ impl Processor for SnifferProcessor {
             }
             attempts += 1;
         }
-        Ok(RWPair::new(PrependReader::new(stream, buffer)))
+        Ok(RWPair::new(PrependReader::new(stream, buffer)).into())
     }
 }
 

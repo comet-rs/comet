@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use anyhow::anyhow;
+use anyhow::bail;
 
 pub fn register(plumber: &mut Plumber) {
   plumber.register("socks5_server", |_| {
@@ -30,7 +30,7 @@ impl Processor for Socks5ProxyServerProcessor {
     // Read version
     let version = stream.read_u8().await?;
     if version != v5::VERSION {
-      return Err(anyhow!("Unsupported version"));
+      bail!("Unsupported version: {}", version);
     }
 
     // Read and drop methods
@@ -45,7 +45,7 @@ impl Processor for Socks5ProxyServerProcessor {
       let mut buffer = [0; 4]; // VER CMD RSV ATYP
       stream.read_exact(&mut buffer).await?;
       if buffer[1] != v5::CMD_CONNECT {
-        return Err(anyhow!("Unsupported command"));
+        bail!("Unsupported command: {}", buffer[1]);
       }
       buffer[3]
     };
@@ -67,7 +67,7 @@ impl Processor for Socks5ProxyServerProcessor {
         let s = String::from_utf8_lossy(&buffer[0..len]);
         conn.dest_addr.set_domain(s);
       }
-      _ => return Err(anyhow!("Invalid ATYP")),
+      _ => bail!("Invalid ATYP: {}", addr_type),
     }
     conn.dest_addr.set_port(stream.read_u16().await?);
 

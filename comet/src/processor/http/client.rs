@@ -45,7 +45,7 @@ impl Processor for ClientProcessor {
         }
         httparse::Status::Partial => {
           if n == 0 {
-            return Err(anyhow!("Handshake failed: unexpected EOF"));
+            return Err(anyhow!("Unexpected EOF"));
           }
         }
       }

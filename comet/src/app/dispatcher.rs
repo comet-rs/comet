@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use anyhow::{anyhow, Context};
+use anyhow::{bail, Context};
 use std::time::Duration;
 use tokio::stream::StreamExt;
 use tokio::time::sleep;
@@ -9,12 +9,16 @@ pub async fn handle_tcp_conn(
   stream: ProxyStream,
   ctx: AppContextRef,
 ) -> Result<Connection> {
-  let inbound_pipeline = conn.inbound_pipeline.clone();
-  let (mut conn, stream) = ctx
-    .clone_plumber()
-    .process(&inbound_pipeline, conn, stream, ctx.clone())
-    .await
-    .with_context(|| format!("When running inbound pipeline {}", inbound_pipeline))?;
+  let (mut conn, stream) = if let Some(ref inbound_pipeline) = conn.inbound_pipeline {
+    let inbound_pipeline = inbound_pipeline.clone();
+    ctx
+      .clone_plumber()
+      .process(&inbound_pipeline, conn, stream, ctx.clone())
+      .await
+      .with_context(|| format!("When running inbound pipeline {}", inbound_pipeline))?
+  } else {
+    (conn, stream)
+  };
 
   info!("Accepted {}", conn);
 
@@ -46,7 +50,7 @@ pub async fn handle_tcp_conn(
 
       let c2s = copy(&mut downlink.0, &mut uplink.1);
       let s2c = copy(&mut uplink.0, &mut downlink.1);
-      try_join!(c2s, s2c).with_context(|| "When copying TCP stream")?;
+      try_join!(c2s, s2c).context("When copying TCP stream")?;
     }
     (ProxyStream::Udp(mut stream), ProxyStream::Udp(mut outbound)) => loop {
       let mut sleep = sleep(Duration::from_secs(10));
@@ -62,7 +66,7 @@ pub async fn handle_tcp_conn(
         else => break
       }
     },
-    _ => return Err(anyhow!("Transport type mismatch")),
+    _ => bail!("Transport type mismatch"),
   }
   Ok(conn)
 }

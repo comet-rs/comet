@@ -50,20 +50,19 @@ impl DestAddr {
 
 impl fmt::Display for DestAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(
-            f,
-            "[{:?}/{:?}]:{}",
-            self.domain,
-            self.ip,
-            self.port.unwrap_or(0)
-        )
+        let domain = self
+            .domain
+            .as_ref()
+            .map(|s| s.as_str())
+            .unwrap_or_else(|| &"?");
+        write!(f, "[{:?}/{:?}]:{}", domain, self.ip, self.port.unwrap_or(0))
     }
 }
 
 #[derive(Debug)]
 pub struct Connection {
     pub inbound_tag: SmolStr,
-    pub inbound_pipeline: SmolStr,
+    pub inbound_pipeline: Option<SmolStr>,
     pub src_addr: SocketAddr,
     pub dest_addr: DestAddr,
     pub variables: HashMap<SmolStr, Box<dyn Any + Send + Sync>>,
@@ -72,7 +71,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new<A: Into<SocketAddr>, T1: Into<SmolStr>, T2: Into<SmolStr>>(
+    pub fn new<A: Into<SocketAddr>, T1: Into<SmolStr>, T2: Into<Option<SmolStr>>>(
         src_addr: A,
         inbound_tag: T1,
         inbound_pipeline: T2,

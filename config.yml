@@ -10,10 +10,13 @@ inbounds:
       type: tcp
       port: 8334
   inbound_dns:
-    pipeline: dns_in
     transport:
       type: udp
       port: 8353
+  inbound_api:
+    transport:
+      type: tcp
+      port: 8300
 
 pipelines:
   socks_in:
@@ -28,7 +31,6 @@ pipelines:
     # - type: sniffer
     #   override_dest: true
     #   types: [tls, http]
-  dns_in: []
 
   http_client:
     - type: http_proxy_client
@@ -57,6 +59,9 @@ router:
         any:
           - dest_domain: ["t.cn"]
           - dest_addr: ["192.168.0.0/16"]
+    - target: api
+      rule:
+        inbound_name: inbound_api
 
 outbounds:
   direct_tcp:
@@ -80,3 +85,6 @@ outbounds:
       type: tcp
       addr: "83041227-55a7-4080-b7e1-9dfc7478ddb0.gz.****"
       port: 8215
+  api:
+    transport:
+      type: api

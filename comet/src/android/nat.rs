@@ -1,6 +1,6 @@
 use super::{IPV4_CLIENT, IPV4_ROUTER, IPV6_CLIENT, IPV6_ROUTER};
 use crate::utils::unix_ts;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use pnet::packet;
 use pnet::packet::tcp::MutableTcpPacket;
 use pnet::packet::udp::MutableUdpPacket;
@@ -86,7 +86,7 @@ fn handle_tcp(packet: &mut AddressedTcpPacket<'_>, ctx: &AppContextRef) -> Resul
                 };
                 packet.inner.set_source(dest_port);
             } else {
-                return Err(anyhow!("Entry not found in NAT table"));
+                bail!("Entry not found in NAT table");
             }
         } else {
             // Forward packet to proxy
@@ -105,7 +105,7 @@ fn handle_tcp(packet: &mut AddressedTcpPacket<'_>, ctx: &AppContextRef) -> Resul
                     packet.inner.get_destination(),
                 );
                 if !refresh_result {
-                    return Err(anyhow!("Entry not found in NAT table"));
+                    bail!("Entry not found in NAT table");
                 }
             }
             match packet.src_addr {
@@ -124,7 +124,7 @@ fn handle_tcp(packet: &mut AddressedTcpPacket<'_>, ctx: &AppContextRef) -> Resul
             };
         }
     } else {
-        return Err(anyhow!("Unknown source address: {}", packet.src_addr));
+        bail!("Unknown source address: {}", packet.src_addr);
     }
     Ok(())
 }
@@ -147,7 +147,7 @@ fn handle_udp(packet: &mut AddressedUdpPacket<'_>, ctx: &AppContextRef) -> Resul
                 };
                 packet.inner.set_source(dest_port);
             } else {
-                return Err(anyhow!("Entry not found in NAT table"));
+                bail!("Entry not found in NAT table");
             }
         } else {
             // Forward packet to proxy
@@ -192,7 +192,7 @@ fn handle_udp(packet: &mut AddressedUdpPacket<'_>, ctx: &AppContextRef) -> Resul
             };
         }
     } else {
-        return Err(anyhow!("Unknown source address: {}", packet.src_addr));
+        bail!("Unknown source address: {}", packet.src_addr);
     }
     Ok(())
 }
@@ -258,7 +258,7 @@ fn handle_ipv4(buffer: &mut [u8], ctx: &AppContextRef) -> Result<()> {
             ));
         }
         _ => {
-            return Err(anyhow!("Unsupported protocol: {:?}", l4_proto));
+            bail!("Unsupported protocol: {:?}", l4_proto);
         }
     };
     ip_pkt.set_source(src_addr);

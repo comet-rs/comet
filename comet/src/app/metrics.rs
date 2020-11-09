@@ -1,12 +1,15 @@
 use crate::config::Config;
 use crate::prelude::*;
+use serde::Serialize;
+use serde::Serializer;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Default)]
+#[derive(Default, Serialize)]
 pub struct MetricsValues {
   rx: AtomicUsize,
   tx: AtomicUsize,
+  #[serde(serialize_with = "serialize_conn_count")]
   conn_handle: Arc<()>,
 }
 
@@ -34,6 +37,10 @@ impl std::fmt::Debug for MetricsValues {
       Arc::strong_count(&self.conn_handle) - 1
     )
   }
+}
+
+fn serialize_conn_count<S: Serializer>(handle: &Arc<()>, serializer: S) -> Result<S::Ok, S::Error> {
+  serializer.serialize_u64((Arc::strong_count(handle) - 1) as u64)
 }
 
 #[derive(Debug)]

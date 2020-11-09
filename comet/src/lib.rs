@@ -34,7 +34,8 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
             info!("Finished handling {}", conn);
           }
           Err(err) => {
-            error!("Failed to handle accepted connection: {:?}", err);
+            let cause: Vec<_> = err.chain().skip(1).map(|c| format!("{}", c)).collect();
+            error!("Failed to handle accepted connection: {} > {}", err, cause.join(" > "));
           }
         }
       });
@@ -55,7 +56,7 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
 pub async fn run_bin() -> Result<()> {
   let config = config::load_file("./config.yml")
     .await
-    .with_context(|| "Failed to read config file")?;
+    .context("Failed to read config file")?;
   println!("{:#?}", config);
   let ctx = Arc::new(AppContext::new(&config)?);
   drop(config);
@@ -73,7 +74,7 @@ pub async fn run_android(
   info!("{:?}", uid_map);
   let config = config::load_file(config_path)
     .await
-    .with_context(|| "Failed to read config file")?;
+    .context("Failed to read config file")?;
   let ctx = Arc::new(AppContext::new(&config)?);
   drop(config);
 

@@ -29,6 +29,7 @@ impl OutboundManager {
     Ok(match outbound.transport.r#type {
       OutboundTransportType::Tcp => self.connect_tcp_multi(tag, conn, ctx).await?.into(),
       OutboundTransportType::Udp => self.connect_udp(tag, conn, ctx).await?.into(),
+      OutboundTransportType::Api => self.connect_api(tag, conn, ctx).await?.into(),
     })
   }
 
@@ -153,5 +154,20 @@ impl OutboundManager {
       .get(tag)
       .ok_or_else(|| anyhow!("Outbound {} not found", tag))?;
     Ok(outbound)
+  }
+
+  async fn connect_api(
+    &self,
+    _tag: &str,
+    _conn: &mut Connection,
+    ctx: &AppContextRef,
+  ) -> Result<RWPair> {
+    let (uplink, downlink) = tokio::io::duplex(1024);
+    let ctx = ctx.clone();
+    tokio::spawn(async move {
+      let _ = super::api::handle_api(uplink, ctx).await;
+    });
+
+    Ok(RWPair::new(downlink))
   }
 }

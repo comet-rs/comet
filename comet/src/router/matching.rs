@@ -22,6 +22,7 @@ pub enum MatchCondition {
   SrcPort(Vec<PortCondition>),
   #[serde(deserialize_with = "deserialize_domain_matcher_text")]
   DestDomain(DomainMatcher),
+  InboundName(SmolStr),
   Metadata,
 }
 
@@ -69,6 +70,7 @@ impl MatchCondition {
         }
         false
       }
+      MatchCondition::InboundName(name) => &conn.inbound_tag == name,
       MatchCondition::Metadata => false,
       _ => unimplemented!(),
     }

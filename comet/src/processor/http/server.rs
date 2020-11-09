@@ -18,7 +18,7 @@ pub struct ServerProcessor {}
 impl Processor for ServerProcessor {
   async fn process(
     self: Arc<Self>,
-    mut stream: ProxyStream,
+    stream: ProxyStream,
     conn: &mut Connection,
     _ctx: AppContextRef,
   ) -> Result<ProxyStream> {

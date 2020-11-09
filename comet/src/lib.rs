@@ -34,7 +34,7 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
             info!("Finished handling {}", conn);
           }
           Err(err) => {
-            error!("Failed to handle accepted connection: {}", err);
+            error!("Failed to handle accepted connection: {:?}", err);
           }
         }
       });

@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use std::time::Duration;
 use tokio::stream::StreamExt;
 use tokio::time::sleep;
@@ -9,10 +9,12 @@ pub async fn handle_tcp_conn(
   stream: ProxyStream,
   ctx: AppContextRef,
 ) -> Result<Connection> {
+  let inbound_pipeline = conn.inbound_pipeline.clone();
   let (mut conn, stream) = ctx
     .clone_plumber()
-    .process(&conn.inbound_pipeline.clone(), conn, stream, ctx.clone())
-    .await?;
+    .process(&inbound_pipeline, conn, stream, ctx.clone())
+    .await
+    .with_context(|| format!("When running inbound pipeline {}", inbound_pipeline))?;
 
   info!("Accepted {}", conn);
 
@@ -20,15 +22,16 @@ pub async fn handle_tcp_conn(
 
   let mut outbound = ctx
     .outbound_manager
-    .connect(outbound_tag, &mut conn, &ctx)
-    .await?;
-  info!("Connected outbound: {}", outbound_tag);
+    .connect(&outbound_tag, &mut conn, &ctx)
+    .await
+    .with_context(|| format!("When connecting outbound {}", outbound_tag))?;
 
   if let Some(outbound_pipeline) = ctx.outbound_manager.get_pipeline(outbound_tag)? {
     let ret = ctx
       .clone_plumber()
-      .process(outbound_pipeline, conn, outbound.into(), ctx.clone())
-      .await?;
+      .process(&outbound_pipeline, conn, outbound.into(), ctx.clone())
+      .await
+      .with_context(|| format!("When running outbound pipeline {}", outbound_pipeline))?;
     conn = ret.0;
     outbound = ret.1;
   }
@@ -43,7 +46,7 @@ pub async fn handle_tcp_conn(
 
       let c2s = copy(&mut downlink.0, &mut uplink.1);
       let s2c = copy(&mut uplink.0, &mut downlink.1);
-      try_join!(c2s, s2c)?;
+      try_join!(c2s, s2c).with_context(|| "When copying TCP stream")?;
     }
     (ProxyStream::Udp(mut stream), ProxyStream::Udp(mut outbound)) => loop {
       let mut sleep = sleep(Duration::from_secs(10));

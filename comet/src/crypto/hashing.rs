@@ -31,13 +31,13 @@ pub fn new_hasher(kind: HashKind) -> Result<Box<dyn Hasher>> {
   {
     use self::windows::WindowsHasher;
     let hasher = Box::new(WindowsHasher::new(kind)?);
-    return Ok(hasher);
+    Ok(hasher)
   }
   #[cfg(not(target_os = "windows"))]
   {
     use self::openssl::OpensslHasher;
     let hasher = Box::new(OpensslHasher::new(kind.into())?);
-    return Ok(hasher);
+    Ok(hasher)
   }
 }
 

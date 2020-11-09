@@ -128,7 +128,7 @@ impl InboundManager {
 
       if let Some(sender) = table_ref.get(&src_addr) {
         let packet = BytesMut::from(&buffer[0..size]);
-        if let Ok(_) = sender.send(packet).await {
+        if sender.send(packet).await.is_ok() {
           continue;
         }
         // Receiver dropped
@@ -138,17 +138,21 @@ impl InboundManager {
       let (write_sender, mut write_receiver) = channel::<BytesMut>(10);
 
       let socket_clone = socket.clone();
-      let src_addr_clone = src_addr.clone();
+      let src_addr_clone = src_addr;
       tokio::spawn(async move {
         while let Some(packet) = write_receiver.recv().await {
-          if let Err(_) = socket_clone.send_to(&packet, &src_addr_clone).await {
+          if socket_clone
+            .send_to(&packet, &src_addr_clone)
+            .await
+            .is_err()
+          {
             break;
           }
         }
       });
 
       // Insert sender to table to be used later
-      table_ref.insert(src_addr.clone(), read_sender.clone());
+      table_ref.insert(src_addr, read_sender.clone());
       read_sender
         .send(BytesMut::from(&buffer[0..size]))
         .await

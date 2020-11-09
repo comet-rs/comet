@@ -87,13 +87,9 @@ impl DnsService {
     }
 
     pub async fn process_query(&self, bytes: &[u8]) -> Result<Vec<u8>> {
-        let message_query = Message::from_vec(bytes)?;
+        let message = Message::from_vec(bytes)?;
 
-        let id = message_query.id();
-        let query = message_query
-            .queries()
-            .first()
-            .ok_or_else(|| anyhow!("No query found in DNS request"))?;
+        let (id, query) = Self::parse_query(&message)?;
 
         let upstream_query = new_lookup(&query);
 
@@ -120,7 +116,6 @@ impl DnsService {
 
         let cache_ref = self.cache.pin();
         cache_ref.insert(SmolStr::from(domain), DnsEntry::new(result.clone()));
-        
         info!("Resolved {} -> {:?}", domain, result);
         Ok(result)
     }
@@ -134,8 +129,30 @@ impl DnsService {
         }
     }
 
+    fn parse_query(message: &Message) -> Result<(u16, &Query)> {
+        let id = message.id();
+        let query = message
+            .queries()
+            .first()
+            .ok_or_else(|| anyhow!("No query found in DNS request"))?;
+
+        Ok((id, query))
+    }
+
+    pub async fn process_fake_dns(&self, input: &[u8]) -> Result<Vec<u8>> {
+        let message = Message::from_vec(input)?;
+        let (id, query) = Self::parse_query(&message)?;
+
+        let upstream_query = new_lookup(&query);
+
+        let mut upstream_response = xfer_message(upstream_query).await?;
+        upstream_response.set_id(id);
+
+        Ok(upstream_response.to_vec()?)
+    }
+
     /// Blindly insert an item into the map
-    pub async fn fake_set(&mut self, domain: &str) -> Ipv4Addr {
+    pub async fn fake_set(&self, domain: &str) -> Ipv4Addr {
         let map_ref = self.fake_map.as_ref().unwrap();
         let mut map_ref_write = map_ref.write().await;
         let mut rng = xor_rng();
@@ -151,7 +168,7 @@ impl DnsService {
         }
     }
 
-    pub async fn fake_get(&mut self, addr: &Ipv4Addr) -> Option<SmolStr> {
+    pub async fn fake_get(&self, addr: &Ipv4Addr) -> Option<SmolStr> {
         let map_ref = self.fake_map.as_ref().unwrap();
         let mut map_ref_write = map_ref.write().await;
 

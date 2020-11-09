@@ -35,6 +35,6 @@ pub async fn bind_udp(addr: &SocketAddr) -> io::Result<UdpSocket> {
         let fd = sock.as_raw_fd();
         protect::protect_async(fd).await?;
     }
-    sock.bind(&SockAddr::from(addr.clone()))?;
+    sock.bind(&SockAddr::from(*addr))?;
     UdpSocket::from_std(sock.into_udp_socket())
 }

@@ -7,13 +7,13 @@ pub fn rand_bytes(buf: &mut [u8]) -> Result<()> {
   {
     use win_crypto_ng::random::*;
     let rng = RandomNumberGenerator::system_preferred();
-    return Ok(rng.gen_random(buf)?);
+    Ok(rng.gen_random(buf)?)
   }
 
   #[cfg(not(target_os = "windows"))]
   {
     use openssl::rand::rand_bytes as openssl_rand_bytes;
-    return Ok(openssl_rand_bytes(buf)?);
+    Ok(openssl_rand_bytes(buf)?)
   }
 }
 

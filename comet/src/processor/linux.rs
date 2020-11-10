@@ -7,7 +7,7 @@ pub fn register(plumber: &mut Plumber) {
 
 pub struct AssociateUidProcessor {}
 
-fn find_uid(content: &str, port: u16) -> Result<Option<String>> {
+fn find_uid(content: &str, port: u16) -> Result<Option<u32>> {
   let mut lines = content.lines().map(|l| l.trim());
   let heading = lines
     .next()
@@ -29,7 +29,7 @@ fn find_uid(content: &str, port: u16) -> Result<Option<String>> {
       let uid = split
         .nth(uid_pos - 4)
         .ok_or_else(|| anyhow!("Unable to parse uid"))?;
-      return Ok(Some(uid.to_string()));
+      return Ok(Some(u32::from_str_radix(uid, 10)?));
     }
   }
   Ok(None)

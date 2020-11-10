@@ -20,7 +20,7 @@ static mut STOP_SENDER: Option<oneshot::Sender<()>> = None;
 pub async fn start_android(
     fd: u16,
     config_path: String,
-    uid_map: HashMap<u16, SmolStr>,
+    uid_map: HashMap<u32, SmolStr>,
     stop_receiver: oneshot::Receiver<()>,
 ) -> Result<()> {
     let running = Arc::new(AtomicBool::new(true));
@@ -58,12 +58,12 @@ pub unsafe extern "system" fn Java_com_sayori_comet_NativeModule_start(
 
     let config_path = env.get_string(config_path).unwrap().into();
     let uid_map = JMap::from_env(&env, uid_map).unwrap();
-    let uid_map_rs: Result<HashMap<u16, SmolStr>> = uid_map
+    let uid_map_rs: Result<HashMap<u32, SmolStr>> = uid_map
         .iter()
         .unwrap()
         .map(|(k, v)| {
             let java_index_value = env.call_method(k, "intValue", "()I", &[])?;
-            let index = java_index_value.i()? as u16;
+            let index = java_index_value.i()? as u32;
             let java_value = env.get_string(JString::from(v))?;
             Ok((index, Cow::from(&java_value).into()))
         })

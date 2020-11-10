@@ -63,7 +63,7 @@ pub async fn run_bin() -> Result<()> {
 pub async fn run_android(
   fd: u16,
   config_path: &str,
-  uid_map: HashMap<u16, SmolStr>,
+  uid_map: HashMap<u32, SmolStr>,
   running: Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<()> {
   info!("{:?}", uid_map);

@@ -1,8 +1,12 @@
 use crate::config::Config;
 use crate::prelude::*;
+use futures::{SinkExt, StreamExt};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use tokio::time::Duration;
+use tokio_tungstenite::accept_async;
+use tungstenite::Message;
 
 #[derive(Default)]
 pub struct MetricsValues {
@@ -119,4 +123,32 @@ impl Metrics {
         .collect(),
     }
   }
+}
+
+pub async fn handle_metrics<S: AsyncRead + AsyncWrite + Unpin + 'static>(
+  stream: S,
+  interval: Option<u64>,
+  ctx: AppContextRef,
+) -> Result<()> {
+  let ws_stream = accept_async(stream).await?;
+  let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+  let mut interval = tokio::time::interval(Duration::from_millis(interval.unwrap_or(1000)));
+
+  loop {
+    tokio::select! {
+      Some(Ok(msg)) = ws_receiver.next() => {
+        if msg.is_close() {
+          break;
+        }
+      }
+      _ = interval.next() => {
+        let froze = ctx.metrics.freeze();
+        let msg = Message::text(serde_json::to_string(&froze)?);
+        ws_sender.send(msg).await?;
+      }
+      else => break
+    };
+  }
+
+  Ok(())
 }

@@ -29,8 +29,35 @@ impl OutboundManager {
     Ok(match outbound.transport.r#type {
       OutboundTransportType::Tcp => self.connect_tcp_multi(tag, conn, ctx).await?.into(),
       OutboundTransportType::Udp => self.connect_udp(tag, conn, ctx).await?.into(),
-      OutboundTransportType::Api => self.connect_api(tag, conn, ctx).await?.into(),
+      OutboundTransportType::Metrics { interval } => {
+        self.connect_metrics(tag, conn, interval, ctx).await?.into()
+      }
     })
+  }
+
+  async fn resolve_addr(
+    &self,
+    outbound: &Outbound,
+    conn: &Connection,
+    ctx: &AppContextRef,
+  ) -> Result<(Vec<IpAddr>, u16)> {
+    let port = if let Some(port) = outbound.transport.port {
+      port
+    } else {
+      conn.dest_addr.port_or_error()?
+    };
+
+    let ips = if let Some(addr) = &outbound.transport.addr {
+      // Dest addr overridden
+      match addr {
+        OutboundAddr::Ip(ip) => vec![*ip],
+        OutboundAddr::Domain(domain) => ctx.dns.resolve(&domain).await?,
+      }
+    } else {
+      ctx.dns.resolve_addr(&conn.dest_addr).await?
+    };
+
+    Ok((ips, port))
   }
 
   async fn connect_tcp(
@@ -63,21 +90,7 @@ impl OutboundManager {
     ctx: &AppContextRef,
   ) -> Result<RWPair> {
     let outbound = self.get_outbound(tag)?;
-    let port = if let Some(port) = outbound.transport.port {
-      port
-    } else {
-      conn.dest_addr.port_or_error()?
-    };
-
-    let ips = if let Some(addr) = &outbound.transport.addr {
-      // Dest addr overridden
-      match addr {
-        OutboundAddr::Ip(ip) => vec![*ip],
-        OutboundAddr::Domain(domain) => ctx.dns.resolve(&domain).await?,
-      }
-    } else {
-      ctx.dns.resolve_addr(&conn.dest_addr).await?
-    };
+    let (ips, port) = self.resolve_addr(outbound, conn, ctx).await?;
 
     for ip in ips {
       match self.connect_tcp(tag, ip, port, ctx).await {
@@ -95,21 +108,7 @@ impl OutboundManager {
     ctx: &AppContextRef,
   ) -> Result<UdpStream> {
     let outbound = self.get_outbound(tag)?;
-    let port = if let Some(port) = outbound.transport.port {
-      port
-    } else {
-      conn.dest_addr.port_or_error()?
-    };
-
-    let ips = if let Some(addr) = &outbound.transport.addr {
-      // Dest addr overridden
-      match addr {
-        OutboundAddr::Ip(ip) => vec![*ip],
-        OutboundAddr::Domain(domain) => ctx.dns.resolve(&domain).await?,
-      }
-    } else {
-      ctx.dns.resolve_addr(&conn.dest_addr).await?
-    };
+    let (ips, port) = self.resolve_addr(outbound, conn, ctx).await?;
 
     let socket = Arc::new(
       crate::net_wrapper::bind_udp(&SocketAddr::new(IpAddr::from([0, 0, 0, 0]), 0)).await?,
@@ -156,16 +155,18 @@ impl OutboundManager {
     Ok(outbound)
   }
 
-  async fn connect_api(
+  async fn connect_metrics(
     &self,
     _tag: &str,
     _conn: &mut Connection,
+    interval: Option<u64>,
     ctx: &AppContextRef,
   ) -> Result<RWPair> {
     let (uplink, downlink) = tokio::io::duplex(1024);
     let ctx = ctx.clone();
     tokio::spawn(async move {
-      let _ = super::api::handle_api(uplink, ctx).await;
+      let _ = super::metrics::handle_metrics(uplink, interval, ctx).await;
+      info!("Metrics connection closed");
     });
 
     Ok(RWPair::new(downlink))

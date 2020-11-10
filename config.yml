@@ -13,7 +13,7 @@ inbounds:
     transport:
       type: udp
       port: 8353
-  inbound_api:
+  inbound_metrics:
     transport:
       type: tcp
       port: 8300
@@ -38,7 +38,7 @@ pipelines:
     - type: ssr_obfs_client
       obfs: http_simple
       port: 8088
-      hosts: ['7f37f56256.download.windowsupdate.com']
+      hosts: ["7f37f56256.download.windowsupdate.com"]
     - type: ss_stream_cipher_client
       password: "ssmu"
       method: "aes-256-cfb"
@@ -47,7 +47,6 @@ pipelines:
       user_key: "******"
       protocol: auth_aes128_md5
     - type: ss_handshake_client
-
 
 router:
   defaults:
@@ -59,9 +58,9 @@ router:
         any:
           - dest_domain: ["t.cn"]
           - dest_addr: ["192.168.0.0/16"]
-    - target: api
+    - target: metrics
       rule:
-        inbound_name: inbound_api
+        inbound_name: inbound_metrics
 
 outbounds:
   direct_tcp:
@@ -83,8 +82,9 @@ outbounds:
     metering: true
     transport:
       type: tcp
-      addr: "83041227-55a7-4080-b7e1-9dfc7478ddb0.gz.****"
-      port: 8215
-  api:
+      addr: "b4eac403-6eac-4830-b73b-77480dd3cd3d.cz.****"
+      port: 8223
+  metrics:
     transport:
-      type: api
+      type: metrics
+      interval: 5000

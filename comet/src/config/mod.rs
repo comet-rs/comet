@@ -30,7 +30,7 @@ pub struct Inbound {
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(tag = "type", rename_all="snake_case")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum InboundTransportType {
   Tcp,
   Udp,
@@ -53,11 +53,13 @@ pub struct Outbound {
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(tag = "type", rename_all="snake_case")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum OutboundTransportType {
   Tcp,
   Udp,
-  Api
+  Metrics {
+    interval: Option<u64>
+  },
 }
 
 #[derive(Deserialize, Clone, Debug)]

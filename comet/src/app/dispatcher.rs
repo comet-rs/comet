@@ -5,11 +5,11 @@ use tokio::stream::StreamExt;
 use tokio::time::sleep;
 
 pub async fn handle_tcp_conn(
-  conn: Connection,
+  conn: &mut Connection,
   stream: ProxyStream,
   ctx: AppContextRef,
-) -> Result<Connection> {
-  let (mut conn, stream) = if let Some(ref inbound_pipeline) = conn.inbound_pipeline {
+) -> Result<()> {
+  let stream = if let Some(ref inbound_pipeline) = conn.inbound_pipeline {
     let inbound_pipeline = inbound_pipeline.clone();
     ctx
       .clone_plumber()
@@ -17,7 +17,7 @@ pub async fn handle_tcp_conn(
       .await
       .with_context(|| format!("When running inbound pipeline {}", inbound_pipeline))?
   } else {
-    (conn, stream)
+    stream
   };
 
   info!("Accepted {}", conn);
@@ -26,18 +26,16 @@ pub async fn handle_tcp_conn(
 
   let mut outbound = ctx
     .outbound_manager
-    .connect(&outbound_tag, &mut conn, &ctx)
+    .connect(&outbound_tag, conn, &ctx)
     .await
     .with_context(|| format!("When connecting outbound {}", outbound_tag))?;
 
   if let Some(outbound_pipeline) = ctx.outbound_manager.get_pipeline(outbound_tag)? {
-    let ret = ctx
+    outbound = ctx
       .clone_plumber()
       .process(&outbound_pipeline, conn, outbound.into(), ctx.clone())
       .await
       .with_context(|| format!("When running outbound pipeline {}", outbound_pipeline))?;
-    conn = ret.0;
-    outbound = ret.1;
   }
 
   match (stream, outbound) {
@@ -68,5 +66,5 @@ pub async fn handle_tcp_conn(
     },
     _ => bail!("Transport type mismatch"),
   }
-  Ok(conn)
+  Ok(())
 }

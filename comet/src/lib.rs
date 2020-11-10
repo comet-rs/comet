@@ -24,17 +24,18 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
 
   let ctx_tcp = ctx.clone();
   let _process_handle = tokio::spawn(async move {
-    while let Some((conn, stream)) = conns.recv().await {
+    while let Some((mut conn, stream)) = conns.recv().await {
       let ctx = ctx_tcp.clone();
       tokio::spawn(async move {
-        match dispatcher::handle_tcp_conn(conn, stream, ctx).await {
-          Ok(conn) => {
+        match dispatcher::handle_tcp_conn(&mut conn, stream, ctx).await {
+          Ok(()) => {
             info!("Finished handling {}", conn);
           }
           Err(err) => {
             let cause: Vec<_> = err.chain().skip(1).map(|c| format!("{}", c)).collect();
             error!(
-              "Failed to handle accepted connection: {} > {}",
+              "Failed to handle {} because {} > {}",
+              conn,
               err,
               cause.join(" > ")
             );

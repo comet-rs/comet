@@ -55,7 +55,7 @@ impl fmt::Display for DestAddr {
             .as_ref()
             .map(|s| s.as_str())
             .unwrap_or_else(|| &"?");
-        write!(f, "[{:?}/{:?}]:{}", domain, self.ip, self.port.unwrap_or(0))
+        write!(f, "[{}/{:?}]:{}", domain, self.ip, self.port.unwrap_or(0))
     }
 }
 

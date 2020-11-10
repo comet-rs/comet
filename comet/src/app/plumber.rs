@@ -57,10 +57,10 @@ impl Plumber {
   pub async fn process(
     self: Arc<Self>,
     tag: &str,
-    conn: Connection,
+    conn: &mut Connection,
     stream: ProxyStream,
     ctx: AppContextRef,
-  ) -> Result<(Connection, ProxyStream)> {
+  ) -> Result<ProxyStream> {
     Ok(self.get_pipeline(tag)?.process(stream, conn, ctx).await?)
   }
 
@@ -99,14 +99,14 @@ impl Pipeline {
   pub async fn process(
     &self,
     mut stream: ProxyStream,
-    mut conn: Connection,
+    conn: &mut Connection,
     ctx: AppContextRef,
-  ) -> Result<(Connection, ProxyStream)> {
+  ) -> Result<ProxyStream> {
     for item in &self.items {
-      let result = item.1.clone().process(stream, &mut conn, ctx.clone()).await;
+      let result = item.1.clone().process(stream, conn, ctx.clone()).await;
       stream = result.with_context(|| format!("Error running processor {}", item.0))?;
     }
-    Ok((conn, stream))
+    Ok(stream)
   }
 }
 

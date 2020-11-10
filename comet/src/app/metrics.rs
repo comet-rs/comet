@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::prelude::*;
 use serde::Serialize;
-use serde::Serializer;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 

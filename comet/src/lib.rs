@@ -18,8 +18,6 @@ use crate::context::AppContext;
 use crate::prelude::*;
 
 use anyhow::Context;
-use std::sync::Arc;
-use std::time::Duration;
 
 pub async fn run(ctx: AppContextRef) -> Result<()> {
   let mut conns = ctx.clone_inbound_manager().start(ctx.clone()).await?;
@@ -35,21 +33,17 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
           }
           Err(err) => {
             let cause: Vec<_> = err.chain().skip(1).map(|c| format!("{}", c)).collect();
-            error!("Failed to handle accepted connection: {} > {}", err, cause.join(" > "));
+            error!(
+              "Failed to handle accepted connection: {} > {}",
+              err,
+              cause.join(" > ")
+            );
           }
         }
       });
     }
   });
 
-  let ctx1 = ctx.clone();
-  tokio::spawn(async move {
-    let mut interval = tokio::time::interval(Duration::from_secs(10));
-    loop {
-      interval.tick().await;
-      println!("{:?}", ctx1.metrics);
-    }
-  });
   Ok(())
 }
 

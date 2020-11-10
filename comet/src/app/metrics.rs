@@ -5,11 +5,10 @@ use serde::Serializer;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Default, Serialize)]
+#[derive(Default)]
 pub struct MetricsValues {
   rx: AtomicUsize,
   tx: AtomicUsize,
-  #[serde(serialize_with = "serialize_conn_count")]
   conn_handle: Arc<()>,
 }
 
@@ -39,14 +38,23 @@ impl std::fmt::Debug for MetricsValues {
   }
 }
 
-fn serialize_conn_count<S: Serializer>(handle: &Arc<()>, serializer: S) -> Result<S::Ok, S::Error> {
-  serializer.serialize_u64((Arc::strong_count(handle) - 1) as u64)
-}
-
 #[derive(Debug)]
 pub struct Metrics {
   inbounds: HashMap<SmolStr, Arc<MetricsValues>>,
   outbounds: HashMap<SmolStr, Arc<MetricsValues>>,
+}
+
+#[derive(Default, Serialize)]
+pub struct FrozeMetricsValues {
+  rx: usize,
+  tx: usize,
+  conn_count: usize,
+}
+
+#[derive(Default, Serialize)]
+pub struct FrozeMetrics<'k> {
+  inbounds: HashMap<&'k str, FrozeMetricsValues>,
+  outbounds: HashMap<&'k str, FrozeMetricsValues>,
 }
 
 impl Metrics {
@@ -78,5 +86,38 @@ impl Metrics {
 
   pub fn get_outbound(&self, tag: &str) -> Option<Arc<MetricsValues>> {
     self.outbounds.get(tag).cloned()
+  }
+
+  pub fn freeze(&self) -> FrozeMetrics {
+    FrozeMetrics {
+      inbounds: self
+        .inbounds
+        .iter()
+        .map(|(name, value)| {
+          (
+            name.as_str(),
+            FrozeMetricsValues {
+              rx: value.rx.load(Ordering::Relaxed),
+              tx: value.tx.load(Ordering::Relaxed),
+              conn_count: Arc::strong_count(&value.conn_handle) - 1,
+            },
+          )
+        })
+        .collect(),
+      outbounds: self
+        .outbounds
+        .iter()
+        .map(|(name, value)| {
+          (
+            name.as_str(),
+            FrozeMetricsValues {
+              rx: value.rx.load(Ordering::Relaxed),
+              tx: value.tx.load(Ordering::Relaxed),
+              conn_count: Arc::strong_count(&value.conn_handle) - 1,
+            },
+          )
+        })
+        .collect(),
+    }
   }
 }

@@ -6,12 +6,16 @@ pub trait StreamCrypter: Send + Sync {
 }
 
 pub enum StreamCipherKind {
+  Aes128Cfb,
+  Aes192Cfb,
   Aes256Cfb,
 }
 
 impl StreamCipherKind {
   fn cipher_info(&self) -> (usize, Option<usize>, usize) {
     match self {
+      StreamCipherKind::Aes128Cfb => (16, Some(16), 16),
+      StreamCipherKind::Aes192Cfb => (24, Some(16), 16),
       StreamCipherKind::Aes256Cfb => (32, Some(16), 16),
     }
   }
@@ -65,6 +69,8 @@ mod openssl {
     };
     let crypter = symm::Crypter::new(
       match kind {
+        StreamCipherKind::Aes128Cfb => symm::Cipher::aes_128_cfb128(),
+        StreamCipherKind::Aes192Cfb => symm::Cipher::aes_192_cfb128(),
         StreamCipherKind::Aes256Cfb => symm::Cipher::aes_256_cfb128(),
       },
       openssl_mode,
@@ -89,7 +95,6 @@ mod openssl {
 mod rust {
   use super::{CrypterMode, StreamCipherKind, StreamCrypter};
   use crate::prelude::*;
-  use aes::Aes256;
   use cfb_mode::Cfb;
   use cipher::{NewStreamCipher, StreamCipher};
 
@@ -106,7 +111,9 @@ mod rust {
       iv: &'a [u8],
     ) -> Result<Self> {
       let inner = match kind {
-        StreamCipherKind::Aes256Cfb => Box::new(Cfb::<Aes256>::new_var(key, iv).unwrap()),
+        StreamCipherKind::Aes128Cfb => Box::new(Cfb::<aes::Aes128>::new_var(key, iv).unwrap()),
+        StreamCipherKind::Aes192Cfb => Box::new(Cfb::<aes::Aes192>::new_var(key, iv).unwrap()),
+        StreamCipherKind::Aes256Cfb => Box::new(Cfb::<aes::Aes256>::new_var(key, iv).unwrap()),
       };
 
       Ok(Self { mode, inner })

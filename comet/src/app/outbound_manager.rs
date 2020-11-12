@@ -118,7 +118,6 @@ impl OutboundManager {
     let (read_sender, read_receiver) = channel::<BytesMut>(10);
     let (write_sender, mut write_receiver) = channel::<BytesMut>(10);
 
-    let read_sender_clone = read_sender.clone();
     let socket_clone = socket.clone();
     tokio::spawn(async move {
       loop {
@@ -126,12 +125,12 @@ impl OutboundManager {
         tokio::select! {
           Ok(n) = socket_clone.recv(&mut buffer) => {
             let packet = BytesMut::from(&buffer[0..n]);
-            read_sender_clone.send(packet).await.unwrap();
+            read_sender.send(packet).await.unwrap();
           }
           Some(packet) = write_receiver.recv() => {
             socket_clone.send(&packet).await.unwrap();
           }
-          _ = read_sender_clone.closed() => break,
+          _ = read_sender.closed() => break,
           else => break
         }
       }

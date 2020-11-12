@@ -50,15 +50,15 @@ pub fn hash_bytes(kind: HashKind, input: &[u8]) -> Result<Bytes> {
 pub fn new_signer(kind: HashKind, key: &[u8]) -> Result<Box<dyn Signer>> {
   #[cfg(target_os = "windows")]
   {
-    use self::rust::RustSigner;
-    let hasher = Box::new(RustSigner::new(kind, key)?);
-    return Ok(hasher);
+    use self::windows::WindowsSigner;
+    let hasher = Box::new(WindowsSigner::new(kind, key)?);
+    Ok(hasher)
   }
   #[cfg(not(target_os = "windows"))]
   {
     use self::openssl::OpensslSigner;
     let signer = Box::new(OpensslSigner::new(kind, key)?);
-    return Ok(signer);
+    Ok(signer)
   }
 }
 
@@ -167,9 +167,11 @@ mod openssl {
 
 #[cfg(target_os = "windows")]
 mod windows {
-  use super::{HashKind, Hasher};
+  use super::{HashKind, Hasher, Signer};
   use crate::prelude::*;
+  use win_crypto_ng::hash::digest_trait::{Md5, Sha1, WinDigest};
 
+  use hmac::{Hmac, Mac, NewMac};
   use win_crypto_ng::hash::{Hash, HashAlgorithm, HashAlgorithmId};
 
   pub struct WindowsHasher {
@@ -198,38 +200,28 @@ mod windows {
       Ok(Bytes::copy_from_slice(buffer.as_slice()))
     }
   }
-}
 
-#[cfg(target_os = "windows")]
-mod rust {
-  use super::{HashKind, Signer};
-  use crate::prelude::*;
-
-  use hmac::{Hmac, Mac, NewMac};
-  use md5::Md5;
-  use sha1::Sha1;
-
-  pub struct RustSigner {
-    inner: Option<RustSignerInner>,
+  pub struct WindowsSigner {
+    inner: Option<WindowsSignerInner>,
   }
 
-  impl RustSigner {
+  impl WindowsSigner {
     pub fn new(kind: HashKind, key: &[u8]) -> Result<Self> {
       let ret = match kind {
-        HashKind::Md5 => RustSignerInner::Md5(Hmac::new_varkey(key).unwrap()),
-        HashKind::Sha1 => RustSignerInner::Sha1(Hmac::new_varkey(key).unwrap()),
+        HashKind::Md5 => WindowsSignerInner::Md5(Hmac::new_varkey(key).unwrap()),
+        HashKind::Sha1 => WindowsSignerInner::Sha1(Hmac::new_varkey(key).unwrap()),
       };
 
       Ok(Self { inner: Some(ret) })
     }
   }
 
-  pub enum RustSignerInner {
-    Md5(Hmac<Md5>),
-    Sha1(Hmac<Sha1>),
+  pub enum WindowsSignerInner {
+    Md5(Hmac<WinDigest<Md5>>),
+    Sha1(Hmac<WinDigest<Sha1>>),
   }
 
-  impl RustSignerInner {
+  impl WindowsSignerInner {
     fn update(&mut self, data: &[u8]) {
       match self {
         Self::Md5(m) => m.update(data),
@@ -245,7 +237,7 @@ mod rust {
     }
   }
 
-  impl Signer for RustSigner {
+  impl Signer for WindowsSigner {
     fn update(&mut self, data: &[u8]) -> Result<()> {
       Ok(self.inner.as_mut().unwrap().update(data))
     }

@@ -59,9 +59,7 @@ openssl = { version = "0.10", features = ["vendored"] }
 [target.'cfg(target_os = "windows")'.dependencies]
 cipher = "0.2.1"
 aes = "0.6.0"
-md-5 = "0.9.1"
-sha-1 = "0.9.2"
 hmac = "0.10.1"
 cfb-mode = "0.6.0"
 block-modes = "0.7.0"
-win-crypto-ng = "0.3.0"
+win-crypto-ng = { git = "https://github.com/chengyuhui/win-crypto-ng", branch = "digest_trait" }

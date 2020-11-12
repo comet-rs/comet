@@ -33,7 +33,7 @@ pub async fn handle_tcp_conn(
   if let Some(outbound_pipeline) = ctx.outbound_manager.get_pipeline(outbound_tag)? {
     outbound = ctx
       .clone_plumber()
-      .process(&outbound_pipeline, conn, outbound.into(), ctx.clone())
+      .process(&outbound_pipeline, conn, outbound, ctx.clone())
       .await
       .with_context(|| format!("When running outbound pipeline {}", outbound_pipeline))?;
   }

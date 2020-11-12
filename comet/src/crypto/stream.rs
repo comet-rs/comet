@@ -40,8 +40,11 @@ impl StreamCipherKind {
   ) -> Result<Box<dyn StreamCrypter>> {
     #[cfg(target_os = "windows")]
     {
-      let crypter = rust::RustCfbCrypter::new(mode, self, key, iv)?;
-      Ok(Box::new(crypter))
+      Ok(match self {
+        StreamCipherKind::Aes128Cfb | StreamCipherKind::Aes192Cfb | StreamCipherKind::Aes256Cfb => {
+          Box::new(rust::RustCfbCrypter::new(mode, self, key, iv)?)
+        }
+      })
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -110,7 +113,7 @@ mod rust {
       key: &'a [u8],
       iv: &'a [u8],
     ) -> Result<Self> {
-      let inner = match kind {
+      let inner: Box<dyn StreamCipher + Send + Sync> = match kind {
         StreamCipherKind::Aes128Cfb => Box::new(Cfb::<aes::Aes128>::new_var(key, iv).unwrap()),
         StreamCipherKind::Aes192Cfb => Box::new(Cfb::<aes::Aes192>::new_var(key, iv).unwrap()),
         StreamCipherKind::Aes256Cfb => Box::new(Cfb::<aes::Aes256>::new_var(key, iv).unwrap()),

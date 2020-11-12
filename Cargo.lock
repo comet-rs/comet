@@ -288,7 +288,6 @@ dependencies = [
  "libc",
  "log 0.4.11",
  "lru-cache",
- "md-5",
  "net2",
  "nix",
  "once_cell",
@@ -302,7 +301,6 @@ dependencies = [
  "serde_regex",
  "serde_with",
  "serde_yaml",
- "sha-1",
  "smol_str",
  "socket2",
  "tokio 0.3.3",
@@ -987,17 +985,6 @@ name = "maybe-uninit"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
-
-[[package]]
-name = "md-5"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5a279bb9607f9f53c22d496eade00d138d1bdcccd07d74650387cf94942a15"
-dependencies = [
- "block-buffer",
- "digest",
- "opaque-debug",
-]
 
 [[package]]
 name = "memchr"
@@ -2171,9 +2158,9 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 [[package]]
 name = "win-crypto-ng"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46f32a81d56493638a7f2d1f63e927f6ca706072b3b6c818a8cb071d65a6c9d8"
+source = "git+https://github.com/chengyuhui/win-crypto-ng?branch=digest_trait#20cc7dcbad6e96d43a50eda206d12099a7f0e554"
 dependencies = [
+ "digest",
  "doc-comment",
  "winapi 0.3.9",
  "zeroize",

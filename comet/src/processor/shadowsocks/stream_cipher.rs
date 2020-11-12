@@ -22,20 +22,26 @@ pub fn register(plumber: &mut Plumber) {
 }
 
 #[derive(Deserialize, Debug, Clone, Copy)]
-pub enum ShadowsocksStreamCipherKind {
+pub enum SsStreamCipherKind {
+  #[serde(rename = "aes-128-cfb")]
+  Aes128Cfb,
+  #[serde(rename = "aes-192-cfb")]
+  Aes192Cfb,
   #[serde(rename = "aes-256-cfb")]
   Aes256Cfb,
 }
 
-impl Into<StreamCipherKind> for ShadowsocksStreamCipherKind {
+impl Into<StreamCipherKind> for SsStreamCipherKind {
   fn into(self) -> StreamCipherKind {
     match self {
-      ShadowsocksStreamCipherKind::Aes256Cfb => StreamCipherKind::Aes256Cfb,
+      SsStreamCipherKind::Aes128Cfb => StreamCipherKind::Aes128Cfb,
+      SsStreamCipherKind::Aes192Cfb => StreamCipherKind::Aes192Cfb,
+      SsStreamCipherKind::Aes256Cfb => StreamCipherKind::Aes256Cfb,
     }
   }
 }
 
-impl ShadowsocksStreamCipherKind {
+impl SsStreamCipherKind {
   fn derive_key(&self, password: &str) -> Result<Bytes> {
     let cipher_kind: StreamCipherKind = (*self).into();
     hashing::evp_bytes_to_key(
@@ -68,13 +74,13 @@ impl ShadowsocksStreamCipherKind {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ClientConfig {
-  method: ShadowsocksStreamCipherKind,
+  method: SsStreamCipherKind,
   password: SmolStr,
 }
 
 #[derive(Debug)]
 pub struct ClientProcessor {
-  method: ShadowsocksStreamCipherKind,
+  method: SsStreamCipherKind,
   master_key: Bytes,
 }
 
@@ -107,12 +113,7 @@ struct ClientStream<RW> {
 }
 
 impl<RW> ClientStream<RW> {
-  fn new(
-    inner: RW,
-    method: ShadowsocksStreamCipherKind,
-    master_key: &[u8],
-    salt: &[u8],
-  ) -> Result<Self> {
+  fn new(inner: RW, method: SsStreamCipherKind, master_key: &[u8], salt: &[u8]) -> Result<Self> {
     let encrypter = method.to_crypter(CrypterMode::Encrypt, master_key, &salt)?;
     let mut buf = BytesMut::with_capacity(8192);
     buf.put_slice(&salt);
@@ -197,7 +198,7 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for ClientStream<RW> {
 enum ReadState {
   ReadSalt {
     master_key: Bytes,
-    method: ShadowsocksStreamCipherKind,
+    method: SsStreamCipherKind,
     salt_buf: Limit<BytesMut>,
   },
   ReadData(Box<dyn stream::StreamCrypter>),

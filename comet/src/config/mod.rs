@@ -57,9 +57,7 @@ pub struct Outbound {
 pub enum OutboundTransportType {
   Tcp,
   Udp,
-  Metrics {
-    interval: Option<u64>
-  },
+  Dashboard,
 }
 
 #[derive(Deserialize, Clone, Debug)]

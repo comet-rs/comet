@@ -11,8 +11,10 @@ use tokio::prelude::AsyncRead;
 mod connection;
 mod packet;
 mod rwpair;
+mod context;
 
 pub use connection::{Connection, DestAddr};
+pub use context::{AppContext, AppContextRef};
 pub use packet::UdpStream;
 pub use rwpair::RWPair;
 

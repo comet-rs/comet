@@ -86,5 +86,4 @@ outbounds:
       port: 8223
   metrics:
     transport:
-      type: metrics
-      interval: 5000
+      type: dashboard

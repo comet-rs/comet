@@ -26,13 +26,11 @@ impl OutboundManager {
           OutboundTransportType::Udp => Box::new(UdpHandler::new(outbound)),
           OutboundTransportType::Dashboard => Box::new(DashboardHandler::new(outbound)),
         };
-        (
-          tag.clone(),
-          OutboundInstance {
-            pipeline: outbound.pipeline.clone(),
-            handler: handler,
-          },
-        )
+        let instance = OutboundInstance {
+          pipeline: outbound.pipeline.clone(),
+          handler: handler,
+        };
+        (tag.clone(), instance)
       })
       .collect();
 

@@ -2,7 +2,6 @@ use crate::prelude::*;
 use crate::utils::prepend_stream::PrependReader;
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
-use tokio::prelude::*;
 
 pub fn register(plumber: &mut Plumber) {
   plumber.register("http_proxy_client", |_| Ok(Box::new(ClientProcessor {})));

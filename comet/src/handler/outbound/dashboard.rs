@@ -2,10 +2,16 @@ use super::{NewOutboundHandler, Outbound, OutboundAddr, OutboundHandler};
 use crate::prelude::*;
 use futures::{SinkExt, StreamExt};
 use std::time::Duration;
+use tokio::io::DuplexStream;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio_compat_02::IoCompat;
 use tokio_tungstenite::accept_async;
 use tungstenite::Message;
+use warp::{Filter, Server};
 
-pub struct DashboardHandler {}
+pub struct DashboardHandler {
+  sender: Sender<Result<DuplexStream>>,
+}
 
 impl DashboardHandler {
   async fn handle_priv<S: AsyncRead + AsyncWrite + Unpin + 'static>(
@@ -48,9 +54,11 @@ impl OutboundHandler for DashboardHandler {
       let _ = Self::handle_priv(uplink, ctx).await;
       info!("Metrics connection closed");
     });
+    // self.sender.send(Ok(uplink)).await?;
 
     Ok(RWPair::new(downlink).into())
   }
+
   fn port(&self) -> Option<u16> {
     None
   }
@@ -61,6 +69,14 @@ impl OutboundHandler for DashboardHandler {
 
 impl NewOutboundHandler for DashboardHandler {
   fn new(_config: &Outbound) -> Self {
-    Self {}
+    let routes = warp::any().map(|| "Hello, World!");
+    let server = warp::serve(routes);
+
+    let (sender, receiver) = channel::<Result<DuplexStream>>(1);
+    let incoming = receiver.map(|s| s.map(|inner| IoCompat::new(inner)));
+    tokio::spawn(async move {
+      server.run_incoming(incoming).await;
+    });
+    Self { sender }
   }
 }

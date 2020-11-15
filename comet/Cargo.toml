@@ -19,6 +19,7 @@ http = "0.2.1"
 hyper = "0.13.9"
 tungstenite = "0.11.1"
 tokio-tungstenite = "0.12.0"
+warp = "0.2"
 
 # --
 anyhow = "1.0"
@@ -30,8 +31,8 @@ net2 = "0.2.35"
 ipnetwork = "0.17.0"
 smol_str = { version = "0.1.17", features = ["serde"] }
 async-trait = "0.1.22"
-once_cell = "1.4.1"
-pin-project-lite = "0.1.11"
+once_cell = "1.5.1"
+pin-project-lite = "0.2.0"
 flurry = "0.3.1"
 rand = "0.7.3"
 base64 = "0.13.0"

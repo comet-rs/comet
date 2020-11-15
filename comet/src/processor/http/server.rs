@@ -4,7 +4,6 @@ use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
 use std::net::IpAddr;
 use std::str::FromStr;
-use tokio::prelude::*;
 
 use httparse::{Request, Status};
 

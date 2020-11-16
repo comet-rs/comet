@@ -87,7 +87,7 @@ impl Metrics {
     self.outbounds.get(tag).cloned()
   }
 
-  pub fn freeze(&self) -> FrozeMetrics {
+  pub fn freeze(&self) -> FrozeMetrics<'_> {
     FrozeMetrics {
       inbounds: self
         .inbounds

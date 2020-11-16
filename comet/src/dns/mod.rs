@@ -17,7 +17,7 @@ const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8;
 
 fn new_lookup(query: &Query) -> Message {
     let mut message: Message = Message::new();
-    let id: u16 = rand::random();
+    let id: u16 = xor_rng().gen();
 
     message.add_query(query.clone());
     message

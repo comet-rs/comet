@@ -140,7 +140,7 @@ enum WriteState {
 }
 
 impl<RW: AsyncWrite + Unpin> AsyncWrite for ClientStream<RW> {
-  fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<io::Result<usize>> {
+  fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
     loop {
       match self.write_state {
         WriteState::Waiting => {
@@ -186,11 +186,11 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for ClientStream<RW> {
       }
     }
   }
-  fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
+  fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
     Pin::new(&mut self.inner).poll_flush(cx)
   }
 
-  fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
+  fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
     Pin::new(&mut self.inner).poll_shutdown(cx)
   }
 }

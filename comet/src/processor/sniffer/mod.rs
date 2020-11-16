@@ -34,8 +34,6 @@ pub enum SniffType {
 pub struct SnifferConfig {
     #[serde(default)]
     types: Vec<SniffType>,
-    #[serde(default)]
-    override_dest: bool,
 }
 
 pub struct SnifferProcessor {
@@ -61,7 +59,7 @@ impl Processor for SnifferProcessor {
             let read_bytes = stream.read_buf(&mut buffer).await?;
             if read_bytes == 0 {
                 warn!("Got EOF while sniffing: {:?}", buffer);
-                return Ok(RWPair::new(PrependReader::new(stream, buffer)).into());
+                break;
             }
 
             if !http_failed {
@@ -80,7 +78,7 @@ impl Processor for SnifferProcessor {
                         } else {
                             conn.dest_addr.set_domain(s);
                         }
-                        return Ok(RWPair::new(PrependReader::new(stream, buffer)).into());
+                        break;
                     }
                 }
             }
@@ -93,7 +91,7 @@ impl Processor for SnifferProcessor {
                     SniffStatus::Success(s) => {
                         conn.set_var("protocol", "tls");
                         conn.dest_addr.set_domain(s);
-                        return Ok(RWPair::new(PrependReader::new(stream, buffer)).into());
+                        break;
                     }
                 }
             }
@@ -110,7 +108,6 @@ impl Default for SnifferConfig {
     fn default() -> Self {
         SnifferConfig {
             types: vec![SniffType::Http, SniffType::Tls],
-            override_dest: false,
         }
     }
 }

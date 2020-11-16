@@ -12,4 +12,4 @@ run:
 	cargo run -p comet-bin
 
 release:
-	RUSTFLAGS="-Ctarget-cpu=sandybridge -Ctarget-feature=+aes,+sse2,+sse4.1,+ssse3" cargo build -p comet-bin --release
+	RUSTFLAGS="-Ctarget-cpu=znver2 -Ctarget-feature=+aes,+sse2,+sse4.1,+ssse3" cargo build -p comet-bin --release

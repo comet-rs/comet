@@ -22,15 +22,15 @@ pipelines:
   socks_in:
     - type: socks5_server
     - type: associate_uid
-    # - type: sniffer
-    #   override_dest: true
-    #   types: [tls, http]
+    - type: sniffer
+      override_dest: true
+      types: [tls, http]
   http_in:
     - type: http_proxy_server
     - type: associate_uid
-    # - type: sniffer
-    #   override_dest: true
-    #   types: [tls, http]
+    - type: sniffer
+      override_dest: true
+      types: [tls, http]
 
   http_client:
     - type: http_proxy_client

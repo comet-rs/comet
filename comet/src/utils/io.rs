@@ -6,7 +6,7 @@ pub fn eof() -> io::Error {
 }
 
 pub fn crypto_error() -> io::Error {
-  io::Error::new(io::ErrorKind::Other, "crypto error")
+  io_other_error("crypto error")
 }
 
 pub fn io_other_error<E: Into<Box<dyn Error + Send + Sync>>>(error: E) -> io::Error {

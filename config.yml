@@ -35,18 +35,21 @@ pipelines:
   http_client:
     - type: http_proxy_client
   shadowsocks:
-    - type: ssr_obfs_client
-      obfs: http_simple
-      port: 8088
-      hosts: ["7f37f56256.download.windowsupdate.com"]
+    # - type: ssr_obfs_client
+    #   obfs: http_simple
+    #   port: 8088
+    #   hosts: ["7f37f56256.download.windowsupdate.com"]
     - type: ss_stream_cipher_client
-      password: "ssmu"
+      password: "******"
       method: "aes-256-cfb"
     - type: ssr_auth_client
-      user_id: 56256
-      user_key: "******"
+      # user_id: 56256
+      # user_key: "******"
       protocol: auth_aes128_md5
     - type: ss_handshake_client
+    - type: timeout
+      idle: 300
+      ttfb: 5
 
 router:
   defaults:
@@ -80,10 +83,11 @@ outbounds:
   shadowsocks:
     pipeline: shadowsocks
     metering: true
+    timeout: 5
     transport:
       type: tcp
-      addr: "b4eac403-6eac-4830-b73b-77480dd3cd3d.cz.****"
-      port: 8223
+      addr: "eb96b416-7c30-4b8e-b8e5-daea82aa7f4a.hk.****"
+      port: 11891
   metrics:
     transport:
       type: dashboard

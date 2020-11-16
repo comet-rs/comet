@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::utils::io::eof;
 use crate::utils::prepend_stream::PrependReader;
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
@@ -67,7 +68,7 @@ impl Processor for ServerProcessor {
         }
         Status::Partial => {
           if n == 0 {
-            return Err(anyhow!("Handshake failed: unexpected EOF"));
+            return Err(eof().into());
           }
         }
       }

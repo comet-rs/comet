@@ -73,7 +73,7 @@ impl NewOutboundHandler for DashboardHandler {
     let server = warp::serve(routes);
 
     let (sender, receiver) = channel::<Result<DuplexStream>>(1);
-    let incoming = receiver.map(|s| s.map(|inner| IoCompat::new(inner)));
+    let incoming = receiver.map(|s| s.map(IoCompat::new));
     tokio::spawn(async move {
       server.run_incoming(incoming).await;
     });

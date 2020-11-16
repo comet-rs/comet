@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::utils::io::eof;
 use crate::utils::prepend_stream::PrependReader;
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
@@ -44,7 +45,7 @@ impl Processor for ClientProcessor {
         }
         httparse::Status::Partial => {
           if n == 0 {
-            return Err(anyhow!("Unexpected EOF"));
+            return Err(eof().into());
           }
         }
       }

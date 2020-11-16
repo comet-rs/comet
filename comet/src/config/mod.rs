@@ -49,6 +49,8 @@ pub struct Outbound {
   pub pipeline: Option<SmolStr>,
   #[serde(default)]
   pub metering: bool,
+  #[serde(default)]
+  pub timeout: u32,
   pub transport: OutboundTransportConfig,
 }
 

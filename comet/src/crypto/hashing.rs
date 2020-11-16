@@ -239,7 +239,8 @@ mod windows {
 
   impl Signer for WindowsSigner {
     fn update(&mut self, data: &[u8]) -> Result<()> {
-      Ok(self.inner.as_mut().unwrap().update(data))
+      self.inner.as_mut().unwrap().update(data);
+      Ok(())
     }
     fn finish(&mut self) -> Result<Bytes> {
       let inner = self.inner.take().unwrap();

@@ -3,10 +3,13 @@ use crate::handler::outbound::OutboundHandler;
 use crate::prelude::*;
 use anyhow::anyhow;
 use std::collections::HashMap;
+use std::time::Duration;
+use tokio::time::timeout;
 
 struct OutboundInstance {
   pipeline: Option<SmolStr>,
   handler: Box<dyn OutboundHandler>,
+  timeout: u32,
 }
 
 pub struct OutboundManager {
@@ -28,7 +31,8 @@ impl OutboundManager {
         };
         let instance = OutboundInstance {
           pipeline: outbound.pipeline.clone(),
-          handler: handler,
+          timeout: outbound.timeout,
+          handler,
         };
         (tag.clone(), instance)
       })
@@ -44,7 +48,14 @@ impl OutboundManager {
     ctx: &AppContextRef,
   ) -> Result<ProxyStream> {
     let outbound = self.get_outbound(tag)?;
-    outbound.handler.handle(tag, conn, ctx).await
+    let fut = outbound.handler.handle(tag, conn, ctx);
+
+    if outbound.timeout > 0 {
+      let dur = Duration::from_secs(outbound.timeout as u64);
+      timeout(dur, fut).await?
+    } else {
+      fut.await
+    }
   }
 
   pub fn get_pipeline(&self, tag: &str) -> Result<Option<&str>> {

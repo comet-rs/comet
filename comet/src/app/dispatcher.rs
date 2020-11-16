@@ -40,7 +40,6 @@ pub async fn handle_tcp_conn(
 
   match (stream, outbound) {
     (ProxyStream::Tcp(stream), ProxyStream::Tcp(outbound)) => {
-      use futures::try_join;
       use tokio::io::{copy, split};
 
       let mut uplink = split(outbound);
@@ -48,7 +47,18 @@ pub async fn handle_tcp_conn(
 
       let c2s = copy(&mut downlink.0, &mut uplink.1);
       let s2c = copy(&mut uplink.0, &mut downlink.1);
-      try_join!(c2s, s2c).context("When copying TCP stream")?;
+      tokio::select! {
+        res = c2s => {
+          return Ok(res.map(|_| {
+            debug!("{} Client -> Server closed", conn);
+          }).with_context(|| "When copying client -> server")?);
+        }
+        res = s2c => {
+          return Ok(res.map(|_| {
+            debug!("{} Server -> Client closed", conn);
+          }).with_context(|| "When copying server -> client")?);
+        }
+      }
     }
     (ProxyStream::Udp(mut stream), ProxyStream::Udp(mut outbound)) => loop {
       let mut sleep = sleep(Duration::from_secs(10));

@@ -2,7 +2,7 @@ use std::error::Error;
 use std::io;
 
 pub fn eof() -> io::Error {
-  io::Error::new(io::ErrorKind::UnexpectedEof, "early eof")
+  io::ErrorKind::UnexpectedEof.into()
 }
 
 pub fn crypto_error() -> io::Error {

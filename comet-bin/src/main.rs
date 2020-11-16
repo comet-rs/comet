@@ -3,13 +3,12 @@ use comet::run_bin;
 use tokio::signal;
 
 use log::info;
-use log::LevelFilter;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  env_logger::Builder::from_default_env()
-    .filter(None, LevelFilter::Info)
-    .init();
+  env_logger::init_from_env(
+    env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+  );
   run_bin().await?;
   info!("Service started, press Ctrl-C to stop");
 

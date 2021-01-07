@@ -36,7 +36,7 @@ impl BlockCipherKind {
         padding: bool,
     ) -> Result<Box<dyn BlockCrypter>> {
         #[cfg(target_os = "windows")]
-        let crypter = rust::RustBlockCrypter::new(mode, self, key, iv, padding)?;
+        let crypter = windows::WinBlockCrypter::new(mode, self, key, iv, padding)?;
         #[cfg(not(target_os = "windows"))]
         let crypter = openssl::new_crypter(mode, self, key, iv, padding)?;
         Ok(Box::new(crypter))
@@ -80,37 +80,22 @@ mod openssl {
 }
 
 #[cfg(target_os = "windows")]
-mod rust {
+mod windows {
     use super::{BlockCipherKind, BlockCrypter, CrypterMode};
     use crate::prelude::*;
-    use aes::Aes128;
-    use block_modes::block_padding::NoPadding;
-    use block_modes::{BlockMode, Cbc};
+    use std::sync::Mutex;
 
-    enum BlockCrypterInner {
-        Aes128CbcNoPadding(Cbc<Aes128, NoPadding>),
-    }
+    use win_crypto_ng::symmetric::{
+        ChainingMode, SymmetricAlgorithm, SymmetricAlgorithmId, SymmetricAlgorithmKey,
+    };
 
-    impl BlockCrypterInner {
-        fn encrypt(self, buffer: &[u8]) -> Result<Vec<u8>> {
-            Ok(match self {
-                BlockCrypterInner::Aes128CbcNoPadding(e) => e.encrypt_vec(buffer),
-            })
-        }
-
-        fn decrypt(self, buffer: &[u8]) -> Result<Vec<u8>> {
-            Ok(match self {
-                BlockCrypterInner::Aes128CbcNoPadding(e) => e.decrypt_vec(buffer)?,
-            })
-        }
-    }
-
-    pub struct RustBlockCrypter {
+    pub struct WinBlockCrypter {
         mode: CrypterMode,
-        inner: Option<BlockCrypterInner>,
+        inner: Mutex<SymmetricAlgorithmKey>,
+        iv: Vec<u8>,
     }
 
-    impl RustBlockCrypter {
+    impl WinBlockCrypter {
         pub fn new<'a>(
             mode: CrypterMode,
             kind: &BlockCipherKind,
@@ -119,32 +104,34 @@ mod rust {
             padding: bool,
         ) -> Result<Self> {
             assert!(!padding);
-            let crypter = match kind {
+
+            let algo = match kind {
                 BlockCipherKind::Aes128Cbc => {
-                    BlockCrypterInner::Aes128CbcNoPadding(Cbc::<Aes128, NoPadding>::new_var(
-                        key, iv,
-                    )?)
+                    SymmetricAlgorithm::open(SymmetricAlgorithmId::Aes, ChainingMode::Cbc)?
                 }
             };
 
+            let key = algo.new_key(key)?;
+
             Ok(Self {
                 mode,
-                inner: Some(crypter),
+                inner: Mutex::new(key),
+                iv: iv.to_vec(),
             })
         }
     }
 
-    impl BlockCrypter for RustBlockCrypter {
+    impl BlockCrypter for WinBlockCrypter {
         fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize> {
-            let inner = self.inner.take().unwrap();
+            let inner = self.inner.lock().unwrap();
 
             let ret = match self.mode {
-                CrypterMode::Decrypt => inner.decrypt(input)?,
-                CrypterMode::Encrypt => inner.encrypt(input)?,
+                CrypterMode::Decrypt => inner.decrypt(Some(&mut self.iv), input, None)?,
+                CrypterMode::Encrypt => inner.encrypt(Some(&mut self.iv), input, None)?,
             };
             assert!(output.len() >= ret.len());
 
-            output[..ret.len()].copy_from_slice(&ret);
+            output[..ret.len()].copy_from_slice(ret.as_slice());
 
             Ok(ret.len())
         }

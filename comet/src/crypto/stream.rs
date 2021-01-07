@@ -38,104 +38,44 @@ impl StreamCipherKind {
         key: &'a [u8],
         iv: &'a [u8],
     ) -> Result<Box<dyn StreamCrypter>> {
-        #[cfg(target_os = "windows")]
-        {
-            Ok(match self {
-                StreamCipherKind::Aes128Cfb
-                | StreamCipherKind::Aes192Cfb
-                | StreamCipherKind::Aes256Cfb => {
-                    Box::new(rust::RustCfbCrypter::new(mode, self, key, iv)?)
-                }
-            })
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            let crypter = openssl::new_crypter(mode, self, key, iv)?;
-            Ok(Box::new(crypter))
-        }
+        let crypter = ss_crypto::SsCrypter::new(mode, self, key, iv);
+        Ok(Box::new(crypter))
     }
 }
 
-#[cfg(not(target_os = "windows"))]
-mod openssl {
+mod ss_crypto {
     use super::{CrypterMode, StreamCipherKind, StreamCrypter};
     use crate::prelude::*;
-    use ::openssl::symm;
-    use std::slice;
-    pub fn new_crypter<'a>(
+    use shadowsocks_crypto::v1::{Cipher, CipherKind as SsCipherKind};
+    use std::sync::Mutex;
+
+    pub struct SsCrypter {
+        inner: Mutex<Cipher>,
         mode: CrypterMode,
-        kind: &StreamCipherKind,
-        key: &'a [u8],
-        iv: &'a [u8],
-    ) -> Result<symm::Crypter> {
-        let openssl_mode = match mode {
-            CrypterMode::Decrypt => symm::Mode::Decrypt,
-            CrypterMode::Encrypt => symm::Mode::Encrypt,
-        };
-        let crypter = symm::Crypter::new(
-            match kind {
-                StreamCipherKind::Aes128Cfb => symm::Cipher::aes_128_cfb128(),
-                StreamCipherKind::Aes192Cfb => symm::Cipher::aes_192_cfb128(),
-                StreamCipherKind::Aes256Cfb => symm::Cipher::aes_256_cfb128(),
-            },
-            openssl_mode,
-            key,
-            Some(iv),
-        )?;
-        Ok(crypter)
     }
 
-    impl StreamCrypter for symm::Crypter {
-        fn update(&mut self, in_out: &mut [u8]) -> Result<usize> {
-            let in_raw = in_out.as_ptr();
-            Ok(self.update(
-                unsafe { slice::from_raw_parts(in_raw, in_out.len()) },
-                in_out,
-            )?)
-        }
-    }
-}
-
-#[cfg(target_os = "windows")]
-mod rust {
-    use super::{CrypterMode, StreamCipherKind, StreamCrypter};
-    use crate::prelude::*;
-    use cfb_mode::Cfb;
-    use cipher::{NewStreamCipher, StreamCipher};
-
-    pub struct RustCfbCrypter {
-        mode: CrypterMode,
-        inner: Box<dyn StreamCipher + Send + Sync>,
-    }
-
-    impl RustCfbCrypter {
-        pub fn new<'a>(
-            mode: CrypterMode,
-            kind: &StreamCipherKind,
-            key: &'a [u8],
-            iv: &'a [u8],
-        ) -> Result<Self> {
-            let inner: Box<dyn StreamCipher + Send + Sync> = match kind {
-                StreamCipherKind::Aes128Cfb => {
-                    Box::new(Cfb::<aes::Aes128>::new_var(key, iv).unwrap())
-                }
-                StreamCipherKind::Aes192Cfb => {
-                    Box::new(Cfb::<aes::Aes192>::new_var(key, iv).unwrap())
-                }
-                StreamCipherKind::Aes256Cfb => {
-                    Box::new(Cfb::<aes::Aes256>::new_var(key, iv).unwrap())
-                }
+    impl SsCrypter {
+        pub fn new(mode: CrypterMode, kind: &StreamCipherKind, key: &[u8], iv: &[u8]) -> Self {
+            let ss_kind = match kind {
+                StreamCipherKind::Aes128Cfb => SsCipherKind::AES_128_CFB128,
+                StreamCipherKind::Aes192Cfb => SsCipherKind::AES_192_CFB128,
+                StreamCipherKind::Aes256Cfb => SsCipherKind::AES_256_CFB128,
             };
-
-            Ok(Self { mode, inner })
+            Self {
+                inner: Mutex::new(Cipher::new(ss_kind, key, iv)),
+                mode,
+            }
         }
     }
 
-    impl StreamCrypter for RustCfbCrypter {
+    impl StreamCrypter for SsCrypter {
         fn update(&mut self, in_out: &mut [u8]) -> Result<usize> {
+            let mut inner = self.inner.lock().unwrap();
             match self.mode {
-                CrypterMode::Decrypt => self.inner.decrypt(in_out),
-                CrypterMode::Encrypt => self.inner.encrypt(in_out),
+                CrypterMode::Encrypt => inner.encrypt_packet(in_out),
+                CrypterMode::Decrypt => {
+                    let _ = inner.decrypt_packet(in_out);
+                }
             }
             Ok(in_out.len())
         }

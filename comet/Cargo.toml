@@ -30,7 +30,6 @@ tokio-stream = "0.1"
 # --
 anyhow = "1.0"
 log = "0.4"
-
 bytes = "1"
 net2 = "0.2.35"
 ipnetwork = "0.17.0"
@@ -45,7 +44,10 @@ url = "2.2.0"
 lazy_static = "1.4.0"
 lru-cache = "0.1.2"
 socket2 = "0.3.15"
+rand = "0.8"
 
+crypto2 = "0.1.1"
+shadowsocks-crypto = {version="0.1.2", features = ["v1-stream"]}
 
 [dependencies.regex]
 version = "1"
@@ -63,8 +65,5 @@ openssl = { version = "0.10", features = ["vendored"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 cipher = "0.2.1"
-aes = "0.6.0"
 hmac = "0.10.1"
-cfb-mode = "0.6.0"
-block-modes = "0.7.0"
-win-crypto-ng = { git = "https://github.com/chengyuhui/win-crypto-ng", branch = "digest_trait", features = ["digest"] }
+win-crypto-ng = { git = "https://github.com/chengyuhui/win-crypto-ng", branch = "digest_trait", features = ["digest", "block-cipher"] }

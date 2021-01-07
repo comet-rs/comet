@@ -32,7 +32,6 @@ impl Processor for ServerProcessor {
                 buffer.reserve(512);
             }
             let n = stream.read_buf(&mut buffer).await?;
-            dbg!(&buffer);
 
             match req.parse(&buffer[..])? {
                 Status::Complete(len) => {

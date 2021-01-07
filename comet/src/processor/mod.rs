@@ -9,6 +9,7 @@ pub mod sniffer;
 pub mod socks5_proxy;
 pub mod switch;
 pub mod timeout;
+pub mod any_proxy;
 
 use crate::app::plumber::Plumber;
 
@@ -24,4 +25,5 @@ pub fn do_register(plumber: &mut Plumber) {
     http::server::register(plumber);
     shadowsocks::register(plumber);
     timeout::register(plumber);
+    any_proxy::register(plumber);
 }

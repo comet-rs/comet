@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use crate::utils::io::io_other_error;
-use crate::utils::prepend_stream::PrependWriter;
+use tokio_prepend_io::PrependWriter;
 
 pub fn register(plumber: &mut Plumber) {
     plumber.register("ss_handshake_client", |_| {

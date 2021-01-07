@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use crate::utils::io::eof;
-use crate::utils::prepend_stream::PrependReader;
+use tokio_prepend_io::PrependReader;
 use bytes::{Buf, BytesMut};
 
 pub fn register(plumber: &mut Plumber) {

@@ -91,7 +91,9 @@ impl InboundManager {
                 inbound.pipeline.clone(),
                 TransportType::Tcp,
             );
+
             info!("Inbound {}/TCP accepted from {}", tag, src_addr);
+
             let stream = if inbound.metering {
                 RWPair::new(MeteredStream::new_inbound(
                     BufReader::new(stream),
@@ -101,6 +103,7 @@ impl InboundManager {
             } else {
                 RWPair::new(BufReader::new(stream))
             };
+            
             sender.send((conn, stream.into())).unwrap();
         }
     }

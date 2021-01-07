@@ -1,7 +1,7 @@
 mod http;
 mod tls;
 use crate::prelude::*;
-use crate::utils::prepend_stream::PrependReader;
+use tokio_prepend_io::PrependReader;
 use bytes::{BufMut, BytesMut};
 use log::warn;
 use std::net::IpAddr;

@@ -213,6 +213,7 @@ dependencies = [
  "smol_str",
  "socket2",
  "tokio 1.0.1",
+ "tokio-prepend-io",
  "tokio-stream",
  "tokio-tungstenite",
  "trust-dns-proto",
@@ -1672,6 +1673,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tokio-prepend-io"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd5d017f0c1d1057519d152f2406c93761a98533595d829c9db0ae5ae8ed59e4"
+dependencies = [
+ "bytes 1.0.0",
+ "futures",
+ "tokio 1.0.1",
 ]
 
 [[package]]

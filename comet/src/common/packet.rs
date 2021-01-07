@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use std::task::Context;
-use tokio::stream::Stream;
 use tokio::sync::mpsc::Sender;
+use tokio_stream::Stream;
 
 pub struct UdpStream {
     read: Box<dyn Stream<Item = BytesMut> + Send + Sync + Unpin>,

@@ -12,7 +12,7 @@ comet = { path = "../comet" }
 android_logger = "0.9.0"
 jni = "0.18.0"
 anyhow = "1.0"
-tokio = { version = "0.3.1", features = ["full"] }
-log = "0.4.0"
+tokio = { version = "1", features = ["full"] }
+log = "0.4"
 futures = "0.3"
 smol_str = { version = "0.1.17", features = ["serde"] }

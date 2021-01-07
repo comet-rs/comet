@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use crate::config::Config;
 use crate::crypto::rand::xor_rng;
 use crate::net_wrapper::bind_udp;

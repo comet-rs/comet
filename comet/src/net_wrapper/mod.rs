@@ -1,12 +1,12 @@
+use crate::prelude::*;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
-use std::io;
 use std::net::SocketAddr;
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
 
 #[cfg(target_os = "android")]
 mod protect;
 
-pub async fn connect_tcp(addr: &SocketAddr) -> io::Result<TcpStream> {
+pub async fn connect_tcp(addr: &SocketAddr) -> IoResult<TcpStream> {
     let sock = match addr {
         SocketAddr::V4(_) => TcpSocket::new_v4(),
         SocketAddr::V6(_) => TcpSocket::new_v6(),
@@ -21,7 +21,7 @@ pub async fn connect_tcp(addr: &SocketAddr) -> io::Result<TcpStream> {
     sock.connect(*addr).await
 }
 
-pub async fn bind_udp(addr: &SocketAddr) -> io::Result<UdpSocket> {
+pub async fn bind_udp(addr: &SocketAddr) -> IoResult<UdpSocket> {
     let domain = match addr {
         SocketAddr::V4(_) => Domain::ipv4(),
         SocketAddr::V6(_) => Domain::ipv6(),

@@ -1,9 +1,9 @@
 #![cfg(target_os = "android")]
-use std::net::Ipv6Addr;
 use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
 
-pub mod nat_manager;
 pub mod nat;
+pub mod nat_manager;
 
 pub const IPV4_CLIENT: Ipv4Addr = Ipv4Addr::new(10, 25, 1, 1);
 pub const IPV4_ROUTER: Ipv4Addr = Ipv4Addr::new(10, 25, 1, 100);

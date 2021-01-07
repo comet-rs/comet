@@ -8,5 +8,5 @@ edition = "2018"
 comet = { path = "../comet" }
 env_logger = "0.8"
 anyhow = "1.0"
-tokio = { version = "0.3.1", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 log = "0.4.0"

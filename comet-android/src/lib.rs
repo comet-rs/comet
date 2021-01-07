@@ -1,9 +1,9 @@
 #![cfg(target_os = "android")]
 use anyhow::Result;
-use jni::objects::{JObject, JClass, JMap, JString};
+use comet::run_android;
+use jni::objects::{JClass, JMap, JObject, JString};
 use jni::sys::jint;
 use jni::JNIEnv;
-use comet::run_android;
 use smol_str::SmolStr;
 use std::borrow::Cow;
 use std::collections::HashMap;

@@ -1,17 +1,16 @@
+use crate::prelude::*;
 use anyhow::{anyhow, Result};
 use bytes::BufMut;
 use futures::ready;
 use serde::Deserialize;
-use std::io;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
-use tokio::prelude::AsyncRead;
 
 mod connection;
+mod context;
 mod packet;
 mod rwpair;
-mod context;
 
 pub use connection::{Connection, DestAddr};
 pub use context::{AppContext, AppContextRef};
@@ -82,16 +81,16 @@ pub trait MyAsyncReadExt: AsyncRead {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut B,
-    ) -> Poll<io::Result<usize>> {
-        use crate::io::ReadBuf;
+    ) -> Poll<IoResult<usize>> {
         use std::mem::MaybeUninit;
+        use tokio::io::ReadBuf;
 
         if !buf.has_remaining_mut() {
             return Poll::Ready(Ok(0));
         }
 
         let n = {
-            let dst = buf.bytes_mut();
+            let dst = buf.chunk_mut();
             let dst = unsafe { &mut *(dst as *mut _ as *mut [MaybeUninit<u8>]) };
             let mut buf = ReadBuf::uninit(dst);
             let ptr = buf.filled().as_ptr();

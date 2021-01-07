@@ -42,7 +42,7 @@ fn protect(fd: c_int) -> nix::Result<()> {
 
 #[allow(unused_variables)]
 #[cfg(target_os = "android")]
-pub async fn protect_async(fd: c_int) -> std::IoResult<()> {
+pub async fn protect_async(fd: c_int) -> std::io::Result<()> {
     tokio::task::spawn_blocking(move || {
         protect(fd).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, "protect failed"))
     })

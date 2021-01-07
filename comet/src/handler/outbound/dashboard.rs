@@ -4,7 +4,6 @@ use futures::{SinkExt, StreamExt};
 use std::time::Duration;
 use tokio::io::DuplexStream;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio_compat_02::IoCompat;
 use tokio_tungstenite::accept_async;
 use tungstenite::Message;
 

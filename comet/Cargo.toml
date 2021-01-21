@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 # Serde
 serde_regex = "1.1.0"
-serde_with = "1.5.1"
+serde_with = "1.6.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1.0.59"
@@ -17,9 +17,9 @@ httparse = "1.3.4"
 trust-dns-proto = "0.20"
 # http = "0.2.1"
 hyper = "0.14.2"
-tungstenite = {version = "0.11.1", default-features = false}
-tokio-tungstenite = "0.12.0"
-# warp = "0.2"
+tungstenite = {version = "0.12", default-features = false}
+tokio-tungstenite = "0.13"
+warp = "0.3"
 
 # Async
 tokio = { version = "1", features = ["full"] }
@@ -36,7 +36,7 @@ net2 = "0.2.35"
 ipnetwork = "0.17.0"
 smol_str = { version = "0.1.17", features = ["serde"] }
 
-once_cell = "1.5.1"
+once_cell = "1.5"
 pin-project-lite = "0.2.0"
 flurry = "0.3.1"
 base64 = "0.13.0"
@@ -44,7 +44,7 @@ xorshift = "0.1.3"
 url = "2.2.0"
 lazy_static = "1.4.0"
 lru-cache = "0.1.2"
-socket2 = "0.3.15"
+socket2 = "0.3"
 rand = "0.8"
 
 crypto2 = "0.1.1"
@@ -67,4 +67,4 @@ openssl = { version = "0.10", features = ["vendored"] }
 [target.'cfg(target_os = "windows")'.dependencies]
 cipher = "0.2.1"
 hmac = "0.10.1"
-win-crypto-ng = { git = "https://github.com/chengyuhui/win-crypto-ng", branch = "digest_trait", features = ["digest", "block-cipher"] }
+win-crypto-ng = "0.4.0"

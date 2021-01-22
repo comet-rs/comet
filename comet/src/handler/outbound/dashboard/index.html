@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    .echarts {
+      width: 200px;
+      height: 100px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <h2>Inbounds</h2>
+    <!-- <v-chart :options="polar"/> -->
+    <div v-for="(stats, name) in status.inbounds" :key="name">
+      <h3>{{name}}</h3>
+      <div>↑ {{ stats.rxSpeed | humanize }}/s ({{ stats.rx | humanize }})</div>
+      <div>↓ {{ stats.txSpeed | humanize }}/s ({{ stats.tx | humanize }})</div>
+      <div>{{ stats.conns }} connections</div>
+    </div>
+
+    <h2>Outbounds</h2>
+    <div v-for="(stats, name) in status.outbounds" :key="name">
+      <h3>{{name}}</h3>
+      <div>↑ {{ stats.txSpeed | humanize }}/s ({{ stats.tx | humanize }})</div>
+      <div>↓ {{ stats.rxSpeed | humanize }}/s ({{ stats.rx | humanize }})</div>
+      <div>{{ stats.conns }} connections</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+
+  <script>
+    const app = new Vue({
+      data: function () {
+        return {
+          ws: null,
+          lastMessage: null,
+          lastTime: null,
+          status: {
+            inbounds: {},
+            outbounds: {}
+          },
+        };
+      },
+      el: "#app",
+      mounted() {
+        this.connectWs();
+      },
+      methods: {
+        connectWs() {
+          const ws = new WebSocket("ws://" + window.location.host + "/ws");
+
+          ws.addEventListener("close", () => {
+            setTimeout(() => {
+              this.connectWs();
+            }, 1000);
+          });
+
+          ws.addEventListener('message', (event) => {
+            this.handleMessage(JSON.parse(event.data));
+          });
+
+          this.ws = ws;
+        },
+        handleMessage(message) {
+          if (this.lastMessage === null) {
+            this.lastMessage = message;
+            this.lastTime = +new Date();
+            return;
+          }
+          const delta = (+new Date() - this.lastTime) / 1000;
+
+          for (const inbound in message.inbounds) {
+            const last = this.lastMessage.inbounds[inbound];
+            const current = message.inbounds[inbound];
+
+            if (last) {
+              this.$set(this.status.inbounds, inbound, this.calcSpeed(last, current, delta));
+            }
+          }
+
+          for (const outbound in message.outbounds) {
+            const last = this.lastMessage.outbounds[outbound];
+            const current = message.outbounds[outbound];
+
+            if (last) {
+              this.$set(this.status.outbounds, outbound, this.calcSpeed(last, current, delta));
+            }
+          }
+
+          this.lastMessage = message;
+        },
+        calcSpeed(last, current, delta) {
+          return {
+            rx: current.rx,
+            rxSpeed: (current.rx - last.rx) / delta,
+            tx: current.tx,
+            txSpeed: (current.tx - last.tx) / delta,
+            conns: current.conn_count
+          }
+        }
+      },
+      filters: {
+        humanize(size) {
+          let suffix = "B";
+          if (size >= 1024) {
+            size /= 1024;
+            suffix = "KiB";
+
+            if (size >= 1024) {
+              size /= 1024;
+              suffix = "MiB";
+            }
+          }
+          size = Math.round(size * 10) / 10;
+          return size.toString() + " " + suffix;
+        }
+      }
+    });
+  </script>
+
+</body>
+
+</html>

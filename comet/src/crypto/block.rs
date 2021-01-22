@@ -1,8 +1,11 @@
+use std::convert::TryInto;
+
 use super::CrypterMode;
 use crate::prelude::*;
+use crypto2::blockmode;
 
 pub trait BlockCrypter: Send + Sync {
-    fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize>;
+    fn update(&mut self, in_out: &mut [u8]) -> Result<usize>;
 }
 
 pub enum BlockCipherKind {
@@ -35,105 +38,70 @@ impl BlockCipherKind {
         iv: &'a [u8],
         padding: bool,
     ) -> Result<Box<dyn BlockCrypter>> {
-        #[cfg(target_os = "windows")]
-        let crypter = windows::WinBlockCrypter::new(mode, self, key, iv, padding)?;
-        #[cfg(not(target_os = "windows"))]
-        let crypter = openssl::new_crypter(mode, self, key, iv, padding)?;
-        Ok(Box::new(crypter))
+        Ok(Box::new(SsCrypter::new(mode, self, key, iv)))
     }
 }
 
-#[cfg(not(target_os = "windows"))]
-mod openssl {
-    use super::{BlockCipherKind, BlockCrypter, CrypterMode};
-    use crate::prelude::*;
-    use ::openssl::symm;
+trait BlockMode {
+    fn iv_len(&self) -> usize;
+    fn encrypt(&mut self, iv: &[u8], blocks: &mut [u8]);
+    fn decrypt(&mut self, iv: &[u8], blocks: &mut [u8]);
+}
 
-    pub fn new_crypter<'a>(
-        mode: CrypterMode,
-        kind: &BlockCipherKind,
-        key: &'a [u8],
-        iv: &'a [u8],
-        padding: bool,
-    ) -> Result<symm::Crypter> {
-        let openssl_mode = match mode {
-            CrypterMode::Decrypt => symm::Mode::Decrypt,
-            CrypterMode::Encrypt => symm::Mode::Encrypt,
+impl BlockMode for blockmode::Aes128Cbc {
+    fn iv_len(&self) -> usize {
+        Self::IV_LEN
+    }
+
+    fn encrypt(&mut self, iv: &[u8], blocks: &mut [u8]) {
+        let iv: [u8; Self::IV_LEN] = iv.try_into().expect("incorrect IV length");
+        self.encrypt(&iv, blocks);
+    }
+
+    fn decrypt(&mut self, iv: &[u8], blocks: &mut [u8]) {
+        let iv: [u8; Self::IV_LEN] = iv.try_into().expect("incorrect IV length");
+        self.encrypt(&iv, blocks);
+    }
+}
+
+struct SsCrypter {
+    inner: Box<dyn BlockMode + Send + Sync>,
+    mode: CrypterMode,
+    iv: Vec<u8>,
+}
+
+impl SsCrypter {
+    fn new(mode: CrypterMode, kind: &BlockCipherKind, key: &[u8], iv: &[u8]) -> Self {
+        let inner = match kind {
+            BlockCipherKind::Aes128Cbc => Box::new(blockmode::Aes128Cbc::new(key)),
         };
-        let mut crypter = symm::Crypter::new(
-            match kind {
-                BlockCipherKind::Aes128Cbc => symm::Cipher::aes_128_cbc(),
-            },
-            openssl_mode,
-            key,
-            Some(iv),
-        )?;
-        crypter.pad(padding);
-        Ok(crypter)
-    }
 
-    impl BlockCrypter for symm::Crypter {
-        fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize> {
-            Ok(self.update(input, output)?)
-        }
+        return Self {
+            inner,
+            mode,
+            iv: iv.into(),
+        };
     }
 }
 
-#[cfg(target_os = "windows")]
-mod windows {
-    use super::{BlockCipherKind, BlockCrypter, CrypterMode};
-    use crate::prelude::*;
-    use std::sync::Mutex;
-
-    use win_crypto_ng::symmetric::{
-        ChainingMode, SymmetricAlgorithm, SymmetricAlgorithmId, SymmetricAlgorithmKey,
-    };
-
-    pub struct WinBlockCrypter {
-        mode: CrypterMode,
-        inner: Mutex<SymmetricAlgorithmKey>,
-        iv: Vec<u8>,
-    }
-
-    impl WinBlockCrypter {
-        pub fn new<'a>(
-            mode: CrypterMode,
-            kind: &BlockCipherKind,
-            key: &'a [u8],
-            iv: &'a [u8],
-            padding: bool,
-        ) -> Result<Self> {
-            assert!(!padding);
-
-            let algo = match kind {
-                BlockCipherKind::Aes128Cbc => {
-                    SymmetricAlgorithm::open(SymmetricAlgorithmId::Aes, ChainingMode::Cbc)?
-                }
-            };
-
-            let key = algo.new_key(key)?;
-
-            Ok(Self {
-                mode,
-                inner: Mutex::new(key),
-                iv: iv.to_vec(),
-            })
+impl BlockCrypter for SsCrypter {
+    fn update(&mut self, in_out: &mut [u8]) -> Result<usize> {
+        match self.mode {
+            CrypterMode::Decrypt => {
+                // CBC: Last ciphertext is IV
+                let in_len = in_out.len();
+                let iv_tmp = in_out[in_len - 16..in_len].to_vec();
+                self.inner.decrypt(&self.iv, in_out);
+                self.iv = iv_tmp;
+            }
+            CrypterMode::Encrypt => {
+                // CBC: Last ciphertext is IV
+                self.inner.encrypt(&self.iv, in_out);
+                let out_len = in_out.len();
+                self.iv.copy_from_slice(&in_out[out_len - 16..out_len]);
+            }
         }
-    }
 
-    impl BlockCrypter for WinBlockCrypter {
-        fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize> {
-            let inner = self.inner.lock().unwrap();
-
-            let ret = match self.mode {
-                CrypterMode::Decrypt => inner.decrypt(Some(&mut self.iv), input, None)?,
-                CrypterMode::Encrypt => inner.encrypt(Some(&mut self.iv), input, None)?,
-            };
-            assert!(output.len() >= ret.len());
-
-            output[..ret.len()].copy_from_slice(ret.as_slice());
-
-            Ok(ret.len())
-        }
+        Ok(0)
     }
 }

@@ -247,8 +247,6 @@ impl<RW> AuthAes128ClientStream<RW> {
             part2_enc_key_raw.push_str(match self.hash_kind {
                 hashing::HashKind::Md5 => "auth_aes128_md5",
                 hashing::HashKind::Sha1 => "auth_aes128_sha1",
-                #[allow(unreachable_patterns)]
-                _ => unimplemented!(),
             });
             let part2_enc_key = hashing::evp_bytes_to_key(
                 hashing::HashKind::Md5,
@@ -256,23 +254,11 @@ impl<RW> AuthAes128ClientStream<RW> {
                 cipher_kind.key_len(),
             )?;
 
-            let out_len = part2_enc.len() + cipher_kind.block_size();
-            let mut part2_enc_out = BytesMut::with_capacity(out_len);
-            unsafe {
-                part2_enc_out.set_len(out_len);
-            }
-            let part2_enc_iv = [0u8; 16];
             let enc_n = cipher_kind
-                .to_crypter(
-                    CrypterMode::Encrypt,
-                    &part2_enc_key,
-                    &part2_enc_iv[..],
-                    false,
-                )?
-                .update(&part2_enc[..], &mut part2_enc_out)?;
-            part2_enc_out.truncate(enc_n);
+                .to_crypter(CrypterMode::Encrypt, &part2_enc_key, &[0u8; 16], false)?
+                .update(&mut part2_enc)?;
             assert_eq!(enc_n, 16);
-            part2_enc_out
+            part2_enc
         };
         ret.put_slice(&part2_enc_out);
         ret.put_slice(&hashing::sign_bytes(self.hash_kind, &part12_hmac_key, &ret[7..])?[0..4]);

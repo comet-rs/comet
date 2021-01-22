@@ -102,6 +102,6 @@ impl BlockCrypter for SsCrypter {
             }
         }
 
-        Ok(0)
+        Ok(in_out.len())
     }
 }

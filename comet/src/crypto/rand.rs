@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
-use xorshift::{thread_rng, xoroshiro128::Xoroshiro128};
 use rand::rngs::OsRng;
 use rand::RngCore;
+use xorshift::{thread_rng, xoroshiro128::Xoroshiro128};
 
 pub fn rand_bytes(buf: &mut [u8]) -> Result<()> {
     OsRng.fill_bytes(buf);

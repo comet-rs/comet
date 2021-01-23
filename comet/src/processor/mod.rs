@@ -3,13 +3,13 @@ pub mod android;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub mod linux;
 
+pub mod any_proxy;
 pub mod http;
 pub mod shadowsocks;
 pub mod sniffer;
 pub mod socks5_proxy;
 pub mod switch;
 pub mod timeout;
-pub mod any_proxy;
 
 use crate::app::plumber::Plumber;
 

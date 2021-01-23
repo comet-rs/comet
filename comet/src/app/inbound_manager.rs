@@ -103,7 +103,7 @@ impl InboundManager {
             } else {
                 RWPair::new(BufReader::new(stream))
             };
-            
+
             sender.send((conn, stream.into())).unwrap();
         }
     }

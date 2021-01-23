@@ -36,7 +36,7 @@ impl BlockCipherKind {
         mode: CrypterMode,
         key: &'a [u8],
         iv: &'a [u8],
-        padding: bool,
+        _padding: bool,
     ) -> Result<Box<dyn BlockCrypter>> {
         Ok(Box::new(SsCrypter::new(mode, self, key, iv)))
     }

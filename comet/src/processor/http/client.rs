@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::utils::io::eof;
-use tokio_prepend_io::PrependReader;
 use bytes::{Buf, BytesMut};
+use tokio_prepend_io::PrependReader;
 
 pub fn register(plumber: &mut Plumber) {
     plumber.register("http_proxy_client", |_| Ok(Box::new(ClientProcessor {})));

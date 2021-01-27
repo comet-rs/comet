@@ -8,23 +8,14 @@ use crate::prelude::*;
 use crate::Plumber;
 use handshake::ShadowsocksClientHandshakeProcessor;
 
-enum ClientCipherProcessor {
-    Stream(stream_cipher::ClientProcessor),
-}
-
 #[derive(Debug, Clone, Deserialize)]
-enum MethodConfig {
+enum MethodType {
     #[serde(rename = "aes-256-cfb")]
     Aes256Cfb,
 }
 
-enum ClientProtocolProcessor {
-    Origin,
-    AuthAes128(auth::SsrClientAuthProcessor),
-}
-
 #[derive(Debug, Clone, Deserialize)]
-enum ProtocolConfig {
+enum ProtocolType {
     #[serde(rename = "origin")]
     Origin,
     #[serde(rename = "auth_aes128_md5")]
@@ -33,26 +24,21 @@ enum ProtocolConfig {
     AuthAes128Sha1,
 }
 
-impl Default for ProtocolConfig {
+impl Default for ProtocolType {
     fn default() -> Self {
         Self::Origin
     }
 }
 
-enum ClientObfsProcessor {
-    Plain,
-    HttpSimple(obfs::ClientProcessor),
-}
-
 #[derive(Debug, Clone, Deserialize)]
-enum ObfsConfig {
+enum ObfsType {
     #[serde(rename = "plain")]
     Plain,
     #[serde(rename = "http_simple")]
     HttpSimple,
 }
 
-impl Default for ObfsConfig {
+impl Default for ObfsType {
     fn default() -> Self {
         Self::Plain
     }
@@ -61,27 +47,43 @@ impl Default for ObfsConfig {
 #[derive(Debug, Clone, Deserialize)]
 struct SsrClientConfig {
     password: SmolStr,
-    method: MethodConfig,
+    method: MethodType,
     #[serde(default)]
-    protocol: ProtocolConfig,
+    protocol: ProtocolType,
     #[serde(default)]
     protocol_param: SmolStr,
     #[serde(default)]
-    obfs: ObfsConfig,
+    obfs: ObfsType,
     #[serde(default)]
     obfs_param: SmolStr,
 }
 
 pub struct SsrClientProcessor {
-    obfs: ClientObfsProcessor,
-    cipher: ClientCipherProcessor,
-    protocol: ClientProtocolProcessor,
+    obfs: Option<Box<dyn Processor>>,
+    cipher: Option<Box<dyn Processor>>,
+    protocol: Option<Box<dyn Processor>>,
     handshake: ShadowsocksClientHandshakeProcessor,
 }
 
 impl SsrClientProcessor {
     fn new(config: YamlValue) -> Result<()> {
         let config: SsrClientConfig = from_value(config)?;
+        let handshake = handshake::ShadowsocksClientHandshakeProcessor::new();
+
+        let protocol_param = config.protocol_param.as_str();
+        let protocol = match config.protocol {
+            ProtocolType::Origin => None,
+            ProtocolType::AuthAes128Md5 => Some(Box::new(auth::SsrClientAuthProcessor::new_param(
+                auth::SsrClientAuthType::AuthAes128Md5,
+                protocol_param,
+            ))),
+            ProtocolType::AuthAes128Sha1 => {
+                Some(Box::new(auth::SsrClientAuthProcessor::new_param(
+                    auth::SsrClientAuthType::AuthAes128Sha1,
+                    protocol_param,
+                )))
+            }
+        };
         Ok(())
     }
 }

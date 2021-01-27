@@ -11,13 +11,8 @@ use stream::StreamCipherKind;
 pub fn register(plumber: &mut Plumber) {
     plumber.register("ss_stream_cipher_client", |conf| {
         let config: ClientConfig = from_value(conf)?;
-        let method = config.method;
-        let key = config.method.derive_key(config.password.as_str())?;
-
-        Ok(Box::new(ClientProcessor {
-            method,
-            master_key: key,
-        }))
+        let processor = ClientProcessor::new(config.method, config.password.as_str());
+        Ok(Box::new(processor))
     });
 }
 
@@ -42,7 +37,7 @@ impl Into<StreamCipherKind> for SsStreamCipherKind {
 }
 
 impl SsStreamCipherKind {
-    fn derive_key(&self, password: &str) -> Result<Bytes> {
+    fn derive_key(&self, password: &str) -> Bytes {
         let cipher_kind: StreamCipherKind = (*self).into();
         hashing::evp_bytes_to_key(
             hashing::HashKind::Md5,
@@ -82,6 +77,16 @@ pub struct ClientConfig {
 pub struct ClientProcessor {
     method: SsStreamCipherKind,
     master_key: Bytes,
+}
+
+impl ClientProcessor {
+    pub fn new(method: SsStreamCipherKind, password: &str) -> Self {
+        let key = method.derive_key(password);
+        Self {
+            method,
+            master_key: key,
+        }
+    }
 }
 
 #[async_trait]

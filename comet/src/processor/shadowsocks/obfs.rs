@@ -61,6 +61,8 @@ impl Processor for ClientProcessor {
         conn: &mut Connection,
         _ctx: AppContextRef,
     ) -> Result<ProxyStream> {
+        let mut rng = rand::xor_rng();
+
         let stream = stream.into_tcp()?;
         let stream = match &self.config {
             ClientConfig::HttpSimple {
@@ -75,7 +77,7 @@ impl Processor for ClientProcessor {
                         format!("{}", conn.dest_addr.ip.as_ref().unwrap())
                     }
                 } else {
-                    rand::xor_rng().choose(&hosts).unwrap().to_string()
+                    rng.choose(&hosts).unwrap().to_string()
                 };
 
                 let mut header_buf = BytesMut::new();
@@ -87,13 +89,14 @@ impl Processor for ClientProcessor {
 
                 if headers.is_empty() {
                     header_buf.put_slice(b"User-Agent: ");
-                    header_buf.put_slice(rand::xor_rng().choose(&USER_AGENTS).unwrap().as_bytes());
+                    header_buf.put_slice(rng.choose(&USER_AGENTS).unwrap().as_bytes());
                     header_buf.put_slice(b"\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nDNT: 1\r\nConnection: keep-alive\r\n");
                 } else {
                     for (name, value) in headers {
                         header_buf.put_slice(format!("{}: {}\r\n", name, value).as_bytes());
                     }
                 }
+                
                 header_buf.put_slice(b"\r\n");
                 SimpleHttpWriter::new(stream, ObfsHttpMethod::Get, header_buf)
             }

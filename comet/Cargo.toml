@@ -17,7 +17,7 @@ httparse = "1.3.4"
 trust-dns-proto = "0.20"
 # http = "0.2.1"
 hyper = "0.14.2"
-tungstenite = {version = "0.12", default-features = false}
+tungstenite = { version = "0.12", default-features = false }
 tokio-tungstenite = "0.13"
 warp = "0.3"
 
@@ -48,7 +48,7 @@ socket2 = "0.3"
 rand = "0.8"
 
 crypto2 = "0.1.1"
-shadowsocks-crypto = {version="0.1.2", features = ["v1-stream"]}
+shadowsocks-crypto = { version="0.1.2", features = ["v1-stream"] }
 
 [dependencies.regex]
 version = "1"

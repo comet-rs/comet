@@ -20,21 +20,13 @@ const PACK_UNIT_SIZE: usize = 2000;
 pub fn register(plumber: &mut Plumber) {
     plumber.register("ssr_auth_client", |conf| {
         let config: SsrClientAuthConfig = from_value(conf)?;
-        let user_key = config.user_key.as_ref().map(|key| match config.protocol {
-            SsrClientAuthType::AuthAes128Md5 => {
-                hashing::hash_bytes(hashing::HashKind::Md5, key.as_bytes()).unwrap()
-            }
-            SsrClientAuthType::AuthAes128Sha1 => {
-                hashing::hash_bytes(hashing::HashKind::Sha1, key.as_bytes()).unwrap()
-            }
-        });
+        let user_key = config.user_key.as_ref().map(|s| s.as_str());
 
-        Ok(Box::new(SsrClientAuthProcessor {
-            ids: Mutex::new(SsrIds::new()),
-            user_id: config.user_id,
-            protocol: config.protocol,
+        Ok(Box::new(SsrClientAuthProcessor::new(
+            config.user_id,
             user_key,
-        }))
+            config.protocol,
+        )))
     });
 }
 
@@ -79,9 +71,9 @@ pub enum SsrClientAuthType {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct SsrClientAuthConfig {
-    user_id: Option<u32>,
     protocol: SsrClientAuthType,
     user_key: Option<SmolStr>,
+    user_id: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -93,6 +85,39 @@ pub struct SsrClientAuthProcessor {
 }
 
 impl SsrClientAuthProcessor {
+    pub fn new<'a>(
+        user_id: Option<u32>,
+        user_key: Option<&'a str>,
+        protocol: SsrClientAuthType,
+    ) -> Self {
+        let user_key = user_key.map(|key| match protocol {
+            SsrClientAuthType::AuthAes128Md5 => {
+                hashing::hash_bytes(hashing::HashKind::Md5, key.as_bytes())
+            }
+            SsrClientAuthType::AuthAes128Sha1 => {
+                hashing::hash_bytes(hashing::HashKind::Sha1, key.as_bytes())
+            }
+        });
+        Self {
+            ids: Mutex::new(SsrIds::new()),
+            user_id,
+            protocol,
+            user_key,
+        }
+    }
+
+    pub fn new_param(protocol: SsrClientAuthType, param: &str) -> Result<Self> {
+        Ok(if param.contains(':') {
+            let mut param_split = param.splitn(1, ':');
+            let user_id = u32::from_str_radix(param_split.next().unwrap(), 10)?;
+            let user_key = param_split.next().unwrap();
+
+            Self::new(Some(user_id), Some(user_key), protocol)
+        } else {
+            Self::new(None, None, protocol)
+        })
+    }
+
     fn new_connection(&self) -> (u32, u32) {
         let mut ids = self.ids.lock().unwrap();
         ids.new_connection()
@@ -212,7 +237,7 @@ impl<RW> AuthAes128ClientStream<RW> {
         +--------+----------+
         */
         ret.put_u8(rng.gen());
-        ret.put_slice(&hashing::sign_bytes(self.hash_kind, &part12_hmac_key, &ret[0..1])?[0..6]);
+        ret.put_slice(&hashing::sign_bytes(self.hash_kind, &part12_hmac_key, &ret[0..1])[0..6]);
 
         // Part 2-2
         /*
@@ -252,7 +277,7 @@ impl<RW> AuthAes128ClientStream<RW> {
                 hashing::HashKind::Md5,
                 &part2_enc_key_raw.as_ref(),
                 cipher_kind.key_len(),
-            )?;
+            );
 
             let enc_n = cipher_kind
                 .to_crypter(CrypterMode::Encrypt, &part2_enc_key, &[0u8; 16], false)?
@@ -261,7 +286,7 @@ impl<RW> AuthAes128ClientStream<RW> {
             part2_enc
         };
         ret.put_slice(&part2_enc_out);
-        ret.put_slice(&hashing::sign_bytes(self.hash_kind, &part12_hmac_key, &ret[7..])?[0..4]);
+        ret.put_slice(&hashing::sign_bytes(self.hash_kind, &part12_hmac_key, &ret[7..])[0..4]);
 
         // Part 3
         /*
@@ -280,7 +305,7 @@ impl<RW> AuthAes128ClientStream<RW> {
             rand::rand_bytes(&mut ret[cur_len..rnd_end])?;
         }
         ret.put_slice(&buf);
-        let part3_hmac = hashing::sign_bytes(self.hash_kind, &self.user_key, &ret)?;
+        let part3_hmac = hashing::sign_bytes(self.hash_kind, &self.user_key, &ret);
         ret.put_slice(&part3_hmac[0..4]);
         assert_eq!(ret.len(), pack_len as usize);
         Ok(ret.freeze())
@@ -330,7 +355,7 @@ impl<RW> AuthAes128ClientStream<RW> {
         let mut ret = BytesMut::with_capacity(pack_len);
 
         ret.put_u16_le(pack_len as u16);
-        let size_hmac = hashing::sign_bytes(self.hash_kind, &hmac_key, &ret[0..2])?;
+        let size_hmac = hashing::sign_bytes(self.hash_kind, &hmac_key, &ret[0..2]);
         ret.put_slice(&size_hmac[0..2]);
         unsafe {
             ret.advance_mut(rand_len);
@@ -344,7 +369,7 @@ impl<RW> AuthAes128ClientStream<RW> {
             ret[6] = (rand_len >> 8) as u8;
         }
         ret.put_slice(buf);
-        let pack_hmac = hashing::sign_bytes(self.hash_kind, &hmac_key, &ret)?;
+        let pack_hmac = hashing::sign_bytes(self.hash_kind, &hmac_key, &ret);
         ret.put_slice(&pack_hmac[0..4]);
         assert_eq!(ret.len(), pack_len);
         Ok(ret.freeze())

@@ -112,8 +112,8 @@ impl Pipeline {
 pub trait Processor: Send + Sync {
     async fn process(
         self: Arc<Self>,
-        _stream: ProxyStream,
-        _conn: &mut Connection,
-        _ctx: AppContextRef,
+        stream: ProxyStream,
+        conn: &mut Connection,
+        ctx: AppContextRef,
     ) -> Result<ProxyStream>;
 }

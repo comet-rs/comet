@@ -4,7 +4,7 @@ use tokio_prepend_io::PrependWriter;
 
 pub fn register(plumber: &mut Plumber) {
     plumber.register("ss_handshake_client", |_| {
-        Ok(Box::new(ShadowsocksClientHandshakeProcessor {}))
+        Ok(Box::new(ShadowsocksClientHandshakeProcessor::new()))
     });
 }
 
@@ -12,6 +12,10 @@ pub fn register(plumber: &mut Plumber) {
 pub struct ShadowsocksClientHandshakeProcessor {}
 
 impl ShadowsocksClientHandshakeProcessor {
+    pub fn new() -> Self {
+        ShadowsocksClientHandshakeProcessor {}
+    }
+    
     pub fn header_len(buf: &[u8]) -> IoResult<usize> {
         if buf.len() < 4 {
             return Err(io_other_error("header incomplete"));

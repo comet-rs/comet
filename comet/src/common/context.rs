@@ -21,19 +21,21 @@ pub struct AppContext {
     #[cfg(target_os = "android")]
     pub nat_manager: NatManager,
     pub dns: DnsService,
+    pub config: Config
 }
 
 impl AppContext {
-    pub fn new(config: &Config) -> Result<Self> {
+    pub fn new(config: Config) -> Result<Self> {
         Ok(AppContext {
-            plumber: Arc::new(Plumber::new(config)?),
-            inbound_manager: Arc::new(InboundManager::new(config)),
-            outbound_manager: OutboundManager::new(config),
-            metrics: Metrics::new(config),
-            router: Router::new(config),
+            plumber: Arc::new(Plumber::new(&config)?),
+            inbound_manager: Arc::new(InboundManager::new(&config)),
+            outbound_manager: OutboundManager::new(&config),
+            metrics: Metrics::new(&config),
+            router: Router::new(&config),
             #[cfg(target_os = "android")]
-            nat_manager: NatManager::new(config),
-            dns: DnsService::new(config),
+            nat_manager: NatManager::new(&config),
+            dns: DnsService::new(&config),
+            config
         })
     }
 }

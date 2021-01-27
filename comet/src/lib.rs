@@ -53,8 +53,7 @@ pub async fn run_bin() -> Result<()> {
         .await
         .context("Failed to read config file")?;
     println!("{:#?}", config);
-    let ctx = Arc::new(AppContext::new(&config)?);
-    drop(config);
+    let ctx = Arc::new(AppContext::new(config)?);
     run(ctx).await?;
     Ok(())
 }
@@ -70,8 +69,7 @@ pub async fn run_android(
     let config = config::load_file(config_path)
         .await
         .context("Failed to read config file")?;
-    let ctx = Arc::new(AppContext::new(&config)?);
-    drop(config);
+    let ctx = Arc::new(AppContext::new(config)?);
 
     let ctx1 = ctx.clone();
     std::thread::spawn(move || match android::nat::run_router(fd, ctx1, running) {

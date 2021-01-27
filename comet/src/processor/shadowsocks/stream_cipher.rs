@@ -231,7 +231,7 @@ impl<RW: AsyncRead + Unpin> AsyncRead for ClientStream<RW> {
                     method,
                     salt_buf,
                 } => {
-                    let n = check_eof!(ready!(poll_read_buf(
+                    check_eof!(ready!(poll_read_buf(
                         Pin::new(&mut me.inner),
                         cx,
                         salt_buf

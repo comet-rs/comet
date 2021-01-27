@@ -1,7 +1,14 @@
-use std::{collections::HashSet, sync::RwLock};
+use std::{
+    collections::HashSet,
+    io::{Read, Write},
+    path::Path,
+    sync::RwLock,
+};
 
 use crate::prelude::*;
-use rcgen::{BasicConstraints, Certificate, CertificateParams, DnType, IsCa};
+use log::{info, warn};
+use once_cell::sync::OnceCell;
+use rcgen::{BasicConstraints, Certificate, CertificateParams, DnType, IsCa, KeyPair};
 use tokio_rustls::{
     rustls::{
         sign::{any_supported_type, CertifiedKey},
@@ -15,17 +22,6 @@ pub fn register(plumber: &mut Plumber) {
     plumber.register("tls_mitm", |_, pipe_tag| {
         Ok(Box::new(TlsMitmProcessor::new(pipe_tag)?))
     });
-}
-
-fn new_ca_cert() -> Result<Certificate> {
-    let mut ca_param: CertificateParams = Default::default();
-    ca_param.distinguished_name.remove(DnType::CommonName);
-    ca_param
-        .distinguished_name
-        .push(DnType::CommonName, "Comet Self-Signed Certificate");
-
-    ca_param.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-    Ok(Certificate::from_params(ca_param)?)
 }
 
 fn new_cert(san: &str) -> Result<Certificate> {
@@ -57,8 +53,24 @@ struct CertResolver {
 }
 
 impl CertResolver {
-    pub fn new() -> Result<Self> {
-        let ca = new_ca_cert()?;
+    pub fn new(pipe_tag: &str, ctx: AppContextRef) -> Result<Self> {
+        let mut ca_path = ctx.config.data_dir.clone();
+        ca_path.push(format!("ca_{}.der", pipe_tag));
+
+        let ca = match Self::parse_cert_file(&ca_path) {
+            Ok(ca) => ca,
+            Err(e) => {
+                warn!("Failed to load CA certificate: {}", e);
+                let new_ca = Self::new_ca_cert()?;
+
+                let mut file = std::fs::File::create(&ca_path)?;
+                file.write_all(&new_ca.serialize_der()?)?;
+                info!("Created new CA certificate at {:?}", ca_path);
+
+                new_ca
+            }
+        };
+
         let ca_rustls = RustlsCert(ca.serialize_der()?);
 
         Ok(Self {
@@ -66,6 +78,28 @@ impl CertResolver {
             ca_rustls,
             inner: RwLock::new(CertResolverInner::new()),
         })
+    }
+
+    fn parse_cert_file(path: &Path) -> Result<Certificate> {
+        let mut file = std::fs::File::open(path)?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+
+        let kp = KeyPair::from_der(&buffer)?;
+        let params = CertificateParams::from_ca_cert_der(&buffer, kp)?;
+
+        Ok(Certificate::from_params(params)?)
+    }
+
+    fn new_ca_cert() -> Result<Certificate> {
+        let mut ca_param: CertificateParams = Default::default();
+        ca_param.distinguished_name.remove(DnType::CommonName);
+        ca_param
+            .distinguished_name
+            .push(DnType::CommonName, "Comet Self-Signed Certificate");
+
+        ca_param.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        Ok(Certificate::from_params(ca_param)?)
     }
 }
 
@@ -95,21 +129,32 @@ impl ResolvesServerCert for CertResolver {
             .resolver
             .add(server_name, cert_key)
             .expect("Invalid DNS name");
+
+        info!("Created certificate for {}", server_name);
+
         inner.resolver.resolve(client_hello)
     }
 }
 
 pub struct TlsMitmProcessor {
-    acceptor: TlsAcceptor,
+    pipe_tag: SmolStr,
+    acceptor: OnceCell<TlsAcceptor>,
 }
 
 impl TlsMitmProcessor {
     pub fn new(pipe_tag: &str) -> Result<Self> {
-        let mut cfg = ServerConfig::new(NoClientAuth::new());
-        cfg.cert_resolver = Arc::new(CertResolver::new()?);
-
         Ok(TlsMitmProcessor {
-            acceptor: TlsAcceptor::from(Arc::new(cfg)),
+            pipe_tag: pipe_tag.into(),
+            acceptor: OnceCell::new(),
+        })
+    }
+
+    pub fn acceptor(&self, ctx: AppContextRef) -> Result<&TlsAcceptor> {
+        self.acceptor.get_or_try_init(|| {
+            let mut cfg = ServerConfig::new(NoClientAuth::new());
+            cfg.cert_resolver = Arc::new(CertResolver::new(&self.pipe_tag, ctx)?);
+
+            Ok(TlsAcceptor::from(Arc::new(cfg)))
         })
     }
 }
@@ -120,10 +165,10 @@ impl Processor for TlsMitmProcessor {
         self: Arc<Self>,
         stream: ProxyStream,
         _conn: &mut Connection,
-        _ctx: AppContextRef,
+        ctx: AppContextRef,
     ) -> Result<ProxyStream> {
         let stream = stream.into_tcp()?;
-        let stream = self.acceptor.accept(stream).await?;
+        let stream = self.acceptor(ctx)?.accept(stream).await?;
 
         Ok(RWPair::new(stream).into())
     }

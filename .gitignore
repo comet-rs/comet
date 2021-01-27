@@ -2,3 +2,4 @@
 **/*.rs.bk
 rls*.log
 config.yml
+*.der

@@ -3,12 +3,14 @@ use crate::router::matching::MatchCondition;
 use anyhow::Result;
 use serde::Deserialize;
 use smol_str::SmolStr;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 use std::net::IpAddr;
 use tokio::fs::File;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
+    #[serde(default = "default_current_dir")]
+    pub data_dir: PathBuf,
     #[serde(default)]
     pub inbounds: HashMap<SmolStr, Inbound>,
     #[serde(default)]
@@ -18,6 +20,10 @@ pub struct Config {
     pub router: RouterConfig,
     #[cfg(target_os = "android")]
     pub android: AndroidConfig,
+}
+
+fn default_current_dir() -> PathBuf {
+    std::env::current_dir().unwrap()
 }
 
 #[derive(Deserialize, Clone, Debug)]

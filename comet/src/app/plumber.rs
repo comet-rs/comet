@@ -36,6 +36,9 @@ impl Plumber {
     where
         F: Fn(YamlValue) -> Result<Box<dyn Processor>> + Send + Sync + 'static,
     {
+        if self.processors.contains_key(name) {
+            panic!("Duplicate processor {}", name);
+        }
         info!("Registering {}", name);
         self.processors.insert(name, Box::new(new_fn));
     }

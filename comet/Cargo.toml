@@ -20,6 +20,8 @@ hyper = "0.14.2"
 tungstenite = { version = "0.12", default-features = false }
 tokio-tungstenite = "0.13"
 warp = "0.3"
+rcgen = "0.8.9"
+tokio-rustls = "0.22.0"
 
 # Async
 tokio = { version = "1", features = ["full"] }

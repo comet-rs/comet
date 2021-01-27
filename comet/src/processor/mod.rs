@@ -10,6 +10,7 @@ pub mod sniffer;
 pub mod socks5_proxy;
 pub mod switch;
 pub mod timeout;
+pub mod tls_mitm;
 
 use crate::app::plumber::Plumber;
 

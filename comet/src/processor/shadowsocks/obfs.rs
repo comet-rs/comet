@@ -8,6 +8,7 @@ use lazy_static::lazy_static;
 use std::cmp;
 use std::task::Context;
 use tokio::io::ReadBuf;
+use tokio_util::io::poll_read_buf;
 use xorshift::Rng;
 
 pub fn register(plumber: &mut Plumber) {
@@ -96,7 +97,7 @@ impl Processor for ClientProcessor {
                         header_buf.put_slice(format!("{}: {}\r\n", name, value).as_bytes());
                     }
                 }
-                
+
                 header_buf.put_slice(b"\r\n");
                 SimpleHttpWriter::new(stream, ObfsHttpMethod::Get, header_buf)
             }
@@ -145,7 +146,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for StripHttpHeaderStream<R> {
                     if me_buf.remaining_mut() == 0 {
                         me_buf.reserve(512);
                     }
-                    check_eof!(ready!(Pin::new(&mut me.inner).poll_read_buf(cx, me_buf))?);
+                    check_eof!(ready!(poll_read_buf(Pin::new(&mut me.inner), cx, me_buf))?);
                     for i in 0..me_buf.len() - 4 {
                         if &me_buf[i..i + 4] == b"\r\n\r\n" {
                             me_buf.advance(i + 4);

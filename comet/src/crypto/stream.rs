@@ -74,6 +74,7 @@ mod ss_crypto {
             match self.mode {
                 CrypterMode::Encrypt => inner.encrypt_packet(in_out),
                 CrypterMode::Decrypt => {
+                    // Never fails in stream cipher
                     let _ = inner.decrypt_packet(in_out);
                 }
             }

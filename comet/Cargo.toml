@@ -27,6 +27,7 @@ futures = "0.3"
 async-trait = "0.1"
 tokio-stream = "0.1"
 tokio-prepend-io = "0.1.0"
+tokio-util = "0.6.2"
 
 # --
 anyhow = "1.0"

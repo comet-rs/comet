@@ -255,6 +255,7 @@ dependencies = [
  "tokio-prepend-io",
  "tokio-stream",
  "tokio-tungstenite",
+ "tokio-util",
  "trust-dns-proto",
  "tungstenite",
  "url",

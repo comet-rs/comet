@@ -13,6 +13,7 @@ use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::Mutex;
 use std::task::{Context, Poll};
+use tokio_util::io::poll_read_buf;
 use xorshift::Rng;
 
 const PACK_UNIT_SIZE: usize = 2000;
@@ -462,9 +463,11 @@ impl<RW: AsyncRead + Unpin> AsyncRead for AuthAes128ClientStream<RW> {
             match &mut me.read_state {
                 ReadState::Size => {
                     if me.read_buf.len() < 7 {
-                        check_eof!(ready!(
-                            Pin::new(&mut me.inner).poll_read_buf(cx, &mut me.read_buf)
-                        )?);
+                        check_eof!(ready!(poll_read_buf(
+                            Pin::new(&mut me.inner),
+                            cx,
+                            &mut me.read_buf
+                        ))?);
                     } else {
                         let total_len = u16::from_le_bytes(me.read_buf[0..2].try_into().unwrap());
                         let rnd_len = me.parse_rnd_len(&me.read_buf[4..7]) - 1;
@@ -482,9 +485,12 @@ impl<RW: AsyncRead + Unpin> AsyncRead for AuthAes128ClientStream<RW> {
                     payload_len,
                 } => {
                     if me.read_buf.len() < *rnd_len {
-                        let n = check_eof!(ready!(
-                            Pin::new(&mut me.inner).poll_read_buf(cx, &mut me.read_buf)
-                        )?);
+                        let n = check_eof!(ready!(poll_read_buf(
+                            Pin::new(&mut me.inner),
+                            cx,
+                            &mut me.read_buf
+                        ))?);
+
                         let consumed = cmp::min(*rnd_len, n);
                         me.read_buf.advance(consumed);
                         *rnd_len -= consumed;
@@ -525,9 +531,11 @@ impl<RW: AsyncRead + Unpin> AsyncRead for AuthAes128ClientStream<RW> {
                         me.read_buf.advance(4);
                         me.read_state = ReadState::Size;
                     } else {
-                        check_eof!(ready!(
-                            Pin::new(&mut me.inner).poll_read_buf(cx, &mut me.read_buf)
-                        )?);
+                        check_eof!(ready!(poll_read_buf(
+                            Pin::new(&mut me.inner),
+                            cx,
+                            &mut me.read_buf
+                        ))?);
                     }
                 }
             }

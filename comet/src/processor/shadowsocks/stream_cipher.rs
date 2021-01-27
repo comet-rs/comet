@@ -1,12 +1,13 @@
-use crate::crypto::*;
 use crate::prelude::*;
 use crate::utils::io::*;
+use crate::{check_eof, crypto::*};
 use bytes::buf::Limit;
 use futures::ready;
 use std::cmp;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use stream::StreamCipherKind;
+use tokio_util::io::poll_read_buf;
 
 pub fn register(plumber: &mut Plumber) {
     plumber.register("ss_stream_cipher_client", |conf| {
@@ -159,11 +160,8 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for ClientStream<RW> {
                     assert!(consumed > 0);
 
                     let old_len = me.write_buf.len();
-                    unsafe {
-                        me.write_buf.set_len(old_len + consumed);
-                    }
+                    me.write_buf.extend_from_slice(&buf[0..consumed]);
                     let mut crypto_output = &mut me.write_buf[old_len..old_len + consumed];
-                    crypto_output.copy_from_slice(&buf[0..consumed]);
 
                     let n = me
                         .encrypter
@@ -233,10 +231,11 @@ impl<RW: AsyncRead + Unpin> AsyncRead for ClientStream<RW> {
                     method,
                     salt_buf,
                 } => {
-                    let n = ready!(Pin::new(&mut me.inner).poll_read_buf(cx, salt_buf))?;
-                    if n == 0 {
-                        return Poll::Ready(Ok(()));
-                    }
+                    let n = check_eof!(ready!(poll_read_buf(
+                        Pin::new(&mut me.inner),
+                        cx,
+                        salt_buf
+                    ))?);
                     if !salt_buf.has_remaining_mut() {
                         let dec = method
                             .to_crypter(CrypterMode::Decrypt, &master_key, &salt_buf.get_ref())

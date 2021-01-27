@@ -27,4 +27,5 @@ pub fn do_register(plumber: &mut Plumber) {
     shadowsocks::register(plumber);
     timeout::register(plumber);
     any_proxy::register(plumber);
+    tls_mitm::register(plumber);
 }

@@ -9,7 +9,7 @@ use std::str::FromStr;
 use tokio_prepend_io::PrependReader;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("sniffer", |conf| {
+    plumber.register("sniffer", |conf, _| {
         Ok(Box::new(SnifferProcessor {
             config: from_value(conf)?,
         }))

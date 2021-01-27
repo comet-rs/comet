@@ -12,7 +12,7 @@ use tokio_util::io::poll_read_buf;
 use xorshift::Rng;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("ssr_obfs_client", |conf| {
+    plumber.register("ssr_obfs_client", |conf, _| {
         Ok(Box::new(ClientProcessor {
             config: from_value(conf)?,
         }))

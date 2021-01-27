@@ -8,7 +8,7 @@ use tokio::io::ReadBuf;
 use tokio::time::{sleep, Instant, Sleep};
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("timeout", |conf| {
+    plumber.register("timeout", |conf, _| {
         let config: TimeoutConfig = from_value(conf)?;
 
         Ok(Box::new(TimeoutProcessor {

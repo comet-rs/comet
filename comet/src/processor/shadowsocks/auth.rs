@@ -19,7 +19,7 @@ use xorshift::Rng;
 const PACK_UNIT_SIZE: usize = 2000;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("ssr_auth_client", |conf| {
+    plumber.register("ssr_auth_client", |conf, _| {
         let config: SsrClientAuthConfig = from_value(conf)?;
         let user_key = config.user_key.as_ref().map(|s| s.as_str());
 

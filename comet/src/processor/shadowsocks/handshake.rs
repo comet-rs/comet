@@ -3,7 +3,7 @@ use crate::utils::io::io_other_error;
 use tokio_prepend_io::PrependWriter;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("ss_handshake_client", |_| {
+    plumber.register("ss_handshake_client", |_, _| {
         Ok(Box::new(ShadowsocksClientHandshakeProcessor::new()))
     });
 }

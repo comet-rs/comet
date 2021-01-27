@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-type NewProcessorFn = Box<dyn Fn(YamlValue) -> Result<Box<dyn Processor>> + Send + Sync>;
+type NewProcessorFn = Box<dyn Fn(YamlValue, &str) -> Result<Box<dyn Processor>> + Send + Sync>;
 
 pub struct Plumber {
     pipelines: HashMap<SmolStr, Pipeline>,
@@ -26,7 +26,7 @@ impl Plumber {
 
         for (tag, pipeline) in &config.pipelines {
             this.pipelines
-                .insert(tag.clone(), Pipeline::new(&this, pipeline)?);
+                .insert(tag.clone(), Pipeline::new(&this, tag, pipeline)?);
         }
 
         Ok(this)
@@ -34,7 +34,7 @@ impl Plumber {
 
     pub fn register<F>(&mut self, name: &'static str, new_fn: F)
     where
-        F: Fn(YamlValue) -> Result<Box<dyn Processor>> + Send + Sync + 'static,
+        F: Fn(YamlValue, &str) -> Result<Box<dyn Processor>> + Send + Sync + 'static,
     {
         if self.processors.contains_key(name) {
             panic!("Duplicate processor {}", name);
@@ -47,13 +47,14 @@ impl Plumber {
         &self,
         name: &str,
         config: YamlValue,
+        pipe_tag: &str,
     ) -> Result<(&'static str, Box<dyn Processor>)> {
         let create_fn = self
             .processors
             .get_key_value(name)
             .ok_or_else(|| anyhow!("Processor {} not found", name))?;
 
-        Ok((create_fn.0, create_fn.1(config)?))
+        Ok((create_fn.0, create_fn.1(config, pipe_tag)?))
     }
 
     pub async fn process(
@@ -78,7 +79,7 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(plumber: &Plumber, processors: &[YamlValue]) -> Result<Self> {
+    pub fn new(plumber: &Plumber, tag: &str, processors: &[YamlValue]) -> Result<Self> {
         let items: Result<Vec<_>> = processors
             .iter()
             .map(|conf| {
@@ -88,8 +89,9 @@ impl Pipeline {
                     .unwrap()
                     .as_str()
                     .unwrap();
+
                 plumber
-                    .new_processor(name, conf.clone())
+                    .new_processor(name, conf.clone(), tag)
                     .map(|(n, p)| (n, Arc::from(p)))
             })
             .collect();

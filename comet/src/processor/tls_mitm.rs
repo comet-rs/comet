@@ -2,13 +2,19 @@ use std::{collections::HashSet, sync::RwLock};
 
 use crate::prelude::*;
 use rcgen::{BasicConstraints, Certificate, CertificateParams, DnType, IsCa};
-use tokio::sync::Mutex;
-use tokio_rustls::rustls::{
-    Certificate as RustlsCert, ResolvesServerCert, ResolvesServerCertUsingSNI,
+use tokio_rustls::{
+    rustls::{
+        sign::{any_supported_type, CertifiedKey},
+        Certificate as RustlsCert, NoClientAuth, PrivateKey, ResolvesServerCert,
+        ResolvesServerCertUsingSNI, ServerConfig,
+    },
+    TlsAcceptor,
 };
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("tls_mitm", |_| Ok(Box::new(TlsMitmProcessor {})));
+    plumber.register("tls_mitm", |_, pipe_tag| {
+        Ok(Box::new(TlsMitmProcessor::new(pipe_tag)?))
+    });
 }
 
 fn new_ca_cert() -> Result<Certificate> {
@@ -23,15 +29,31 @@ fn new_ca_cert() -> Result<Certificate> {
 }
 
 fn new_cert(san: &str) -> Result<Certificate> {
-    let cert_param = CertificateParams::new(vec![san.to_string()]);
+    let mut cert_param = CertificateParams::new(vec![san.to_string()]);
+    cert_param.distinguished_name.remove(DnType::CommonName);
+    cert_param.distinguished_name.push(DnType::CommonName, san);
+
     Ok(Certificate::from_params(cert_param)?)
+}
+
+struct CertResolverInner {
+    generated: HashSet<SmolStr>,
+    resolver: ResolvesServerCertUsingSNI,
+}
+
+impl CertResolverInner {
+    fn new() -> Self {
+        Self {
+            generated: HashSet::new(),
+            resolver: ResolvesServerCertUsingSNI::new(),
+        }
+    }
 }
 
 struct CertResolver {
     ca: Certificate,
     ca_rustls: RustlsCert,
-    generated: HashSet<SmolStr>,
-    inner: RwLock<ResolvesServerCertUsingSNI>,
+    inner: RwLock<CertResolverInner>,
 }
 
 impl CertResolver {
@@ -42,8 +64,7 @@ impl CertResolver {
         Ok(Self {
             ca,
             ca_rustls,
-            generated: HashSet::new(),
-            inner: RwLock::new(ResolvesServerCertUsingSNI::new()),
+            inner: RwLock::new(CertResolverInner::new()),
         })
     }
 }
@@ -54,26 +75,56 @@ impl ResolvesServerCert for CertResolver {
         client_hello: tokio_rustls::rustls::ClientHello<'_>,
     ) -> Option<tokio_rustls::rustls::sign::CertifiedKey> {
         let server_name: &str = client_hello.server_name()?.into();
-        if self.generated.contains(server_name) {
-            return self.inner.resolve(client_hello);
+
+        {
+            let inner = self.inner.read().unwrap();
+            if inner.generated.contains(server_name) {
+                return inner.resolver.resolve(client_hello);
+            }
         }
 
         let cert = new_cert(server_name).unwrap();
-        let cert_pub = cert.serialize_der_with_signer(&self.ca).unwrap();
-        None
+        let cert_priv = any_supported_type(&PrivateKey(cert.serialize_private_key_der())).unwrap();
+        let cert_pub = RustlsCert(cert.serialize_der_with_signer(&self.ca).unwrap());
+
+        let cert_key =
+            CertifiedKey::new(vec![cert_pub, self.ca_rustls.clone()], Arc::new(cert_priv));
+
+        let mut inner = self.inner.write().unwrap();
+        inner
+            .resolver
+            .add(server_name, cert_key)
+            .expect("Invalid DNS name");
+        inner.resolver.resolve(client_hello)
     }
 }
 
-pub struct TlsMitmProcessor {}
+pub struct TlsMitmProcessor {
+    acceptor: TlsAcceptor,
+}
+
+impl TlsMitmProcessor {
+    pub fn new(pipe_tag: &str) -> Result<Self> {
+        let mut cfg = ServerConfig::new(NoClientAuth::new());
+        cfg.cert_resolver = Arc::new(CertResolver::new()?);
+
+        Ok(TlsMitmProcessor {
+            acceptor: TlsAcceptor::from(Arc::new(cfg)),
+        })
+    }
+}
 
 #[async_trait]
 impl Processor for TlsMitmProcessor {
     async fn process(
         self: Arc<Self>,
         stream: ProxyStream,
-        conn: &mut Connection,
+        _conn: &mut Connection,
         _ctx: AppContextRef,
     ) -> Result<ProxyStream> {
-        todo!()
+        let stream = stream.into_tcp()?;
+        let stream = self.acceptor.accept(stream).await?;
+
+        Ok(RWPair::new(stream).into())
     }
 }

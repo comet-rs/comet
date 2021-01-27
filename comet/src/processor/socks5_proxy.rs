@@ -2,7 +2,7 @@ use crate::prelude::*;
 use anyhow::bail;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("socks5_server", |_| {
+    plumber.register("socks5_server", |_, _| {
         Ok(Box::new(Socks5ProxyServerProcessor {}))
     });
 }

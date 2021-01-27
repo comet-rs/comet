@@ -10,7 +10,7 @@ use url::{Host, Url};
 use httparse::{Request, Status};
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("http_proxy_server", |_| Ok(Box::new(ServerProcessor {})));
+    plumber.register("http_proxy_server", |_, _| Ok(Box::new(ServerProcessor {})));
 }
 
 pub struct ServerProcessor {}

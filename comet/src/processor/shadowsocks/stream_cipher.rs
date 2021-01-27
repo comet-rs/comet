@@ -10,7 +10,7 @@ use stream::StreamCipherKind;
 use tokio_util::io::poll_read_buf;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("ss_stream_cipher_client", |conf| {
+    plumber.register("ss_stream_cipher_client", |conf, _| {
         let config: ClientConfig = from_value(conf)?;
         let processor = ClientProcessor::new(config.method, config.password.as_str());
         Ok(Box::new(processor))

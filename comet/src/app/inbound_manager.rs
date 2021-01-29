@@ -175,7 +175,7 @@ impl InboundManager {
     pub fn inject_tcp(&self) {}
     pub fn inject_udp(&self, tag: &str) -> Result<UdpStream> {
         let (read_sender, read_receiver) = channel(10);
-        let (write_sender, mut write_receiver) = channel(10);
+        let (write_sender, write_receiver) = channel(10);
 
         let conn = Connection::new(
             ([0, 0, 0, 0], 0),
@@ -187,7 +187,7 @@ impl InboundManager {
         self.sender.get().unwrap().send((
             conn,
             UdpStream::new(ReceiverStream::new(read_receiver), write_sender.clone()).into(),
-        ));
+        ))?;
 
         return Ok(UdpStream::new(
             ReceiverStream::new(write_receiver),

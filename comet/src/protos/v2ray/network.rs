@@ -241,13 +241,11 @@ impl ::protobuf::reflect::ProtobufValue for Network {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\rnetwork.proto\x12\x15v2ray.core.common.net\"G\n\x0bNetworkList\x128\
+    \n\rnetwork.proto\x12\x15v2ray.core.common.net\"K\n\x0bNetworkList\x12:\
     \n\x07network\x18\x01\x20\x03(\x0e2\x1e.v2ray.core.common.net.NetworkR\
-    \x07network*B\n\x07Network\x12\x0b\n\x07Unknown\x10\0\x12\x0e\n\x06RawTC\
-    P\x10\x01\x1a\x02\x08\x01\x12\x07\n\x03TCP\x10\x02\x12\x07\n\x03UDP\x10\
-    \x03\x12\x08\n\x04UNIX\x10\x04BP\n\x19com.v2ray.core.common.netP\x01Z\
-    \x19v2ray.com/core/common/net\xaa\x02\x15V2Ray.Core.Common.Netb\x06proto\
-    3\
+    \x07networkB\0:\0*@\n\x07Network\x12\x0b\n\x07Unknown\x10\0\x12\n\n\x06R\
+    awTCP\x10\x01\x12\x07\n\x03TCP\x10\x02\x12\x07\n\x03UDP\x10\x03\x12\x08\
+    \n\x04UNIX\x10\x04\x1a\0B\0b\x06proto3\
 ";
 
 static file_descriptor_proto_lazy: ::protobuf::rt::LazyV2<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::rt::LazyV2::INIT;

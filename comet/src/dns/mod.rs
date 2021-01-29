@@ -5,23 +5,31 @@ use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
 use anyhow::anyhow;
 use lru_cache::LruCache;
-use std::{net::{IpAddr, Ipv4Addr, SocketAddr}, task::Context};
 use std::time::SystemTime;
-use tokio::sync::RwLock;
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    task::Context,
+};
+use tokio::sync::{Mutex, RwLock};
+use trust_dns_client::client::AsyncClient;
 use xorshift::Rng;
 
-use trust_dns_proto::{TokioTime, rr::{Name, Record, RecordType}};
 use trust_dns_proto::serialize::binary::BinEncodable;
 use trust_dns_proto::{
     op::{Message, MessageType, OpCode, Query},
     udp::UdpSocket,
 };
+use trust_dns_proto::{
+    rr::{Name, Record, RecordType},
+    udp::UdpClientStream,
+    TokioTime,
+};
+
+use self::socket::InternalUdpSocket;
 
 mod socket;
 
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8;
-
-
 
 fn new_lookup(query: &Query) -> Message {
     let mut message: Message = Message::new();
@@ -84,6 +92,7 @@ impl DnsEntry {
 pub struct DnsService {
     cache: flurry::HashMap<SmolStr, DnsEntry>,
     fake_map: Option<RwLock<LruCache<u16, SmolStr>>>,
+    client: Mutex<Option<AsyncClient>>,
 }
 
 impl DnsService {
@@ -91,7 +100,22 @@ impl DnsService {
         Self {
             cache: flurry::HashMap::new(),
             fake_map: Some(RwLock::new(LruCache::new(512))),
+            client: Mutex::new(None),
         }
+    }
+
+    pub async fn start(&self, ctx: AppContextRef) -> Result<()> {
+        socket::init_ctx(ctx);
+
+        let addr = ([223, 6, 6, 6], 53).into();
+        let stream = UdpClientStream::<InternalUdpSocket>::new(addr);
+        let (client, bg) = AsyncClient::connect(stream).await?;
+        tokio::spawn(bg);
+        
+        let mut guard = self.client.lock().await;
+        *guard = Some(client);
+
+        Ok(())
     }
 
     pub async fn process_query(&self, bytes: &[u8]) -> Result<Vec<u8>> {

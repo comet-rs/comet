@@ -68,6 +68,10 @@ impl UdpStream {
     pub async fn send(&self, data: UdpPacket) -> Result<()> {
         Ok(self.write.send(data).await?)
     }
+
+    pub fn try_send(&self, data: UdpPacket) -> Result<()> {
+        Ok(self.write.try_send(data)?)
+    }
 }
 
 impl Stream for UdpStream {

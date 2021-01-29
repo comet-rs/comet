@@ -377,12 +377,10 @@ impl ::protobuf::reflect::ProtobufValue for PortList {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\nport.proto\x12\x15v2ray.core.common.net\"/\n\tPortRange\x12\x12\n\
-    \x04From\x18\x01\x20\x01(\rR\x04From\x12\x0e\n\x02To\x18\x02\x20\x01(\rR\
-    \x02To\"B\n\x08PortList\x126\n\x05range\x18\x01\x20\x03(\x0b2\x20.v2ray.\
-    core.common.net.PortRangeR\x05rangeBP\n\x19com.v2ray.core.common.netP\
-    \x01Z\x19v2ray.com/core/common/net\xaa\x02\x15V2Ray.Core.Common.Netb\x06\
-    proto3\
+    \n\nport.proto\x12\x15v2ray.core.common.net\"5\n\tPortRange\x12\x14\n\
+    \x04From\x18\x01\x20\x01(\rR\x04FromB\0\x12\x10\n\x02To\x18\x02\x20\x01(\
+    \rR\x02ToB\0:\0\"F\n\x08PortList\x128\n\x05range\x18\x01\x20\x03(\x0b2\
+    \x20.v2ray.core.common.net.PortRangeR\x05rangeB\0:\0B\0b\x06proto3\
 ";
 
 static file_descriptor_proto_lazy: ::protobuf::rt::LazyV2<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::rt::LazyV2::INIT;

@@ -4,7 +4,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
 
-pub async fn handle_tcp_conn(
+pub async fn handle_conn(
     conn: &mut Connection,
     stream: ProxyStream,
     ctx: AppContextRef,

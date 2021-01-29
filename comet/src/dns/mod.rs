@@ -5,13 +5,16 @@ use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
 use anyhow::anyhow;
 use lru_cache::LruCache;
-use std::time::SystemTime;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     task::Context,
 };
+use std::{str::FromStr, time::SystemTime};
 use tokio::sync::{Mutex, RwLock};
-use trust_dns_client::client::AsyncClient;
+use trust_dns_client::{
+    client::{AsyncClient, ClientHandle},
+    rr::DNSClass,
+};
 use xorshift::Rng;
 
 use trust_dns_proto::serialize::binary::BinEncodable;
@@ -104,6 +107,7 @@ impl DnsService {
         }
     }
 
+    /// Initializes DNS client tasks
     pub async fn start(&self, ctx: AppContextRef) -> Result<()> {
         socket::init_ctx(ctx);
 
@@ -111,7 +115,7 @@ impl DnsService {
         let stream = UdpClientStream::<InternalUdpSocket>::new(addr);
         let (client, bg) = AsyncClient::connect(stream).await?;
         tokio::spawn(bg);
-        
+
         let mut guard = self.client.lock().await;
         *guard = Some(client);
 
@@ -141,15 +145,26 @@ impl DnsService {
             }
         }
 
-        let result = tokio::net::lookup_host((domain, 443))
-            .await?
-            .map(|a| a.ip())
-            .collect::<Vec<_>>();
+        let result = {
+            let mut guard = self.client.lock().await;
+            let client = guard.as_mut().unwrap();
+            client
+                .query(Name::from_str(domain).unwrap(), DNSClass::IN, RecordType::A)
+                .await?
+        };
+
+        let ans: Vec<IpAddr> = result
+            .answers()
+            .iter()
+            .filter_map(|ans| ans.rdata().to_ip_addr())
+            .collect();
 
         let cache_ref = self.cache.pin();
-        cache_ref.insert(SmolStr::from(domain), DnsEntry::new(result.clone()));
-        info!("Resolved {} -> {:?}", domain, result);
-        Ok(result)
+        cache_ref.insert(SmolStr::from(domain), DnsEntry::new(ans.clone()));
+
+        debug!("Resolved {} -> {:?}", domain, ans);
+        
+        Ok(ans)
     }
 
     pub async fn resolve_addr(&self, addr: &DestAddr) -> Result<Vec<IpAddr>> {

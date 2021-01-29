@@ -177,12 +177,14 @@ impl InboundManager {
         let (read_sender, read_receiver) = channel(10);
         let (write_sender, write_receiver) = channel(10);
 
-        let conn = Connection::new(
+        let mut conn = Connection::new(
             ([0, 0, 0, 0], 0),
             format!("__INTERNAL_{}", tag),
             None,
             TransportType::Udp,
         );
+
+        conn.internal = true;
 
         self.sender.get().unwrap().send((
             conn,

@@ -10,6 +10,7 @@ pub mod processor;
 pub mod router;
 pub mod utils;
 pub mod protos;
+pub mod rule_provider;
 
 #[cfg(target_os = "android")]
 pub mod android;
@@ -52,8 +53,11 @@ pub async fn run_bin() -> Result<()> {
     let config = config::load_file("./config.yml")
         .await
         .context("Failed to read config file")?;
+
     println!("{:#?}", config);
-    let ctx = Arc::new(AppContext::new(config)?);
+    let ctx = Arc::new(AppContext::new(&config)?);
+    drop(config);
+
     run(ctx).await?;
     Ok(())
 }
@@ -66,10 +70,12 @@ pub async fn run_android(
     running: Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<()> {
     info!("{:?}", uid_map);
+
     let config = config::load_file(config_path)
         .await
         .context("Failed to read config file")?;
-    let ctx = Arc::new(AppContext::new(config)?);
+    let ctx = Arc::new(AppContext::new(&config)?);
+    drop(config);
 
     let ctx1 = ctx.clone();
     std::thread::spawn(move || match android::nat::run_router(fd, ctx1, running) {

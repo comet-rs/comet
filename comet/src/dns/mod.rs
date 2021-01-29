@@ -5,16 +5,23 @@ use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
 use anyhow::anyhow;
 use lru_cache::LruCache;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::{net::{IpAddr, Ipv4Addr, SocketAddr}, task::Context};
 use std::time::SystemTime;
 use tokio::sync::RwLock;
 use xorshift::Rng;
 
-use trust_dns_proto::op::{Message, MessageType, OpCode, Query};
-use trust_dns_proto::rr::{Name, Record, RecordType};
+use trust_dns_proto::{TokioTime, rr::{Name, Record, RecordType}};
 use trust_dns_proto::serialize::binary::BinEncodable;
+use trust_dns_proto::{
+    op::{Message, MessageType, OpCode, Query},
+    udp::UdpSocket,
+};
+
+mod socket;
 
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8;
+
+
 
 fn new_lookup(query: &Query) -> Message {
     let mut message: Message = Message::new();

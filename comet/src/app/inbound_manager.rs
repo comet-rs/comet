@@ -17,7 +17,7 @@ pub type ConnReceiver<T> = UnboundedReceiver<(Connection, T)>;
 pub struct InboundManager {
     inbounds: HashMap<SmolStr, Inbound>,
     sender: OnceCell<ConnSender<ProxyStream>>,
-    udp_table: Mutex<HashMap<SocketAddr, Sender<BytesMut>>>,
+    udp_table: Mutex<HashMap<SocketAddr, Sender<UdpPacket>>>,
 }
 
 impl InboundManager {
@@ -125,14 +125,14 @@ impl InboundManager {
 
             if let Some(sender) = table_ref.get(&src_addr) {
                 let packet = BytesMut::from(&buffer[0..size]);
-                if sender.send(packet).await.is_ok() {
+                if sender.send(UdpPacket::new_unknown(packet)).await.is_ok() {
                     continue;
                 }
                 // Receiver dropped
             }
 
             let (read_sender, read_receiver) = channel(10);
-            let (write_sender, mut write_receiver) = channel::<BytesMut>(10);
+            let (write_sender, mut write_receiver) = channel::<UdpPacket>(10);
 
             let socket_clone = socket.clone();
             let src_addr_clone = src_addr;
@@ -151,7 +151,7 @@ impl InboundManager {
             // Insert sender to table to be used later
             table_ref.insert(src_addr, read_sender.clone());
             read_sender
-                .send(BytesMut::from(&buffer[0..size]))
+                .send(UdpPacket::new_unknown(BytesMut::from(&buffer[0..size])))
                 .await
                 .unwrap();
 
@@ -173,5 +173,25 @@ impl InboundManager {
     }
 
     pub fn inject_tcp(&self) {}
-    pub fn inject_udp(&self) {}
+    pub fn inject_udp(&self, tag: &str) -> Result<UdpStream> {
+        let (read_sender, read_receiver) = channel(10);
+        let (write_sender, mut write_receiver) = channel(10);
+
+        let conn = Connection::new(
+            ([0, 0, 0, 0], 0),
+            format!("__INTERNAL_{}", tag),
+            None,
+            TransportType::Udp,
+        );
+
+        self.sender.get().unwrap().send((
+            conn,
+            UdpStream::new(ReceiverStream::new(read_receiver), write_sender.clone()).into(),
+        ));
+
+        return Ok(UdpStream::new(
+            ReceiverStream::new(write_receiver),
+            read_sender,
+        ));
+    }
 }

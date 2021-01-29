@@ -8,7 +8,7 @@ mod rwpair;
 
 pub use connection::{Connection, DestAddr};
 pub use context::{AppContext, AppContextRef};
-pub use packet::UdpStream;
+pub use packet::{UdpStream, UdpPacket};
 pub use rwpair::RWPair;
 
 use std::sync::Arc;

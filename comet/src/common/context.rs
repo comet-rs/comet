@@ -1,6 +1,7 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
 
-use crate::app::inbound_manager::InboundManager;
 use crate::app::metrics::Metrics;
 use crate::app::outbound_manager::OutboundManager;
 use crate::app::plumber::Plumber;
@@ -8,6 +9,7 @@ use crate::config::Config;
 use crate::dns::DnsService;
 use crate::prelude::*;
 use crate::router::Router;
+use crate::{app::inbound_manager::InboundManager, rule_provider::RuleProviderManager};
 
 #[cfg(target_os = "android")]
 use crate::android::nat_manager::NatManager;
@@ -23,11 +25,12 @@ pub struct AppContext {
     #[cfg(target_os = "android")]
     pub nat_manager: NatManager,
     pub dns: DnsService,
-    pub config: Config,
+    pub rule_provider_manager: RuleProviderManager,
+    pub data_dir: PathBuf,
 }
 
 impl AppContext {
-    pub fn new(config: Config) -> Result<Self> {
+    pub fn new(config: &Config) -> Result<Self> {
         Ok(AppContext {
             plumber: Arc::new(Plumber::new(&config).with_context(|| "When creating plumber")?),
             inbound_manager: Arc::new(InboundManager::new(&config)),
@@ -37,7 +40,8 @@ impl AppContext {
             #[cfg(target_os = "android")]
             nat_manager: NatManager::new(&config),
             dns: DnsService::new(&config),
-            config,
+            rule_provider_manager: RuleProviderManager::new(&config).with_context(|| "When creating rule provider")?,
+            data_dir: config.data_dir.clone(),
         })
     }
 }

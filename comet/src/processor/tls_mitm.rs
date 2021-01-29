@@ -54,7 +54,7 @@ struct CertResolver {
 
 impl CertResolver {
     pub fn new(pipe_tag: &str, ctx: AppContextRef) -> Result<Self> {
-        let mut ca_path = ctx.config.data_dir.clone();
+        let mut ca_path = ctx.data_dir.clone();
         ca_path.push(format!("ca_{}.der", pipe_tag));
 
         let ca = match Self::parse_cert_file(&ca_path) {

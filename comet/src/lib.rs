@@ -1,4 +1,3 @@
-#![warn(rust_2018_idioms)]
 pub mod app;
 pub mod common;
 pub mod config;
@@ -10,6 +9,7 @@ pub mod prelude;
 pub mod processor;
 pub mod router;
 pub mod utils;
+pub mod protos;
 
 #[cfg(target_os = "android")]
 pub mod android;

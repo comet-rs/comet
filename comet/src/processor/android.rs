@@ -3,7 +3,7 @@ use crate::prelude::*;
 use anyhow::anyhow;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("android_nat", |_| Ok(Box::new(AndroidNatProcessor {})));
+    plumber.register("android_nat", |_, _| Ok(Box::new(AndroidNatProcessor {})));
 }
 
 pub struct AndroidNatProcessor {}

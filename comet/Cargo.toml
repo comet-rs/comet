@@ -49,6 +49,7 @@ lazy_static = "1.4.0"
 lru-cache = "0.1.2"
 socket2 = "0.3"
 rand = "0.8"
+protobuf = "2"
 
 crypto2 = "0.1.1"
 shadowsocks-crypto = { version="0.1.2", features = ["v1-stream"] }
@@ -66,3 +67,6 @@ pnet = "0.27.2"
 [target.'cfg(target_os = "windows")'.dependencies]
 cipher = "0.2.1"
 hmac = "0.10.1"
+
+[build-dependencies]
+protoc-rust = "2"

@@ -1,11 +1,10 @@
-use crate::prelude::*;
-use crate::router::matching::MatchCondition;
+use crate::{prelude::*, router::RouterConfig};
 use anyhow::Result;
 use serde::Deserialize;
 use smol_str::SmolStr;
-use std::{collections::HashMap, path::PathBuf};
 use std::net::IpAddr;
-use tokio::fs::File;
+use std::{collections::HashMap, path::PathBuf};
+use tokio::fs::{create_dir_all, File};
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
@@ -23,7 +22,9 @@ pub struct Config {
 }
 
 fn default_current_dir() -> PathBuf {
-    std::env::current_dir().unwrap()
+    let mut cwd = std::env::current_dir().unwrap();
+    cwd.push("data");
+    cwd
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -97,32 +98,18 @@ pub struct AndroidPorts {
     pub dns_v6: Option<u16>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct RouterConfig {
-    pub rules: Vec<RouterRule>,
-    pub defaults: RouterDefaults,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct RouterDefaults {
-    pub tcp: SmolStr,
-    pub udp: Option<SmolStr>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct RouterRule {
-    pub target: SmolStr,
-    pub rule: MatchCondition,
-}
-
 pub async fn load_file(path: &str) -> Result<Config> {
     let mut file = File::open(path).await?;
     let mut buffer = String::new();
 
     file.read_to_string(&mut buffer).await?;
-    Ok(serde_yaml::from_str(&buffer)?)
+    load_string(&buffer).await
 }
 
-pub fn load_string(input: &str) -> Result<Config> {
-    Ok(serde_yaml::from_str(input)?)
+pub async fn load_string(input: &str) -> Result<Config> {
+    let config: Config = serde_yaml::from_str(input)?;
+
+    create_dir_all(&config.data_dir).await?;
+
+    Ok(config)
 }

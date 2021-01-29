@@ -1,3 +1,5 @@
+use anyhow::Context;
+
 use crate::app::inbound_manager::InboundManager;
 use crate::app::metrics::Metrics;
 use crate::app::outbound_manager::OutboundManager;
@@ -21,21 +23,21 @@ pub struct AppContext {
     #[cfg(target_os = "android")]
     pub nat_manager: NatManager,
     pub dns: DnsService,
-    pub config: Config
+    pub config: Config,
 }
 
 impl AppContext {
     pub fn new(config: Config) -> Result<Self> {
         Ok(AppContext {
-            plumber: Arc::new(Plumber::new(&config)?),
+            plumber: Arc::new(Plumber::new(&config).with_context(|| "When creating plumber")?),
             inbound_manager: Arc::new(InboundManager::new(&config)),
             outbound_manager: OutboundManager::new(&config),
             metrics: Metrics::new(&config),
-            router: Router::new(&config),
+            router: Router::new(&config).with_context(|| "When creating router")?,
             #[cfg(target_os = "android")]
             nat_manager: NatManager::new(&config),
             dns: DnsService::new(&config),
-            config
+            config,
         })
     }
 }

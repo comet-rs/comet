@@ -16,12 +16,15 @@ use std::str::FromStr;
 pub enum MatchCondition {
     Any(Vec<MatchCondition>),
     All(Vec<MatchCondition>),
+
     DestAddr(Vec<IpMatchCondition>),
     SrcAddr(Vec<IpMatchCondition>),
+
     #[serde(deserialize_with = "deserialize_ports")]
     SrcPort(Vec<PortCondition>),
     #[serde(deserialize_with = "deserialize_domain_matcher_text")]
     DestDomain(DomainMatcher),
+
     InboundName(SmolStr),
     Metadata,
 }
@@ -72,7 +75,7 @@ impl MatchCondition {
             }
             MatchCondition::InboundName(name) => &conn.inbound_tag == name,
             MatchCondition::Metadata => false,
-            _ => unimplemented!(),
+            MatchCondition::SrcPort(_) => false,
         }
     }
 }

@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(dead_code, unused_variables)]
 pub mod auth;
 pub mod handshake;
 pub mod obfs;

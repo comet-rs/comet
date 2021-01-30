@@ -69,6 +69,8 @@ pub struct Outbound {
 pub enum OutboundTransportType {
     Tcp,
     Udp,
+    #[serde(rename="tcp+udp")]
+    TcpUdp,
     Dashboard,
 }
 

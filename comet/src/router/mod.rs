@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::prelude::*;
+use anyhow::anyhow;
 
 pub mod matching;
 
@@ -7,20 +8,13 @@ pub mod matching;
 pub struct RouterConfig {
     #[serde(default)]
     pub rules: Vec<RouterRule>,
-    pub defaults: RouterDefaults,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct RouterDefaults {
-    pub tcp: SmolStr,
-    pub udp: Option<SmolStr>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all(deserialize = "snake_case"))]
 pub struct RouterRule {
     pub to: SmolStr,
-    pub rule: matching::MatchCondition,
+    pub rule: Option<matching::MatchCondition>,
 }
 
 pub struct Router {
@@ -34,15 +28,17 @@ impl Router {
         })
     }
 
-    pub fn try_match(&self, conn: &Connection, _ctx: &AppContextRef) -> &str {
+    pub fn try_match(&self, conn: &Connection, _ctx: &AppContextRef) -> Result<&str> {
         for rule in &self.config.rules {
-            if rule.rule.is_match(conn) {
-                return &rule.to;
+            let is_match = match &rule.rule {
+                Some(rule) => rule.is_match(conn),
+                None => true,
+            };
+
+            if is_match {
+                return Ok(&rule.to);
             }
         }
-        match conn.typ {
-            TransportType::Tcp => &self.config.defaults.tcp,
-            TransportType::Udp => self.config.defaults.udp.as_ref().unwrap(),
-        }
+        Err(anyhow!("No rules matched this connection"))
     }
 }

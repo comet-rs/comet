@@ -6,10 +6,12 @@ use std::net::IpAddr;
 mod dashboard;
 mod tcp;
 mod udp;
+mod both;
 
 pub use dashboard::DashboardHandler;
 pub use tcp::TcpHandler;
 pub use udp::UdpHandler;
+pub use both::TcpUdpHandler;
 
 #[async_trait]
 pub trait OutboundHandler: Send + Sync + Unpin {

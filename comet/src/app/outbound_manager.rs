@@ -28,6 +28,7 @@ impl OutboundManager {
                     OutboundTransportType::Tcp => Box::new(TcpHandler::new(outbound)),
                     OutboundTransportType::Udp => Box::new(UdpHandler::new(outbound)),
                     OutboundTransportType::Dashboard => Box::new(DashboardHandler::new(outbound)),
+                    OutboundTransportType::TcpUdp => Box::new(TcpUdpHandler::new(outbound)),
                 };
                 let instance = OutboundInstance {
                     pipeline: outbound.pipeline.clone(),

@@ -17,6 +17,7 @@ pub enum MatchCondition {
 
     #[serde(deserialize_with = "domain::deserialize_domain_matcher_text")]
     DestDomain(domain::DomainMatcher),
+    Transport(TransportType),
 
     InboundName(SmolStr),
     Metadata,
@@ -59,6 +60,7 @@ impl MatchCondition {
                 }
                 false
             }
+            MatchCondition::Transport(t) => &conn.typ == t,
             MatchCondition::InboundName(name) => &conn.inbound_tag == name,
             MatchCondition::Metadata => false,
             MatchCondition::DestPort(cond) => {

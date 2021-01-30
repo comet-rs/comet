@@ -38,6 +38,8 @@ mod socket;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct DnsConfig {
+    #[serde(default)]
+    cache_size: usize,
     resolvers: HashMap<SmolStr, Vec<Url>>,
 }
 
@@ -49,8 +51,15 @@ pub struct DnsService {
 impl DnsService {
     pub fn new(config: &Config) -> Result<Self> {
         use trust_dns_resolver::config::Protocol;
-        let mut resolvers = config
-            .dns
+        let dns_config = &config.dns;
+        let mut resolver_opts = ResolverOpts::default();
+        resolver_opts.cache_size = if dns_config.cache_size == 0 {
+            128
+        } else {
+            dns_config.cache_size
+        };
+
+        let mut resolvers = dns_config
             .resolvers
             .iter()
             .map(|(tag, urls)| {
@@ -100,7 +109,7 @@ impl DnsService {
                     .collect::<Result<Vec<_>>>()?;
                 let resolver = CustomTokioResolver::new(
                     ResolverConfig::from_parts(None, vec![], configs),
-                    ResolverOpts::default(),
+                    resolver_opts.clone(),
                     TokioHandle,
                 )?;
                 let ret = (tag.clone(), resolver);
@@ -121,28 +130,9 @@ impl DnsService {
         })
     }
 
-    /// Initializes DNS client tasks
+    /// Initializes context for internal sockets
     pub fn start(&self, ctx: AppContextRef) {
         socket::init_ctx(ctx);
-
-        // let resolver_alidns = CustomTokioResolver::new(
-        //     ResolverConfig::from_parts(
-        //         None,
-        //         vec![],
-        //         NameServerConfigGroup::from_ips_https(
-        //             &[[223, 6, 6, 6].into(), [223, 5, 5, 5].into()],
-        //             443,
-        //             "dns.alidns.com".to_string(),
-        //             true,
-        //         ),
-        //     ),
-        //     ResolverOpts::default(),
-        //     TokioHandle,
-        // )?;
-
-        // let mut guard = self.resolvers.write().await;
-
-        // guard.insert("alidns".into(), resolver_alidns);
     }
 
     pub async fn resolve(&self, domain: &str) -> Result<Vec<IpAddr>> {
@@ -150,7 +140,9 @@ impl DnsService {
         let result = client.lookup_ip(domain).await?;
 
         let ans: Vec<IpAddr> = result.iter().collect();
-        debug!("Resolved {} -> {:?}", domain, ans);
+
+        info!("Resolved {} -> {:?}", domain, ans);
+        
         Ok(ans)
     }
 

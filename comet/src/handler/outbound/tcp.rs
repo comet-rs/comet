@@ -46,14 +46,16 @@ impl OutboundHandler for TcpHandler {
         for ip in ips {
             match self.connect(tag, ip, port, ctx).await {
                 Ok(stream) => return Ok(stream.into()),
-                Err(err) => error!("Trying {}:{} failed: {}", ip, port, err),
+                Err(err) => warn!("Trying {}:{} failed: {}", ip, port, err),
             }
         }
         Err(anyhow!("All attempts failed"))
     }
+
     fn port(&self) -> std::option::Option<u16> {
         self.transport.port
     }
+    
     fn addr(&self) -> std::option::Option<&OutboundAddr> {
         self.transport.addr.as_ref()
     }

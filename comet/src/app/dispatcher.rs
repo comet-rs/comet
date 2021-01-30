@@ -64,10 +64,14 @@ pub async fn handle_conn(
 
             tokio::select! {
               Some(packet) = outbound.next() => {
-                stream.send(packet).await?;
+                if let Err(_) = stream.send(packet).await {
+                  break;
+                }
               },
               Some(packet) = stream.next() => {
-                outbound.send(packet).await?;
+                if let Err(_) = outbound.send(packet).await {
+                  break;
+                }
               },
               _ = &mut sleep => break,
               else => break

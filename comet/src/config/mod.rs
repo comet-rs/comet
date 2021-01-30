@@ -20,7 +20,7 @@ pub struct Config {
     #[cfg(target_os = "android")]
     pub android: AndroidConfig,
     #[serde(default)]
-    pub rule_providers: HashMap<SmolStr, ProviderConfig>
+    pub rule_providers: HashMap<SmolStr, ProviderConfig>,
 }
 
 fn default_current_dir() -> PathBuf {

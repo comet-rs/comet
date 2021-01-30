@@ -7,7 +7,16 @@ use std::{
 use futures::ready;
 use once_cell::sync::{Lazy, OnceCell};
 use tokio_stream::Stream;
-use trust_dns_proto::{udp::UdpSocket, TokioTime};
+use tokio_util::compat::Compat;
+use trust_dns_proto::{
+    tcp::{Connect, DnsTcpStream},
+    udp::UdpSocket,
+    TokioTime,
+};
+use trust_dns_resolver::{
+    name_server::{GenericConnection, GenericConnectionProvider, RuntimeProvider},
+    AsyncResolver, TokioHandle,
+};
 
 use crate::{prelude::*, utils::io::io_other_error};
 
@@ -28,11 +37,13 @@ pub struct InternalUdpSocket {
 impl UdpSocket for InternalUdpSocket {
     type Time = TokioTime;
 
-    async fn bind(_addr: SocketAddr) -> std::io::Result<Self> {
+    async fn bind(addr: SocketAddr) -> IoResult<Self> {
         let guard = CONTEXT.read().unwrap();
         let ctx = guard.upgrade().expect("App context dropped");
         let manager = ctx.clone_inbound_manager();
-        let stream = manager.inject_udp("DNS").map_err(io_other_error)?;
+        let stream = manager
+            .inject_udp("DNS", addr.ip().into())
+            .map_err(io_other_error)?;
         Ok(Self {
             inner: RwLock::new(stream),
         })
@@ -42,7 +53,7 @@ impl UdpSocket for InternalUdpSocket {
         &self,
         cx: &mut Context,
         buf: &mut [u8],
-    ) -> Poll<std::io::Result<(usize, SocketAddr)>> {
+    ) -> Poll<IoResult<(usize, SocketAddr)>> {
         let packet = {
             let mut guard = self.inner.write().unwrap();
             ready!(Pin::new(&mut *guard).poll_next(cx))
@@ -61,7 +72,7 @@ impl UdpSocket for InternalUdpSocket {
         _cx: &mut Context,
         buf: &[u8],
         target: SocketAddr,
-    ) -> Poll<std::io::Result<usize>> {
+    ) -> Poll<IoResult<usize>> {
         let packet = UdpPacket::new(target, buf.into());
         let res = self
             .inner
@@ -73,3 +84,35 @@ impl UdpSocket for InternalUdpSocket {
         Poll::Ready(res)
     }
 }
+
+impl DnsTcpStream for RWPair {
+    type Time = TokioTime;
+}
+
+#[async_trait]
+impl Connect for RWPair {
+    async fn connect(addr: SocketAddr) -> IoResult<Self> {
+        let guard = CONTEXT.read().unwrap();
+        let ctx = guard.upgrade().expect("App context dropped");
+        let manager = ctx.clone_inbound_manager();
+        let stream = manager
+            .inject_tcp("DNS", DestAddr::new_ip(addr.ip(), addr.port()))
+            .map_err(io_other_error);
+
+        Ok(stream?)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CustomTokioRuntime;
+
+impl RuntimeProvider for CustomTokioRuntime {
+    type Handle = TokioHandle;
+    type Timer = TokioTime;
+    type Tcp = RWPair;
+    type Udp = InternalUdpSocket;
+}
+
+pub type CustomTokioConnection = GenericConnection;
+pub type CustomTokioConnectionProvider = GenericConnectionProvider<CustomTokioRuntime>;
+pub type CustomTokioResolver = AsyncResolver<CustomTokioConnection, CustomTokioConnectionProvider>;

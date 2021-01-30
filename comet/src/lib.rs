@@ -7,10 +7,10 @@ pub mod handler;
 pub mod net_wrapper;
 pub mod prelude;
 pub mod processor;
-pub mod router;
-pub mod utils;
 pub mod protos;
+pub mod router;
 pub mod rule_provider;
+pub mod utils;
 
 #[cfg(target_os = "android")]
 pub mod android;
@@ -54,8 +54,6 @@ pub async fn run_bin() -> Result<()> {
     let config = config::load_file("./config.yml")
         .await
         .context("Failed to read config file")?;
-
-    println!("{:#?}", config);
     let ctx = Arc::new(AppContext::new(&config)?);
     drop(config);
 

@@ -40,7 +40,8 @@ impl AppContext {
             #[cfg(target_os = "android")]
             nat_manager: NatManager::new(&config),
             dns: DnsService::new(&config),
-            rule_provider_manager: RuleProviderManager::new(&config).with_context(|| "When creating rule provider")?,
+            rule_provider_manager: RuleProviderManager::new(&config)
+                .with_context(|| "When creating rule provider")?,
             data_dir: config.data_dir.clone(),
         })
     }

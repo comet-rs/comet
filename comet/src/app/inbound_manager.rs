@@ -172,8 +172,32 @@ impl InboundManager {
         }
     }
 
-    pub fn inject_tcp(&self) {}
-    pub fn inject_udp(&self, tag: &str) -> Result<UdpStream> {
+    /// Injects a new TCP connection into the system.
+    /// The `target` must be a valid address.
+    pub fn inject_tcp(&self, tag: &str, target: DestAddr) -> Result<RWPair> {
+        assert!(target.is_valid());
+
+        let (uplink, downlink) = tokio::io::duplex(1024);
+
+        let mut conn = Connection::new(
+            ([0, 0, 0, 0], 0),
+            format!("__INTERNAL_{}", tag),
+            None,
+            TransportType::Tcp,
+        );
+        conn.dest_addr = target;
+        conn.internal = true;
+
+        self.sender
+            .get()
+            .unwrap()
+            .send((conn, RWPair::new(uplink).into()))?;
+
+        Ok(RWPair::new(downlink))
+    }
+
+    /// Injects a new UDP socket into the system.
+    pub fn inject_udp(&self, tag: &str, addr_type: AddrType) -> Result<UdpStream> {
         let (read_sender, read_receiver) = channel(10);
         let (write_sender, write_receiver) = channel(10);
 
@@ -183,8 +207,8 @@ impl InboundManager {
             None,
             TransportType::Udp,
         );
-
         conn.internal = true;
+        conn.set_var("addr_type", addr_type);
 
         self.sender.get().unwrap().send((
             conn,

@@ -43,7 +43,7 @@ impl DomainMatcher {
                 domain.push(format!(".{}", res).into());
                 continue;
             }
-            
+
             contains.push(rule);
         }
         Ok(DomainMatcher {

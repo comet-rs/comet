@@ -15,7 +15,7 @@ impl ShadowsocksClientHandshakeProcessor {
     pub fn new() -> Self {
         ShadowsocksClientHandshakeProcessor {}
     }
-    
+
     pub fn header_len(buf: &[u8]) -> IoResult<usize> {
         if buf.len() < 4 {
             return Err(io_other_error("header incomplete"));

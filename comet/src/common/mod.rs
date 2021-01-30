@@ -6,9 +6,9 @@ mod context;
 mod packet;
 mod rwpair;
 
-pub use connection::{Connection, DestAddr};
+pub use connection::{AddrType, Connection, DestAddr};
 pub use context::{AppContext, AppContextRef};
-pub use packet::{UdpStream, UdpPacket};
+pub use packet::{UdpPacket, UdpStream};
 pub use rwpair::RWPair;
 
 use std::sync::Arc;
@@ -68,4 +68,3 @@ impl std::fmt::Display for TransportType {
         write!(f, "{}", s)
     }
 }
-

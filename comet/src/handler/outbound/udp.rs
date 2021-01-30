@@ -1,12 +1,12 @@
 use super::{NewOutboundHandler, Outbound, OutboundAddr, OutboundHandler};
 use crate::config::OutboundTransportConfig;
 use crate::prelude::*;
+use anyhow::anyhow;
 use log::error;
-use std::net::IpAddr;
 use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use tokio::sync::mpsc::channel;
 use tokio_stream::wrappers::ReceiverStream;
-use anyhow::anyhow;
 
 pub struct UdpHandler {
     transport: OutboundTransportConfig,
@@ -34,8 +34,13 @@ impl OutboundHandler for UdpHandler {
     ) -> Result<ProxyStream> {
         let resolved = self.resolve_addr(conn, ctx).await.ok();
 
-        let socket =
-            crate::net_wrapper::bind_udp(&SocketAddr::new(IpAddr::from([0, 0, 0, 0]), 0)).await?;
+        let addr_type = conn.get_var("addr_type").unwrap_or(&AddrType::V4);
+        let bind_ip = match addr_type {
+            AddrType::V4 => IpAddr::from(Ipv4Addr::from(0u32)),
+            AddrType::V6 => IpAddr::from(Ipv6Addr::from(0u128)),
+        };
+
+        let socket = crate::net_wrapper::bind_udp(&SocketAddr::new(bind_ip, 0)).await?;
 
         let (read_sender, read_receiver) = channel::<UdpPacket>(10);
         let (write_sender, mut write_receiver) = channel::<UdpPacket>(10);

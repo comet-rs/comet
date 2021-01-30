@@ -2,7 +2,9 @@ use crate::prelude::*;
 use anyhow::anyhow;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("associate_uid", |_, _| Ok(Box::new(AssociateUidProcessor {})));
+    plumber.register("associate_uid", |_, _| {
+        Ok(Box::new(AssociateUidProcessor {}))
+    });
 }
 
 pub struct AssociateUidProcessor {}

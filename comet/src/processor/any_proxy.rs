@@ -5,7 +5,9 @@ use super::socks5_proxy::Socks5ProxyServerProcessor as Socks5Processor;
 use crate::prelude::*;
 
 pub fn register(plumber: &mut Plumber) {
-    plumber.register("any_server", |_, _| Ok(Box::new(AnyProxyServerProcessor {})));
+    plumber.register("any_server", |_, _| {
+        Ok(Box::new(AnyProxyServerProcessor {}))
+    });
 }
 pub struct AnyProxyServerProcessor {}
 

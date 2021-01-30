@@ -16,6 +16,7 @@
         ]
       },
       "program": "${cargo:program}",
+      "stopOnEntry": true,
       "args": []
     },
 

@@ -1,3 +1,4 @@
+use futures::ready;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -75,5 +76,35 @@ impl AsyncWrite for RWPair {
 impl std::fmt::Debug for RWPair {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(f, "RWPair")
+    }
+}
+
+impl futures_io::AsyncRead for RWPair {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        slice: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        let mut buf = tokio::io::ReadBuf::new(slice);
+        ready!(tokio::io::AsyncRead::poll_read(self, cx, &mut buf))?;
+        Poll::Ready(Ok(buf.filled().len()))
+    }
+}
+
+impl futures_io::AsyncWrite for RWPair {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        tokio::io::AsyncWrite::poll_write(self, cx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        tokio::io::AsyncWrite::poll_flush(self, cx)
+    }
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        tokio::io::AsyncWrite::poll_shutdown(self, cx)
     }
 }

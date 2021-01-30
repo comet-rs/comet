@@ -16,6 +16,22 @@ pub struct DestAddr {
 }
 
 impl DestAddr {
+    pub fn new_domain<D: Into<SmolStr>>(domain: D, port: u16) -> Self {
+        Self {
+            domain: Some(domain.into()),
+            ip: None,
+            port: Some(port),
+        }
+    }
+
+    pub fn new_ip<D: Into<IpAddr>>(ip: D, port: u16) -> Self {
+        Self {
+            domain: None,
+            ip: Some(ip.into()),
+            port: Some(port),
+        }
+    }
+
     pub fn set_domain<T: Into<SmolStr>>(&mut self, domain: T) {
         self.domain = Some(domain.into());
     }
@@ -56,6 +72,21 @@ impl fmt::Display for DestAddr {
             .map(|s| s.as_str())
             .unwrap_or_else(|| &"?");
         write!(f, "[{}/{:?}]:{}", domain, self.ip, self.port.unwrap_or(0))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AddrType {
+    V4,
+    V6,
+}
+
+impl From<IpAddr> for AddrType {
+    fn from(a: IpAddr) -> Self {
+        match a {
+            IpAddr::V4(_) => Self::V4,
+            IpAddr::V6(_) => Self::V6,
+        }
     }
 }
 

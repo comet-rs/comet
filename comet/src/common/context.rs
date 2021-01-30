@@ -39,7 +39,7 @@ impl AppContext {
             router: Router::new(&config).with_context(|| "When creating router")?,
             #[cfg(target_os = "android")]
             nat_manager: NatManager::new(&config),
-            dns: DnsService::new(&config),
+            dns: DnsService::new(&config).with_context(|| "When creating DNS server")?,
             rule_provider_manager: RuleProviderManager::new(&config)
                 .with_context(|| "When creating rule provider")?,
             data_dir: config.data_dir.clone(),

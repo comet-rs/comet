@@ -22,7 +22,7 @@ use anyhow::Context;
 
 pub async fn run(ctx: AppContextRef) -> Result<()> {
     let mut conns = ctx.clone_inbound_manager().start(ctx.clone()).await?;
-    ctx.dns.start(ctx.clone()).await?;
+    ctx.dns.start(ctx.clone());
 
     let ctx_tcp = ctx.clone();
     let _process_handle = tokio::spawn(async move {

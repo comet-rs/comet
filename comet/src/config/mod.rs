@@ -1,4 +1,4 @@
-use crate::{prelude::*, router::RouterConfig, rule_provider::ProviderConfig};
+use crate::{dns::DnsConfig, prelude::*, router::RouterConfig, rule_provider::ProviderConfig};
 use anyhow::Result;
 use serde::Deserialize;
 use smol_str::SmolStr;
@@ -21,6 +21,8 @@ pub struct Config {
     pub android: AndroidConfig,
     #[serde(default)]
     pub rule_providers: HashMap<SmolStr, ProviderConfig>,
+    #[serde(default)]
+    pub dns: DnsConfig,
 }
 
 fn default_current_dir() -> PathBuf {

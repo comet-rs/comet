@@ -1,23 +1,26 @@
 #![allow(unused_imports)]
-use crate::config::Config;
 use crate::crypto::rand::xor_rng;
 use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
+use crate::{config::Config, processor::tls_mitm};
 use anyhow::anyhow;
 use lru_cache::LruCache;
 use socket::{CustomTokioResolver, CustomTokioRuntime};
 use std::{
+    borrow::Cow,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     task::Context,
 };
 use std::{str::FromStr, time::SystemTime};
 use tokio::sync::{Mutex, RwLock};
 use trust_dns_resolver::{
-    config::{NameServerConfigGroup, ResolverConfig, ResolverOpts},
+    config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
     AsyncResolver, TokioHandle,
 };
+use url::{Host, Url};
 use xorshift::Rng;
 
+use anyhow::bail;
 use trust_dns_proto::{
     op::{Message, MessageType, OpCode, Query},
     udp::UdpSocket,
@@ -33,54 +36,119 @@ use self::socket::InternalUdpSocket;
 
 mod socket;
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct DnsConfig {
+    resolvers: HashMap<SmolStr, Vec<Url>>,
+}
+
 pub struct DnsService {
     fake_map: Option<RwLock<LruCache<u16, SmolStr>>>,
-    resolvers: RwLock<HashMap<SmolStr, CustomTokioResolver>>,
+    resolvers: HashMap<SmolStr, CustomTokioResolver>,
 }
 
 impl DnsService {
-    pub fn new(_config: &Config) -> Self {
-        Self {
-            fake_map: Some(RwLock::new(LruCache::new(512))),
-            resolvers: RwLock::new(HashMap::new()),
+    pub fn new(config: &Config) -> Result<Self> {
+        use trust_dns_resolver::config::Protocol;
+        let mut resolvers = config
+            .dns
+            .resolvers
+            .iter()
+            .map(|(tag, urls)| {
+                let configs = urls
+                    .iter()
+                    .map(|url| {
+                        let ip: IpAddr = match url.host() {
+                            Some(Host::Ipv4(addr)) => addr.into(),
+                            Some(Host::Ipv6(addr)) => addr.into(),
+                            Some(Host::Domain(s)) => s.parse().map_err(|_| {
+                                anyhow!("DNS server must be an IP address, not {}", s)
+                            })?,
+                            None => bail!("Failed to parse DNS server address"),
+                        };
+
+                        let protocol;
+                        let port;
+                        let params = url.query_pairs().collect::<HashMap<_, _>>();
+                        let tls_name_default = Cow::Borrowed(url.host_str().unwrap());
+                        let mut tls_name = params.get("domain").or(Some(&tls_name_default));
+
+                        match url.scheme() {
+                            "udp" => {
+                                port = url.port().unwrap_or(53);
+                                protocol = Protocol::Udp;
+                                tls_name = None;
+                            }
+                            "https" => {
+                                port = url.port().unwrap_or(443);
+                                protocol = Protocol::Https;
+                            }
+                            "tls" => {
+                                port = url.port().unwrap_or(853);
+                                protocol = Protocol::Tls;
+                            }
+                            _ => bail!("Unknown scheme: {}", url.scheme()),
+                        }
+
+                        Ok(NameServerConfig {
+                            socket_addr: (ip, port).into(),
+                            protocol,
+                            tls_dns_name: tls_name.map(|s| s.clone().into_owned()),
+                            trust_nx_responses: true,
+                            tls_config: None,
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let resolver = CustomTokioResolver::new(
+                    ResolverConfig::from_parts(None, vec![], configs),
+                    ResolverOpts::default(),
+                    TokioHandle,
+                )?;
+                let ret = (tag.clone(), resolver);
+                Ok(ret)
+            })
+            .collect::<Result<HashMap<_, _>>>()?;
+
+        if !resolvers.contains_key("__SYSTEM") {
+            resolvers.insert(
+                "__SYSTEM".into(),
+                CustomTokioResolver::from_system_conf(TokioHandle)?,
+            );
         }
+
+        Ok(Self {
+            fake_map: Some(RwLock::new(LruCache::new(512))),
+            resolvers,
+        })
     }
 
     /// Initializes DNS client tasks
-    pub async fn start(&self, ctx: AppContextRef) -> Result<()> {
+    pub fn start(&self, ctx: AppContextRef) {
         socket::init_ctx(ctx);
 
-        let resolver_alidns = CustomTokioResolver::new(
-            ResolverConfig::from_parts(
-                None,
-                vec![],
-                NameServerConfigGroup::from_ips_https(
-                    &[[223, 6, 6, 6].into(), [223, 5, 5, 5].into()],
-                    443,
-                    "dns.alidns.com".to_string(),
-                    true,
-                ),
-            ),
-            ResolverOpts::default(),
-            TokioHandle,
-        )?;
+        // let resolver_alidns = CustomTokioResolver::new(
+        //     ResolverConfig::from_parts(
+        //         None,
+        //         vec![],
+        //         NameServerConfigGroup::from_ips_https(
+        //             &[[223, 6, 6, 6].into(), [223, 5, 5, 5].into()],
+        //             443,
+        //             "dns.alidns.com".to_string(),
+        //             true,
+        //         ),
+        //     ),
+        //     ResolverOpts::default(),
+        //     TokioHandle,
+        // )?;
 
-        let mut guard = self.resolvers.write().await;
-        guard.insert(
-            "__SYSTEM".into(),
-            CustomTokioResolver::from_system_conf(TokioHandle)?,
-        );
-        guard.insert("alidns".into(), resolver_alidns);
+        // let mut guard = self.resolvers.write().await;
 
-        Ok(())
+        // guard.insert("alidns".into(), resolver_alidns);
     }
 
     pub async fn resolve(&self, domain: &str) -> Result<Vec<IpAddr>> {
-        let result = {
-            let guard = self.resolvers.read().await;
-            let client = guard.get("__SYSTEM").unwrap();
-            client.lookup_ip(domain).await?
-        };
+        let client = self.resolvers.get("__SYSTEM").unwrap();
+        let result = client.lookup_ip(domain).await?;
+
         let ans: Vec<IpAddr> = result.iter().collect();
         debug!("Resolved {} -> {:?}", domain, ans);
         Ok(ans)

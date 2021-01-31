@@ -141,7 +141,7 @@ impl DnsService {
 
         let ans: Vec<IpAddr> = result.iter().collect();
 
-        info!("Resolved {} -> {:?}", domain, ans);
+        debug!("Resolved {} -> {:?}", domain, ans);
         
         Ok(ans)
     }

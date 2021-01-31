@@ -30,7 +30,7 @@ pub struct AppContext {
 }
 
 impl AppContext {
-    pub fn new(config: &Config) -> Result<Self> {
+    pub async fn new(config: &Config) -> Result<Self> {
         Ok(AppContext {
             plumber: Arc::new(Plumber::new(&config).with_context(|| "When creating plumber")?),
             inbound_manager: Arc::new(InboundManager::new(&config)),
@@ -41,6 +41,7 @@ impl AppContext {
             nat_manager: NatManager::new(&config),
             dns: DnsService::new(&config).with_context(|| "When creating DNS server")?,
             rule_provider_manager: RuleProviderManager::new(&config)
+                .await
                 .with_context(|| "When creating rule provider")?,
             data_dir: config.data_dir.clone(),
         })

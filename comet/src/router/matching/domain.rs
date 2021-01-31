@@ -1,95 +1,50 @@
-use std::borrow::Borrow;
+use std::str::FromStr;
 
 use crate::prelude::*;
-use regex::RegexSet;
-use serde::de::Error;
-use serde::{Deserialize, Deserializer};
+use anyhow::anyhow;
+use regex::Regex;
+use serde_with::DeserializeFromStr;
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct DomainMatcher {
-    /// `regex:`
-    #[serde(deserialize_with = "serde_regex::deserialize")]
-    regex: RegexSet,
-    /// `full:`
-    full: Vec<SmolStr>,
-    /// Rules without prefix
-    contains: Vec<SmolStr>,
-    /// `domain:`
-    domain: Vec<SmolStr>,
+#[derive(Debug, Clone, DeserializeFromStr)]
+pub enum DomainCondition {
+    Regex(Regex),
+    Keyword(SmolStr),
+    Domain(SmolStr),
+    Full(SmolStr),
 }
 
-impl DomainMatcher {
-    pub fn new<I>(rules: I) -> Result<Self>
-    where
-        I: IntoIterator<Item = SmolStr>,
-    {
-        let mut regex: Vec<String> = vec![];
-        let mut full = vec![];
-        let mut contains = vec![];
-        let mut domain = vec![];
+impl FromStr for DomainCondition {
+    type Err = anyhow::Error;
 
-        for rule in rules {
-            if let Some(res) = rule.strip_prefix("regex:") {
-                regex.push(res.into());
-                continue;
-            }
-
-            if let Some(res) = rule.strip_prefix("full:") {
-                full.push(res.into());
-                continue;
-            }
-
-            if let Some(res) = rule.strip_prefix("domain:") {
-                domain.push(format!(".{}", res).into());
-                continue;
-            }
-
-            contains.push(rule);
+    fn from_str(s: &str) -> Result<Self> {
+        if let Some(res) = s.strip_prefix("regex:") {
+            let re = Regex::new(res)?;
+            return Ok(Self::Regex(re));
         }
-        Ok(DomainMatcher {
-            regex: RegexSet::new(regex)?,
-            full,
-            contains,
-            domain,
-        })
-    }
 
+        if let Some(res) = s.strip_prefix("full:") {
+            return Ok(Self::Full(res.into()));
+        }
+
+        if let Some(res) = s.strip_prefix("domain:") {
+            if !res.is_ascii() {
+                return Err(anyhow!("Non-ASCII chars in this rule"));
+            }
+            let res = format!(".{}", res);
+            return Ok(Self::Domain(res.into()));
+        }
+
+        return Ok(Self::Keyword(s.into()));
+    }
+}
+
+impl DomainCondition {
     pub fn is_match(&self, domain: &str) -> bool {
-        for pat in &self.contains {
-            let pat: &str = pat.borrow();
-            if domain.contains(pat) {
-                return true;
-            }
+        match self {
+            DomainCondition::Regex(re) => re.is_match(domain),
+            DomainCondition::Keyword(kw) => domain.contains(kw.as_str()),
+            DomainCondition::Domain(dm) => domain == &dm[1..] || domain.ends_with(dm.as_str()),
+            DomainCondition::Full(dm) => domain == dm,
         }
-
-        for pat in &self.full {
-            let pat: &str = pat.borrow();
-            if domain == pat {
-                return true;
-            }
-        }
-
-        for pat in &self.domain {
-            let pat: &str = pat.borrow();
-            if domain.ends_with(pat) {
-                return true;
-            }
-        }
-        if self.regex.is_match(domain) {
-            return true;
-        }
-        false
-    }
-}
-
-pub fn deserialize_domain_matcher_text<'de, D>(d: D) -> Result<DomainMatcher, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let rules = <Vec<SmolStr>>::deserialize(d)?;
-
-    match DomainMatcher::new(rules) {
-        Ok(r) => Ok(r),
-        Err(err) => Err(D::Error::custom(err)),
     }
 }

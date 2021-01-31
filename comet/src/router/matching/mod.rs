@@ -3,6 +3,7 @@ use ipnetwork::IpNetwork;
 use std::net::IpAddr;
 
 mod domain;
+use domain::DomainCondition;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all(deserialize = "snake_case"))]
@@ -15,33 +16,19 @@ pub enum MatchCondition {
 
     DestPort(PortCondition),
 
-    #[serde(deserialize_with = "domain::deserialize_domain_matcher_text")]
-    DestDomain(domain::DomainMatcher),
+    Domain(DomainCondition),
+
     Transport(TransportType),
 
     InboundName(SmolStr),
-    Metadata,
+    Provider(SmolStr),
 }
 
 impl MatchCondition {
-    pub fn is_match(&self, conn: &Connection) -> bool {
+    pub fn is_match(&self, conn: &Connection, ctx: &AppContextRef) -> bool {
         match self {
-            MatchCondition::Any(conds) => {
-                for cond in conds {
-                    if cond.is_match(conn) {
-                        return true;
-                    }
-                }
-                false
-            }
-            MatchCondition::All(conds) => {
-                for cond in conds {
-                    if !cond.is_match(conn) {
-                        return false;
-                    }
-                }
-                true
-            }
+            MatchCondition::Any(conds) => conds.iter().any(|cond| cond.is_match(conn, ctx)),
+            MatchCondition::All(conds) => conds.iter().all(|cond| cond.is_match(conn, ctx)),
 
             MatchCondition::DestIp(cond) => {
                 if let Some(ip) = &conn.dest_addr.ip {
@@ -49,12 +36,9 @@ impl MatchCondition {
                 }
                 false
             }
-            MatchCondition::SrcIp(cond) => {
-                let ip = conn.src_addr.ip();
-                cond.is_match(&ip)
-            }
+            MatchCondition::SrcIp(cond) => cond.is_match(&conn.src_addr.ip()),
 
-            MatchCondition::DestDomain(cond) => {
+            MatchCondition::Domain(cond) => {
                 if let Some(domain) = &conn.dest_addr.domain {
                     return cond.is_match(domain);
                 }
@@ -62,13 +46,14 @@ impl MatchCondition {
             }
             MatchCondition::Transport(t) => &conn.typ == t,
             MatchCondition::InboundName(name) => &conn.inbound_tag == name,
-            MatchCondition::Metadata => false,
             MatchCondition::DestPort(cond) => {
                 if let Some(port) = &conn.dest_addr.port {
-                    cond.is_match(*port)
-                } else {
-                    false
+                    return cond.is_match(*port);
                 }
+                false
+            }
+            MatchCondition::Provider(s) => {
+                ctx.rule_provider_manager.is_match(conn, "geosite", "cn")
             }
         }
     }

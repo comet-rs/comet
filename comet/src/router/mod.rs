@@ -28,14 +28,15 @@ impl Router {
         })
     }
 
-    pub fn try_match(&self, conn: &Connection, _ctx: &AppContextRef) -> Result<&str> {
+    pub fn try_match(&self, conn: &Connection, ctx: &AppContextRef) -> Result<&str> {
         for rule in &self.config.rules {
             let is_match = match &rule.rule {
-                Some(rule) => rule.is_match(conn),
+                Some(rule) => rule.is_match(conn, ctx),
                 None => true,
             };
 
             if is_match {
+                info!("{} routed to {}", conn, &rule.to);
                 return Ok(&rule.to);
             }
         }

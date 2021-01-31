@@ -1,3 +1,5 @@
+
+#![allow(dead_code)]
 pub mod app;
 pub mod common;
 pub mod config;
@@ -54,7 +56,7 @@ pub async fn run_bin() -> Result<()> {
     let config = config::load_file("./config.yml")
         .await
         .context("Failed to read config file")?;
-    let ctx = Arc::new(AppContext::new(&config)?);
+    let ctx = Arc::new(AppContext::new(&config).await?);
     drop(config);
 
     run(ctx).await?;

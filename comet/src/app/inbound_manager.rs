@@ -5,10 +5,9 @@ use log::info;
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use tokio::io::BufReader;
+use tokio::{io::BufReader, sync::Mutex};
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc::{channel, unbounded_channel, Sender, UnboundedReceiver, UnboundedSender};
-use tokio::sync::Mutex;
 use tokio_stream::wrappers::ReceiverStream;
 
 pub type ConnSender<T> = UnboundedSender<(Connection, T)>;
@@ -43,7 +42,7 @@ impl InboundManager {
                 InboundTransportType::Tcp => {
                     let listener = TcpListener::bind(&(ip, port)).await?;
                     let sender = channel.0.clone();
-                    info!("Inbound {}/TCP listening on {}:{}", tag, ip, port);
+                    info!("Inbound TCP:{} listening on {}:{}", tag, ip, port);
 
                     let inbound = inbound.1.clone();
                     let manager = self.clone();
@@ -57,7 +56,7 @@ impl InboundManager {
                 InboundTransportType::Udp => {
                     let socket = UdpSocket::bind(&(ip, port)).await?;
                     let sender = channel.0.clone();
-                    info!("Inbound {}/UDP listening on {}:{}", tag, ip, port);
+                    info!("Inbound UDP:{} listening on {}:{}", tag, ip, port);
 
                     let inbound = inbound.1.clone();
                     let manager = self.clone();

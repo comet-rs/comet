@@ -28,10 +28,10 @@ impl Router {
         })
     }
 
-    pub fn try_match(&self, conn: &Connection, ctx: &AppContextRef) -> Result<&str> {
+    pub async fn try_match(&self, conn: &Connection, ctx: &AppContextRef) -> Result<&str> {
         for rule in &self.config.rules {
             let is_match = match &rule.rule {
-                Some(rule) => rule.is_match(conn, ctx),
+                Some(rule) => rule.is_match(conn, ctx).await,
                 None => true,
             };
 

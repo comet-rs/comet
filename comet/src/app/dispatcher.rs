@@ -21,7 +21,7 @@ pub async fn handle_conn(
 
     info!("Accepted {}", conn);
 
-    let outbound_tag = ctx.router.try_match(&conn, &ctx)?;
+    let outbound_tag = ctx.router.try_match(&conn, &ctx).await?;
 
     let mut outbound = ctx
         .outbound_manager

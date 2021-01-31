@@ -2,14 +2,14 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 
-use crate::app::metrics::Metrics;
+use crate::{app::metrics::Metrics, rule_provider::{RuleProviderClient, RuleProviderServer}};
 use crate::app::outbound_manager::OutboundManager;
 use crate::app::plumber::Plumber;
 use crate::config::Config;
 use crate::dns::DnsService;
 use crate::prelude::*;
 use crate::router::Router;
-use crate::{app::inbound_manager::InboundManager, rule_provider::RuleProviderManager};
+use crate::{app::inbound_manager::InboundManager};
 
 #[cfg(target_os = "android")]
 use crate::android::nat_manager::NatManager;
@@ -25,7 +25,7 @@ pub struct AppContext {
     #[cfg(target_os = "android")]
     pub nat_manager: NatManager,
     pub dns: DnsService,
-    pub rule_provider_manager: RuleProviderManager,
+    pub rule_provider: RuleProviderClient,
     pub data_dir: PathBuf,
 }
 
@@ -40,9 +40,7 @@ impl AppContext {
             #[cfg(target_os = "android")]
             nat_manager: NatManager::new(&config),
             dns: DnsService::new(&config).with_context(|| "When creating DNS server")?,
-            rule_provider_manager: RuleProviderManager::new(&config)
-                .await
-                .with_context(|| "When creating rule provider")?,
+            rule_provider: RuleProviderServer::new(&config)?,
             data_dir: config.data_dir.clone(),
         })
     }

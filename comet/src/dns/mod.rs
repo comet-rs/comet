@@ -41,10 +41,15 @@ pub struct DnsConfigItem {
     #[serde(default)]
     cache_size: usize,
     servers: Vec<Url>,
+    /// Only do resolution if this rule evaluates to `true`.
     rule: Option<MatchCondition>,
     #[serde(default = "default_timeout")]
     #[serde_as(as = "DurationSeconds<u64>")]
     timeout: Duration,
+    #[serde(default)]
+    /// Requests will not go through Comet's network stack, reducing
+    /// latency.
+    direct: bool
 }
 
 fn default_timeout() -> Duration {

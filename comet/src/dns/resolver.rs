@@ -1,15 +1,39 @@
 use std::{borrow::Cow, net::IpAddr, time::Duration};
 
 use anyhow::{anyhow, bail};
-use trust_dns_resolver::{TokioHandle, config::{NameServerConfig, ResolverConfig, ResolverOpts}, system_conf::read_system_conf};
+use trust_dns_resolver::{
+    config::{NameServerConfig, ResolverConfig, ResolverOpts},
+    error::ResolveError,
+    lookup_ip::LookupIp,
+    system_conf::read_system_conf,
+    IntoName, TokioHandle, TryParseIp,
+};
 use url::Host;
 
-use super::{socket::CustomTokioResolver, DnsConfigItem};
+use super::{
+    socket::{CustomTokioResolver, CustomTokioResolverDirect},
+    DnsConfigItem,
+};
 use crate::{prelude::*, router::matching::MatchCondition};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
+enum ResolverInner {
+    Default(CustomTokioResolver),
+    Direct(CustomTokioResolverDirect),
+}
+
+impl ResolverInner {
+    async fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> Result<LookupIp, ResolveError> {
+        match self {
+            ResolverInner::Default(r) => r.lookup_ip(host).await,
+            ResolverInner::Direct(r) => r.lookup_ip(host).await,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Resolver {
-    trust: CustomTokioResolver,
+    trust: ResolverInner,
     rule: Option<MatchCondition>,
 }
 
@@ -80,11 +104,19 @@ impl Resolver {
             bail!("No server in this resolver");
         }
 
-        let trust = CustomTokioResolver::new(
-            ResolverConfig::from_parts(None, vec![], name_servers),
-            resolver_opts,
-            TokioHandle,
-        )?;
+        let trust = if item.direct {
+            ResolverInner::Direct(CustomTokioResolverDirect::new(
+                ResolverConfig::from_parts(None, vec![], name_servers),
+                resolver_opts,
+                TokioHandle,
+            )?)
+        } else {
+            ResolverInner::Default(CustomTokioResolver::new(
+                ResolverConfig::from_parts(None, vec![], name_servers),
+                resolver_opts,
+                TokioHandle,
+            )?)
+        };
 
         Ok(Self {
             trust,
@@ -94,15 +126,15 @@ impl Resolver {
 
     pub fn from_system() -> Result<Self> {
         Ok(Self {
-            trust: CustomTokioResolver::from_system_conf(TokioHandle)?,
+            trust: ResolverInner::Direct(CustomTokioResolverDirect::from_system_conf(TokioHandle)?),
             rule: None,
         })
     }
 
     pub async fn try_resolve(&self, domain: &str) -> Result<Option<Vec<IpAddr>>> {
-      let result = self.trust.lookup_ip(domain).await?;
-      let ans: Vec<IpAddr> = result.iter().collect();
+        let result = self.trust.lookup_ip(domain).await?;
+        let ans: Vec<IpAddr> = result.iter().collect();
 
-      Ok(Some(ans))
+        Ok(Some(ans))
     }
 }

@@ -51,8 +51,8 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
     Ok(())
 }
 
-pub async fn run_bin() -> Result<()> {
-    let config = config::load_file("./config.yml")
+pub async fn run_bin(config_path: &str) -> Result<()> {
+    let config = config::load_file(config_path)
         .await
         .context("Failed to read config file")?;
     let ctx = Arc::new(AppContext::new(&config).await?);

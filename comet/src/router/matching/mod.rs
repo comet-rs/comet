@@ -1,7 +1,9 @@
 use crate::prelude::*;
+use anyhow::bail;
 use futures::{Future, StreamExt};
 use ipnetwork::IpNetwork;
-use std::net::IpAddr;
+use serde_with::DeserializeFromStr;
+use std::{net::IpAddr, str::FromStr};
 use tokio_stream::StreamExt as TokioStreamExt;
 
 mod domain;
@@ -23,7 +25,7 @@ pub enum MatchCondition {
     Transport(TransportType),
 
     InboundName(SmolStr),
-    Provider(SmolStr),
+    Provider(ProviderCondition),
 }
 
 impl MatchCondition {
@@ -69,7 +71,7 @@ impl MatchCondition {
                     }
                     false
                 }
-                MatchCondition::Provider(s) => ctx.rule_provider.is_match("geosite", s, conn).await,
+                MatchCondition::Provider(s) => ctx.rule_provider.is_match(&s.tag, &s.sub, conn).await,
             }
         };
         Box::pin(fut)
@@ -105,5 +107,29 @@ impl PortCondition {
             Self::Port(expected) => *expected == port,
             Self::Range(l, r) => port >= *l && port <= *r,
         }
+    }
+}
+
+#[derive(Debug, Clone, DeserializeFromStr)]
+pub struct ProviderCondition {
+    tag: SmolStr,
+    sub: SmolStr,
+}
+
+impl FromStr for ProviderCondition {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let mut split = s.splitn(2, ':');
+        let tag = split.next().unwrap();
+        let sub = if let Some(sub) = split.next() {
+            sub
+        } else {
+            bail!("Invalid provider rule, must be like `geosite:cn`");
+        };
+        Ok(Self {
+            tag: tag.into(),
+            sub: sub.into(),
+        })
     }
 }

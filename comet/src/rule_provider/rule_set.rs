@@ -99,6 +99,7 @@ impl<'a> TryFrom<&GeoIP<'a>> for RuleSet {
     type Error = anyhow::Error;
 
     fn try_from(value: &GeoIP) -> Result<Self> {
+        dbg!(value);
         todo!()
     }
 }

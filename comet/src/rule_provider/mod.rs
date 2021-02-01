@@ -59,22 +59,6 @@ type LoadedProvider = HashMap<SmolStr, RuleSet>;
 
 impl ProviderConfig {
     async fn load_from_file(&self, path: &Path, sub: &str) -> Result<RuleSet> {
-        // let data: Result<_> = async move {
-        //     Ok(match &self.source {
-        //         ProviderSource::Local { path } => {
-        //             let mut fd = File::open(path).await?;
-        //             let mut buf = vec![];
-        //             fd.read_to_end(&mut buf).await?;
-        //             self.parse(&buf, sub)?
-        //         }
-        //         ProviderSource::Remote { url, interval: _ } => {
-        //             let res = reqwest::get(url).await?;
-        //             let buf = res.bytes().await?;
-        //             self.parse(&buf, sub)?
-        //         }
-        //     })
-        // }
-        // .await;
         let mut fd = File::open(path).await?;
         let mut buf = vec![];
         fd.read_to_end(&mut buf).await?;
@@ -85,8 +69,14 @@ impl ProviderConfig {
         match self.format {
             DataFormat::V2rayGeoIP => {
                 let parsed = GeoIPList::parse_from_bytes(data)?;
-                dbg!(&parsed.entry[0]);
-                todo!();
+                
+                for entry in &parsed.entry {
+                    if entry.country_code.eq_ignore_ascii_case(sub) {
+                        return Ok(RuleSet::try_from(entry)?);
+                    }
+                }
+
+                Err(anyhow!("Key not found in rule set"))
             }
             DataFormat::V2rayGeoSite => {
                 let parsed = GeoSiteList::parse_from_bytes(data)?;

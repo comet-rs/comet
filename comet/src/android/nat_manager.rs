@@ -57,7 +57,7 @@ impl<Addr: Send + Sync + 'static> NatTable<Addr> {
     pub fn insert(&self, src_port: u16, dest_addr: Addr, dest_port: u16) {
         let entry = NatEntry {
             last_activity: AtomicU64::new(unix_ts().as_secs()),
-            dest_addr: dest_addr,
+            dest_addr,
             dest_port,
         };
         self.0.pin().insert(src_port, entry);

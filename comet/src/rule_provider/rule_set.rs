@@ -3,7 +3,10 @@ use std::{collections::HashSet, convert::TryFrom};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use regex::Regex;
 
-use crate::{prelude::*, protos::v2ray::config::GeoSite};
+use crate::{
+    prelude::*,
+    protos::v2ray::config::{GeoIP, GeoSite},
+};
 
 #[derive(Debug, Clone)]
 pub enum RuleSet {
@@ -11,7 +14,7 @@ pub enum RuleSet {
         full_domains: HashSet<SmolStr>,
         keywords: Vec<SmolStr>,
         regexes: Vec<Regex>,
-        domains: AhoCorasick,
+        domains: Box<AhoCorasick>,
     },
     Ip,
 }
@@ -77,16 +80,26 @@ impl TryFrom<&GeoSite> for RuleSet {
             }
         }
 
+        let ac = AhoCorasickBuilder::new()
+            .auto_configure(&domains)
+            .anchored(true)
+            .build(&domains);
+
         let ret = Self::Domain {
             full_domains,
             keywords,
             regexes,
-            domains: AhoCorasickBuilder::new()
-                .auto_configure(&domains)
-                .anchored(true)
-                .build(&domains),
+            domains: Box::new(ac),
         };
 
         Ok(ret)
+    }
+}
+
+impl TryFrom<&GeoIP> for RuleSet {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &GeoIP) -> Result<Self> {
+        todo!()
     }
 }

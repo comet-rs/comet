@@ -1,11 +1,7 @@
 extern crate protobuf_codegen_pure;
 
 fn main() {
-    let proto_files = [
-        "protos/config.proto",
-        "protos/network.proto",
-        "protos/port.proto",
-    ];
+    let proto_files = ["protos/config.proto"];
     for f in proto_files.iter() {
         println!("cargo:rerun-if-changed={}", f);
     }

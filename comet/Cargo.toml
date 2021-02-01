@@ -57,14 +57,10 @@ url = { version = "2.2.0", features = ["serde"] }
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls-webpki-roots", "gzip"] }
 # backoff = "0.2.1"
 aho-corasick = "0.7.15"
+regex = "1"
 
 crypto2 = "0.1.1"
 shadowsocks-crypto = { version="0.1.2", features = ["v1-stream"] }
-
-[dependencies.regex]
-version = "1"
-default-features = false
-features = ["std", "perf-cache", "perf-dfa"]
 
 [target.'cfg(target_os = "android")'.dependencies]
 libc = "0.2.42"

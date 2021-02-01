@@ -14,7 +14,10 @@ use super::{
     socket::{CustomTokioResolver, CustomTokioResolverDirect},
     DnsConfigItem,
 };
-use crate::{prelude::*, router::matching::MatchCondition};
+use crate::{
+    prelude::*,
+    router::matching::{MatchCondition, MatchMode},
+};
 
 #[derive(Debug)]
 enum ResolverInner {
@@ -131,7 +134,20 @@ impl Resolver {
         })
     }
 
-    pub async fn try_resolve(&self, domain: &str) -> Result<Option<Vec<IpAddr>>> {
+    pub async fn try_resolve(
+        &self,
+        domain: &str,
+        ctx: &AppContextRef,
+    ) -> Result<Option<Vec<IpAddr>>> {
+        if let Some(rule) = &self.rule {
+            let mut dest = DestAddr::default();
+            dest.domain = Some(domain.into());
+
+            if !rule.is_match_dest(&dest, MatchMode::DomainOnly, ctx).await {
+                return Ok(None);
+            }
+        }
+        
         let result = self.trust.lookup_ip(domain).await?;
         let ans: Vec<IpAddr> = result.iter().collect();
 

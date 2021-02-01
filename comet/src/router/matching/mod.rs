@@ -9,6 +9,35 @@ use tokio_stream::StreamExt as TokioStreamExt;
 mod domain;
 use domain::DomainCondition;
 
+/// This is used to hint the matchers that only the specified
+/// properties of a connection should be concerned.
+///
+/// It is not mandatory to follow its instruction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatchMode {
+    Any,
+    IpOnly,
+    DomainOnly,
+}
+
+impl MatchMode {
+    pub fn ip(&self) -> bool {
+        match self {
+            MatchMode::Any => true,
+            MatchMode::IpOnly => true,
+            MatchMode::DomainOnly => false,
+        }
+    }
+
+    pub fn domain(&self) -> bool {
+        match self {
+            MatchMode::Any => true,
+            MatchMode::IpOnly => false,
+            MatchMode::DomainOnly => true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all(deserialize = "snake_case"))]
 pub enum MatchCondition {
@@ -32,19 +61,20 @@ impl MatchCondition {
     pub fn is_match<'a>(
         &'a self,
         conn: &'a Connection,
+        mode: MatchMode,
         ctx: &'a AppContextRef,
     ) -> Pin<Box<dyn Future<Output = bool> + Send + 'a>> {
         let fut = async move {
             match self {
                 MatchCondition::Any(conds) => {
                     tokio_stream::iter(conds.iter())
-                        .then(|cond| cond.is_match(conn, ctx))
+                        .then(|cond| cond.is_match(conn, mode, ctx))
                         .any(|x| x)
                         .await
                 }
                 MatchCondition::All(conds) => {
                     tokio_stream::iter(conds.iter())
-                        .then(|cond| cond.is_match(conn, ctx))
+                        .then(|cond| cond.is_match(conn, mode, ctx))
                         .all(|x| x)
                         .await
                 }
@@ -71,7 +101,58 @@ impl MatchCondition {
                     }
                     false
                 }
-                MatchCondition::Provider(s) => ctx.rule_provider.is_match(&s.tag, &s.sub, conn).await,
+                MatchCondition::Provider(s) => {
+                    ctx.rule_provider
+                        .is_match(&s.tag, &s.sub, &conn.dest_addr, mode)
+                        .await
+                }
+            }
+        };
+        Box::pin(fut)
+    }
+
+    pub fn is_match_dest<'a>(
+        &'a self,
+        dest: &'a DestAddr,
+        mode: MatchMode,
+        ctx: &'a AppContextRef,
+    ) -> Pin<Box<dyn Future<Output = bool> + Send + 'a>> {
+        let fut = async move {
+            match self {
+                MatchCondition::Any(conds) => {
+                    tokio_stream::iter(conds.iter())
+                        .then(|cond| cond.is_match_dest(dest, mode, ctx))
+                        .any(|x| x)
+                        .await
+                }
+                MatchCondition::All(conds) => {
+                    tokio_stream::iter(conds.iter())
+                        .then(|cond| cond.is_match_dest(dest, mode, ctx))
+                        .all(|x| x)
+                        .await
+                }
+
+                MatchCondition::DestIp(cond) => {
+                    if let Some(ip) = &dest.ip {
+                        return cond.is_match(ip);
+                    }
+                    false
+                }
+
+                MatchCondition::Domain(cond) => {
+                    if let Some(domain) = &dest.domain {
+                        return cond.is_match(domain);
+                    }
+                    false
+                }
+                MatchCondition::Provider(s) => {
+                    ctx.rule_provider.is_match(&s.tag, &s.sub, dest, mode).await
+                }
+
+                MatchCondition::Transport(_) => false,
+                MatchCondition::InboundName(_) => false,
+                MatchCondition::DestPort(_) => false,
+                MatchCondition::SrcIp(_) => false,
             }
         };
         Box::pin(fut)

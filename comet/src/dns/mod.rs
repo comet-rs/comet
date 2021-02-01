@@ -94,9 +94,9 @@ impl DnsService {
         socket::init_ctx(ctx);
     }
 
-    pub async fn resolve(&self, domain: &str) -> Result<Vec<IpAddr>> {
+    pub async fn resolve(&self, domain: &str, ctx: &AppContextRef) -> Result<Vec<IpAddr>> {
         for (i, res) in self.resolvers.iter().enumerate() {
-            match res.try_resolve(domain).await {
+            match res.try_resolve(domain, ctx).await {
                 Ok(Some(result)) => {
                     debug!("Resolved {} -> {:?} with resolver #{}", domain, result, i);
                     return Ok(result);
@@ -111,12 +111,12 @@ impl DnsService {
         Err(anyhow!("No resolver available for {}", domain))
     }
 
-    pub async fn resolve_addr(&self, addr: &DestAddr) -> Result<Vec<IpAddr>> {
+    pub async fn resolve_addr(&self, addr: &DestAddr, ctx: &AppContextRef) -> Result<Vec<IpAddr>> {
         if let Some(ip) = addr.ip {
             Ok(vec![ip])
         } else {
             let domain = addr.domain_or_error()?;
-            self.resolve(domain).await
+            self.resolve(domain, ctx).await
         }
     }
 

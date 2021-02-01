@@ -23,6 +23,7 @@ pub trait OutboundHandler: Send + Sync + Unpin {
         conn: &mut Connection,
         ctx: &AppContextRef,
     ) -> Result<ProxyStream>;
+
     async fn resolve_addr(
         &self,
         conn: &Connection,
@@ -38,10 +39,10 @@ pub trait OutboundHandler: Send + Sync + Unpin {
             // Dest addr overridden
             match addr {
                 OutboundAddr::Ip(ip) => vec![*ip],
-                OutboundAddr::Domain(domain) => ctx.dns.resolve(&domain).await?,
+                OutboundAddr::Domain(domain) => ctx.dns.resolve(&domain, ctx).await?,
             }
         } else {
-            ctx.dns.resolve_addr(&conn.dest_addr).await?
+            ctx.dns.resolve_addr(&conn.dest_addr, ctx).await?
         };
 
         Ok((ips, port))

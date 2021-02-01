@@ -15,6 +15,7 @@ use crate::{
     config::Config,
     prelude::*,
     protos::v2ray::config::{GeoIPList, GeoSiteList},
+    router::matching::MatchMode,
 };
 use serde_with::{serde_as, DurationSeconds};
 
@@ -163,6 +164,7 @@ enum ManagerMessage {
         tag: SmolStr,
         sub: SmolStr,
         dest: DestAddr,
+        mode: MatchMode,
     },
     Load {
         tag: SmolStr,
@@ -228,10 +230,11 @@ impl RuleProviderServer {
                 tag,
                 sub,
                 dest,
+                mode,
             } => {
                 let result = match self.loaded.get(&tag) {
                     Some(inner) => match inner.get(&sub) {
-                        Some(RuleSetState::Loaded(rule_set)) => rule_set.is_match(dest),
+                        Some(RuleSetState::Loaded(rule_set)) => rule_set.is_match(dest, mode),
                         Some(RuleSetState::Loading) => false, // Failed/Loading
                         None => {
                             // Load new
@@ -292,14 +295,15 @@ pub struct RuleProviderClient {
 }
 
 impl RuleProviderClient {
-    pub async fn is_match(&self, tag: &str, sub: &str, conn: &Connection) -> bool {
-        let dest = conn.dest_addr.clone();
+    pub async fn is_match(&self, tag: &str, sub: &str, dest: &DestAddr, mode: MatchMode) -> bool {
+        let dest = dest.clone();
         let (tx, rx) = oneshot::channel();
         let msg = ManagerMessage::Match {
             tx,
             tag: tag.into(),
             sub: sub.into(),
             dest,
+            mode,
         };
         let _ = self.tx.send(msg).await;
         match rx.await {

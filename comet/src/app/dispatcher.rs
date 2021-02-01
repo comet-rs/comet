@@ -21,7 +21,9 @@ pub async fn handle_conn(
 
     info!("Accepted {}", conn);
 
-    let outbound_tag = ctx.router.try_match(&conn, &ctx).await?;
+    let outbound_tag = ctx.router.match_conn(conn, &ctx).await;
+
+    info!("{} routed to {}", conn, outbound_tag);
 
     let mut outbound = ctx
         .outbound_manager
@@ -46,6 +48,7 @@ pub async fn handle_conn(
 
             let c2s = copy(&mut downlink.0, &mut uplink.1);
             let s2c = copy(&mut uplink.0, &mut downlink.1);
+
             tokio::select! {
               res = c2s => {
                 return Ok(res.map(|_| {

@@ -6,21 +6,19 @@ use crate::{crypto::rand::xor_rng, router::matching::MatchCondition};
 use anyhow::anyhow;
 use lru_cache::LruCache;
 use socket::{CustomTokioResolver, CustomTokioRuntime};
-use std::{
-    borrow::Cow,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    task::Context,
-};
+use std::{borrow::Cow, net::{IpAddr, Ipv4Addr, SocketAddr}, task::Context, time::Duration};
 use std::{str::FromStr, time::SystemTime};
 use tokio::sync::{Mutex, RwLock};
 use trust_dns_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
+    system_conf::read_system_conf,
     AsyncResolver, TokioHandle,
 };
 use url::{Host, Url};
 use xorshift::Rng;
 
 use anyhow::bail;
+use serde_with::{serde_as, DurationSeconds};
 use trust_dns_proto::{
     op::{Message, MessageType, OpCode, Query},
     udp::UdpSocket,
@@ -32,26 +30,29 @@ use trust_dns_proto::{
     TokioTime,
 };
 
-use self::socket::InternalUdpSocket;
+use self::{resolver::Resolver, socket::InternalUdpSocket};
 
+mod resolver;
 mod socket;
 
+#[serde_as]
 #[derive(Debug, Clone, Deserialize)]
-struct DnsConfigItem {
+pub struct DnsConfigItem {
+    #[serde(default)]
+    cache_size: usize,
     servers: Vec<Url>,
     rule: Option<MatchCondition>,
+    #[serde(default = "default_timeout")]
+    #[serde_as(as = "DurationSeconds<u64>")]
+    timeout: Duration,
 }
 
-#[derive(Debug, Clone)]
-struct Resolver {
-    trust: CustomTokioResolver,
-    rule: Option<MatchCondition>,
+fn default_timeout() -> Duration {
+    Duration::from_secs(10)
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct DnsConfig {
-    #[serde(default)]
-    cache_size: usize,
     #[serde(default)]
     resolvers: Vec<DnsConfigItem>,
 }
@@ -66,84 +67,15 @@ impl DnsService {
         use trust_dns_resolver::config::Protocol;
 
         let dns_config = &config.dns;
-        let mut resolver_opts = ResolverOpts::default();
-        resolver_opts.cache_size = if dns_config.cache_size == 0 {
-            128
-        } else {
-            dns_config.cache_size
-        };
 
         let mut resolvers = dns_config
             .resolvers
             .iter()
-            .map(|item| {
-                let servers = &item.servers;
-                if servers.is_empty() {
-                    bail!("No server in this resolver");
-                }
-
-                let configs = servers
-                    .iter()
-                    .map(|url| {
-                        let ip: IpAddr = match url.host() {
-                            Some(Host::Ipv4(addr)) => addr.into(),
-                            Some(Host::Ipv6(addr)) => addr.into(),
-                            Some(Host::Domain(s)) => s.parse().map_err(|_| {
-                                anyhow!("DNS server must be an IP address, not {}", s)
-                            })?,
-                            None => bail!("Failed to parse DNS server address"),
-                        };
-
-                        let protocol;
-                        let port;
-                        let params = url.query_pairs().collect::<HashMap<_, _>>();
-                        let tls_name_default = Cow::Borrowed(url.host_str().unwrap());
-                        let mut tls_name = params.get("domain").or(Some(&tls_name_default));
-
-                        match url.scheme() {
-                            "udp" => {
-                                port = url.port().unwrap_or(53);
-                                protocol = Protocol::Udp;
-                                tls_name = None;
-                            }
-                            "https" => {
-                                port = url.port().unwrap_or(443);
-                                protocol = Protocol::Https;
-                            }
-                            "tls" => {
-                                port = url.port().unwrap_or(853);
-                                protocol = Protocol::Tls;
-                            }
-                            _ => bail!("Unknown scheme: {}", url.scheme()),
-                        }
-
-                        Ok(NameServerConfig {
-                            socket_addr: (ip, port).into(),
-                            protocol,
-                            tls_dns_name: tls_name.map(|s| s.clone().into_owned()),
-                            trust_nx_responses: true,
-                            tls_config: None,
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-
-                let resolver = CustomTokioResolver::new(
-                    ResolverConfig::from_parts(None, vec![], configs),
-                    resolver_opts.clone(),
-                    TokioHandle,
-                )?;
-                Ok(Resolver {
-                    trust: resolver,
-                    rule: item.rule.clone(),
-                })
-            })
+            .map(Resolver::from_config)
             .collect::<Result<Vec<_>>>()?;
 
         if resolvers.is_empty() {
-            resolvers.push(Resolver {
-                trust: CustomTokioResolver::from_system_conf(TokioHandle)?,
-                rule: None,
-            });
+            resolvers.push(Resolver::from_system()?);
         }
 
         Ok(Self {
@@ -158,12 +90,20 @@ impl DnsService {
     }
 
     pub async fn resolve(&self, domain: &str) -> Result<Vec<IpAddr>> {
-        let resolver = self.resolvers.first().unwrap();
-        let result = resolver.trust.lookup_ip(domain).await?;
-        let ans: Vec<IpAddr> = result.iter().collect();
-        debug!("Resolved {} -> {:?}", domain, ans);
+        for (i, res) in self.resolvers.iter().enumerate() {
+            match res.try_resolve(domain).await {
+                Ok(Some(result)) => {
+                    debug!("Resolved {} -> {:?} with resolver #{}", domain, result, i);
+                    return Ok(result);
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+                Ok(None) => {}
+            }
+        }
 
-        Ok(ans)
+        Err(anyhow!("No resolver available for {}", domain))
     }
 
     pub async fn resolve_addr(&self, addr: &DestAddr) -> Result<Vec<IpAddr>> {

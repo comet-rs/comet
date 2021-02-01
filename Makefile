@@ -15,7 +15,7 @@ run:
 	cargo run -p comet-bin
 
 release:
-	RUSTFLAGS="-Ctarget-cpu=znver2 -Ctarget-feature=+aes,+sse2,+sse4.1,+ssse3" cargo build -p comet-bin --release
+	RUSTFLAGS="-Ctarget-cpu=skylake -Ctarget-feature=+aes,+sse2,+sse4.1,+ssse3" cargo build -p comet-bin --release
 
 bloat:
-	RUSTFLAGS="-Ctarget-cpu=znver2 -Ctarget-feature=+aes,+sse2,+sse4.1,+ssse3" cargo bloat -p comet-bin --release
+	RUSTFLAGS="-Ctarget-cpu=skylake -Ctarget-feature=+aes,+sse2,+sse4.1,+ssse3" cargo bloat -p comet-bin --release

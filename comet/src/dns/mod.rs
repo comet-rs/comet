@@ -2,9 +2,10 @@
 use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
 use crate::{config::Config, processor::tls_mitm};
-use crate::{crypto::rand::xor_rng, router::matching::MatchCondition};
+use crate::{crypto::random::xor_rng, router::matching::MatchCondition};
 use anyhow::anyhow;
 use lru_cache::LruCache;
+use rand::Rng;
 use socket::{CustomTokioResolver, CustomTokioRuntime};
 use std::{borrow::Cow, net::{IpAddr, Ipv4Addr, SocketAddr}, task::Context, time::Duration};
 use std::{str::FromStr, time::SystemTime};
@@ -15,7 +16,6 @@ use trust_dns_resolver::{
     AsyncResolver, TokioHandle,
 };
 use url::{Host, Url};
-use xorshift::Rng;
 
 use anyhow::bail;
 use serde_with::{serde_as, DurationSeconds};

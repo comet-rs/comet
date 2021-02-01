@@ -54,7 +54,7 @@ impl SsStreamCipherKind {
             salt.set_len(salt_len);
         }
 
-        rand::rand_bytes(&mut salt)?;
+        random::rand_bytes(&mut salt)?;
         Ok(salt.freeze())
     }
     fn to_crypter(

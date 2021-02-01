@@ -1,6 +1,6 @@
 use super::handshake::ShadowsocksClientHandshakeProcessor;
 use crate::check_eof;
-use crate::crypto::rand::xor_rng;
+use crate::crypto::random::xor_rng;
 use crate::crypto::*;
 use crate::prelude::*;
 use crate::utils::io::*;
@@ -8,13 +8,13 @@ use crate::utils::unix_ts;
 use anyhow::anyhow;
 use base64::encode_config_buf;
 use futures::ready;
+use rand::{Rng, thread_rng};
 use std::cmp;
 use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::Mutex;
 use std::task::{Context, Poll};
 use tokio_util::io::poll_read_buf;
-use xorshift::Rng;
 
 const PACK_UNIT_SIZE: usize = 2000;
 
@@ -48,9 +48,9 @@ impl SsrIds {
     }
 
     fn reset(&mut self) {
-        let mut rng = xor_rng();
+        let mut rng = thread_rng();
         self.client_id = rng.gen();
-        self.connection_id = rng.gen_range(0, 0xFFFFFF);
+        self.connection_id = rng.gen_range(0..0xFFFFFF);
     }
 
     fn new_connection(&mut self) -> (u32, u32) {
@@ -303,7 +303,7 @@ impl<RW> AuthAes128ClientStream<RW> {
             unsafe {
                 ret.set_len(rnd_end);
             }
-            rand::rand_bytes(&mut ret[cur_len..rnd_end])?;
+            random::rand_bytes(&mut ret[cur_len..rnd_end])?;
         }
         ret.put_slice(&buf);
         let part3_hmac = hashing::sign_bytes(self.hash_kind, &self.user_key, &ret);
@@ -325,7 +325,7 @@ impl<RW> AuthAes128ClientStream<RW> {
         } else {
             1023
         };
-        xor_rng().gen_range(0, len_max) + 1
+        thread_rng().gen_range(0..len_max) + 1
     }
 
     fn parse_rnd_len(&self, buf: &[u8]) -> usize {
@@ -361,7 +361,7 @@ impl<RW> AuthAes128ClientStream<RW> {
         unsafe {
             ret.advance_mut(rand_len);
         }
-        rand::rand_bytes(&mut ret[4..4 + rand_len])?;
+        random::rand_bytes(&mut ret[4..4 + rand_len])?;
         if rand_len < 128 {
             ret[4] = rand_len as u8;
         } else {
@@ -405,7 +405,7 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for AuthAes128ClientStream<RW> {
                         me.header_sent = true;
                         let header_len = ShadowsocksClientHandshakeProcessor::header_len(buf)?;
                         let divide_pos =
-                            cmp::min(buf.len(), header_len + xor_rng().gen_range(0, 31));
+                            cmp::min(buf.len(), header_len + thread_rng().gen_range(0..31));
                         let header = me
                             .pack_auth_data(&buf[..divide_pos])
                             .map_err(io_other_error)?;

@@ -1,5 +1,4 @@
-use crate::check_eof;
-use crate::crypto::rand;
+use crate::{check_eof, crypto::random::xor_rng};
 use crate::prelude::*;
 use crate::utils::io::eof;
 use crate::{delegate_flush, delegate_read, delegate_shutdown, delegate_write_all};
@@ -9,7 +8,7 @@ use std::cmp;
 use std::task::Context;
 use tokio::io::ReadBuf;
 use tokio_util::io::poll_read_buf;
-use xorshift::Rng;
+use rand::{Rng, prelude::SliceRandom, thread_rng};
 
 pub fn register(plumber: &mut Plumber) {
     plumber.register("ssr_obfs_client", |conf, _| {
@@ -62,7 +61,7 @@ impl Processor for ClientProcessor {
         conn: &mut Connection,
         _ctx: AppContextRef,
     ) -> Result<ProxyStream> {
-        let mut rng = rand::xor_rng();
+        let mut rng = xor_rng();
 
         let stream = stream.into_tcp()?;
         let stream = match &self.config {
@@ -78,7 +77,7 @@ impl Processor for ClientProcessor {
                         format!("{}", conn.dest_addr.ip.as_ref().unwrap())
                     }
                 } else {
-                    rng.choose(&hosts).unwrap().to_string()
+                    hosts.choose(&mut rng).unwrap().to_string()
                 };
 
                 let mut header_buf = BytesMut::new();
@@ -90,7 +89,7 @@ impl Processor for ClientProcessor {
 
                 if headers.is_empty() {
                     header_buf.put_slice(b"User-Agent: ");
-                    header_buf.put_slice(rng.choose(&USER_AGENTS).unwrap().as_bytes());
+                    header_buf.put_slice(&USER_AGENTS.choose(&mut rng).unwrap().as_bytes());
                     header_buf.put_slice(b"\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nDNT: 1\r\nConnection: keep-alive\r\n");
                 } else {
                     for (name, value) in headers {
@@ -217,7 +216,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for SimpleHttpWriter<W> {
                         ObfsHttpMethod::Post => "POST /",
                     });
                     let encode_len =
-                        cmp::min(buf.len(), 30 + 16 + rand::xor_rng().gen_range(0, 64));
+                        cmp::min(buf.len(), 30 + 16 + thread_rng().gen_range(0..64));
                     full_header_buf.reserve(encode_len * 3);
                     for byte in &buf[..encode_len] {
                         let s = format!("{:x}", byte);

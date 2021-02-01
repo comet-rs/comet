@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::anyhow;
-use protobuf::Message;
+use quick_protobuf::{BytesReader, MessageRead};
 use tokio::{
     fs::File,
     sync::{mpsc, oneshot},
@@ -68,8 +68,9 @@ impl ProviderConfig {
     fn parse(&self, data: &[u8], sub: &str) -> Result<RuleSet> {
         match self.format {
             DataFormat::V2rayGeoIP => {
-                let parsed = GeoIPList::parse_from_bytes(data)?;
-                
+                let mut reader = BytesReader::from_bytes(data);
+                let parsed = GeoIPList::from_reader(&mut reader, data)?;
+
                 for entry in &parsed.entry {
                     if entry.country_code.eq_ignore_ascii_case(sub) {
                         return Ok(RuleSet::try_from(entry)?);
@@ -79,7 +80,8 @@ impl ProviderConfig {
                 Err(anyhow!("Key not found in rule set"))
             }
             DataFormat::V2rayGeoSite => {
-                let parsed = GeoSiteList::parse_from_bytes(data)?;
+                let mut reader = BytesReader::from_bytes(data);
+                let parsed = GeoSiteList::from_reader(&mut reader, data)?;
 
                 for entry in &parsed.entry {
                     if entry.country_code.eq_ignore_ascii_case(sub) {

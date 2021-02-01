@@ -52,21 +52,20 @@ pub fn to_reversed_fqdn(domain: &str) -> String {
     rev.chain(std::iter::once("")).collect::<Vec<_>>().join(".")
 }
 
-impl TryFrom<&GeoSite> for RuleSet {
+impl<'a> TryFrom<&GeoSite<'a>> for RuleSet {
     type Error = anyhow::Error;
 
     fn try_from(value: &GeoSite) -> Result<Self> {
-        use crate::protos::v2ray::config::Domain_Type as DomainType;
-
+        use crate::protos::v2ray::config::mod_Domain::Type as DomainType;
         let mut full_domains = HashSet::new();
         let mut keywords = vec![];
         let mut domains = vec![];
         let mut regexes = vec![];
 
         for domain in &value.domain {
-            match domain.field_type {
+            match domain.type_pb {
                 DomainType::Plain => {
-                    keywords.push(SmolStr::from(&domain.value));
+                    keywords.push(SmolStr::from(domain.value.as_ref()));
                 }
                 DomainType::Regex => {
                     regexes.push(Regex::new(&domain.value)?);
@@ -75,7 +74,7 @@ impl TryFrom<&GeoSite> for RuleSet {
                     domains.push(to_reversed_fqdn(&domain.value));
                 }
                 DomainType::Full => {
-                    full_domains.insert(SmolStr::from(&domain.value));
+                    full_domains.insert(SmolStr::from(domain.value.as_ref()));
                 }
             }
         }
@@ -96,7 +95,7 @@ impl TryFrom<&GeoSite> for RuleSet {
     }
 }
 
-impl TryFrom<&GeoIP> for RuleSet {
+impl<'a> TryFrom<&GeoIP<'a>> for RuleSet {
     type Error = anyhow::Error;
 
     fn try_from(value: &GeoIP) -> Result<Self> {

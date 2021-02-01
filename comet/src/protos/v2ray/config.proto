@@ -1,12 +1,5 @@
 syntax = "proto3";
 
-package v2ray.core.app.router;
-option csharp_namespace = "V2Ray.Core.App.Router";
-option go_package = "v2ray.com/core/app/router";
-option java_package = "com.v2ray.core.app.router";
-option java_multiple_files = true;
-
-
 // Domain for routing decision.
 message Domain {
   // Type of domain value.

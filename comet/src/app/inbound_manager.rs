@@ -5,9 +5,9 @@ use log::info;
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use tokio::{io::BufReader, sync::Mutex};
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc::{channel, unbounded_channel, Sender, UnboundedReceiver, UnboundedSender};
+use tokio::{io::BufReader, sync::Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 
 pub type ConnSender<T> = UnboundedSender<(Connection, T)>;
@@ -178,12 +178,7 @@ impl InboundManager {
 
         let (uplink, downlink) = tokio::io::duplex(1024);
 
-        let mut conn = Connection::new(
-            ([0, 0, 0, 0], 0),
-            format!("__INTERNAL_{}", tag),
-            None,
-            TransportType::Tcp,
-        );
+        let mut conn = Connection::new(([0, 0, 0, 0], 0), tag, None, TransportType::Tcp);
         conn.dest_addr = target;
         conn.internal = true;
 
@@ -200,12 +195,7 @@ impl InboundManager {
         let (read_sender, read_receiver) = channel(10);
         let (write_sender, write_receiver) = channel(10);
 
-        let mut conn = Connection::new(
-            ([0, 0, 0, 0], 0),
-            format!("__INTERNAL_{}", tag),
-            None,
-            TransportType::Udp,
-        );
+        let mut conn = Connection::new(([0, 0, 0, 0], 0), tag, None, TransportType::Udp);
         conn.internal = true;
         conn.set_var("addr_type", addr_type);
 

@@ -55,7 +55,7 @@ impl OutboundHandler for TcpHandler {
     fn port(&self) -> std::option::Option<u16> {
         self.transport.port
     }
-    
+
     fn addr(&self) -> std::option::Option<&OutboundAddr> {
         self.transport.addr.as_ref()
     }

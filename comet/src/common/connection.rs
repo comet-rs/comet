@@ -32,7 +32,8 @@ impl DestAddr {
         }
     }
 
-    pub fn set_domain<T: Into<SmolStr>>(&mut self, domain: T) {
+    pub fn set_domain<T: AsRef<str>>(&mut self, domain: T) {
+        let domain = domain.as_ref().to_ascii_lowercase();
         self.domain = Some(domain.into());
     }
 

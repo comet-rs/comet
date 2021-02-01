@@ -42,8 +42,9 @@ impl UdpSocket for InternalUdpSocket {
         let ctx = guard.upgrade().expect("App context dropped");
         let manager = ctx.clone_inbound_manager();
         let stream = manager
-            .inject_udp("DNS", addr.ip().into())
+            .inject_udp("comet::dns", addr.ip().into())
             .map_err(io_other_error)?;
+            
         Ok(Self {
             inner: RwLock::new(stream),
         })
@@ -96,7 +97,7 @@ impl Connect for RWPair {
         let ctx = guard.upgrade().expect("App context dropped");
         let manager = ctx.clone_inbound_manager();
         let stream = manager
-            .inject_tcp("DNS", DestAddr::new_ip(addr.ip(), addr.port()))
+            .inject_tcp("comet::dns", DestAddr::new_ip(addr.ip(), addr.port()))
             .map_err(io_other_error);
 
         Ok(stream?)

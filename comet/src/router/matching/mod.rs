@@ -69,9 +69,7 @@ impl MatchCondition {
                     }
                     false
                 }
-                MatchCondition::Provider(s) => {
-                    ctx.rule_provider.is_match("geosite", s, conn).await
-                }
+                MatchCondition::Provider(s) => ctx.rule_provider.is_match("geosite", s, conn).await,
             }
         };
         Box::pin(fut)

@@ -2,14 +2,17 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 
-use crate::{app::metrics::Metrics, rule_provider::{RuleProviderClient, RuleProviderServer}};
+use crate::app::inbound_manager::InboundManager;
 use crate::app::outbound_manager::OutboundManager;
 use crate::app::plumber::Plumber;
 use crate::config::Config;
 use crate::dns::DnsService;
 use crate::prelude::*;
 use crate::router::Router;
-use crate::{app::inbound_manager::InboundManager};
+use crate::{
+    app::metrics::Metrics,
+    rule_provider::{RuleProviderClient, RuleProviderServer},
+};
 
 #[cfg(target_os = "android")]
 use crate::android::nat_manager::NatManager;

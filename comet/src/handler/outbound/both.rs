@@ -1,5 +1,8 @@
 use super::{NewOutboundHandler, OutboundHandler, TcpHandler, UdpHandler};
-use crate::{config::{Outbound, OutboundAddr}, prelude::*};
+use crate::{
+    config::{Outbound, OutboundAddr},
+    prelude::*,
+};
 
 pub struct TcpUdpHandler {
     tcp: TcpHandler,

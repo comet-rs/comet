@@ -1,8 +1,8 @@
 #![allow(unused_imports)]
-use crate::crypto::rand::xor_rng;
 use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
 use crate::{config::Config, processor::tls_mitm};
+use crate::{crypto::rand::xor_rng, router::matching::MatchCondition};
 use anyhow::anyhow;
 use lru_cache::LruCache;
 use socket::{CustomTokioResolver, CustomTokioRuntime};
@@ -36,21 +36,35 @@ use self::socket::InternalUdpSocket;
 
 mod socket;
 
+#[derive(Debug, Clone, Deserialize)]
+struct DnsConfigItem {
+    servers: Vec<Url>,
+    rule: Option<MatchCondition>,
+}
+
+#[derive(Debug, Clone)]
+struct Resolver {
+    trust: CustomTokioResolver,
+    rule: Option<MatchCondition>,
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct DnsConfig {
     #[serde(default)]
     cache_size: usize,
-    resolvers: HashMap<SmolStr, Vec<Url>>,
+    #[serde(default)]
+    resolvers: Vec<DnsConfigItem>,
 }
 
 pub struct DnsService {
     fake_map: Option<RwLock<LruCache<u16, SmolStr>>>,
-    resolvers: HashMap<SmolStr, CustomTokioResolver>,
+    resolvers: Vec<Resolver>,
 }
 
 impl DnsService {
     pub fn new(config: &Config) -> Result<Self> {
         use trust_dns_resolver::config::Protocol;
+
         let dns_config = &config.dns;
         let mut resolver_opts = ResolverOpts::default();
         resolver_opts.cache_size = if dns_config.cache_size == 0 {
@@ -62,8 +76,13 @@ impl DnsService {
         let mut resolvers = dns_config
             .resolvers
             .iter()
-            .map(|(tag, urls)| {
-                let configs = urls
+            .map(|item| {
+                let servers = &item.servers;
+                if servers.is_empty() {
+                    bail!("No server in this resolver");
+                }
+
+                let configs = servers
                     .iter()
                     .map(|url| {
                         let ip: IpAddr = match url.host() {
@@ -107,21 +126,24 @@ impl DnsService {
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;
+
                 let resolver = CustomTokioResolver::new(
                     ResolverConfig::from_parts(None, vec![], configs),
                     resolver_opts.clone(),
                     TokioHandle,
                 )?;
-                let ret = (tag.clone(), resolver);
-                Ok(ret)
+                Ok(Resolver {
+                    trust: resolver,
+                    rule: item.rule.clone(),
+                })
             })
-            .collect::<Result<HashMap<_, _>>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
-        if !resolvers.contains_key("__SYSTEM") {
-            resolvers.insert(
-                "__SYSTEM".into(),
-                CustomTokioResolver::from_system_conf(TokioHandle)?,
-            );
+        if resolvers.is_empty() {
+            resolvers.push(Resolver {
+                trust: CustomTokioResolver::from_system_conf(TokioHandle)?,
+                rule: None,
+            });
         }
 
         Ok(Self {
@@ -136,13 +158,11 @@ impl DnsService {
     }
 
     pub async fn resolve(&self, domain: &str) -> Result<Vec<IpAddr>> {
-        let client = self.resolvers.get("__SYSTEM").unwrap();
-        let result = client.lookup_ip(domain).await?;
-
+        let resolver = self.resolvers.first().unwrap();
+        let result = resolver.trust.lookup_ip(domain).await?;
         let ans: Vec<IpAddr> = result.iter().collect();
-
         debug!("Resolved {} -> {:?}", domain, ans);
-        
+
         Ok(ans)
     }
 

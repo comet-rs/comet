@@ -105,8 +105,9 @@ impl Processor for ClientProcessor {
 
         let stream = ClientStream::new(stream, self.method, &self.master_key, &salt)?;
         
-        conn.set_var("ss-salt", salt);
-        conn.set_var("ss-key", self.master_key.clone());
+        conn.set_var(vars::SS_KEY, self.master_key.clone());
+        conn.set_var(vars::SS_SALT, salt);
+        
 
         Ok(RWPair::new(stream).into())
     }

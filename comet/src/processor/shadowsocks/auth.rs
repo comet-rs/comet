@@ -140,11 +140,11 @@ impl Processor for SsrClientAuthProcessor {
     ) -> Result<ProxyStream> {
         let stream = stream.into_tcp()?;
         let write_key: &Bytes = conn
-            .get_var("ss-key")
+            .get_var(vars::SS_KEY)
             .ok_or_else(|| anyhow!("Key not found"))?;
         let write_iv: &Bytes = conn
-            .get_var("ss-salt")
-            .ok_or_else(|| anyhow!("WriteIV not found"))?;
+            .get_var(vars::SS_SALT)
+            .ok_or_else(|| anyhow!("Salt not found"))?;
 
         let stream = AuthAes128ClientStream::new(
             stream,

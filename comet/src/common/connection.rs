@@ -1,5 +1,6 @@
 use crate::TransportType;
 use anyhow::{anyhow, Result};
+use serde_with::DeserializeFromStr;
 use smol_str::SmolStr;
 use std::borrow::Borrow;
 use std::collections::HashMap;
@@ -8,7 +9,7 @@ use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::{any::Any, str::FromStr};
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, DeserializeFromStr)]
 pub struct DestAddr {
     pub domain: Option<SmolStr>,
     pub ip: Option<IpAddr>,
@@ -164,4 +165,10 @@ impl fmt::Display for Connection {
             self.typ, self.src_addr, self.inbound_tag, self.dest_addr
         )
     }
+}
+
+pub mod vars {
+    pub static DEST: &str = "dest";
+    pub static SS_KEY: &str = "ss-key";
+    pub static SS_SALT: &str = "ss-salt";
 }

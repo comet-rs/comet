@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 use std::{str::FromStr, time::SystemTime};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 use trust_dns_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
     system_conf::read_system_conf,

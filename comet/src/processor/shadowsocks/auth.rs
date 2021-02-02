@@ -8,12 +8,14 @@ use crate::utils::unix_ts;
 use anyhow::anyhow;
 use base64::encode_config_buf;
 use futures::ready;
-use rand::{Rng, thread_rng};
-use std::cmp;
+use rand::{thread_rng, Rng};
 use std::collections::VecDeque;
 use std::pin::Pin;
-use std::sync::Mutex;
 use std::task::{Context, Poll};
+use std::{
+    cmp,
+    sync::atomic::{AtomicU32, Ordering},
+};
 use tokio_util::io::poll_read_buf;
 
 const PACK_UNIT_SIZE: usize = 2000;
@@ -33,32 +35,36 @@ pub fn register(plumber: &mut Plumber) {
 
 #[derive(Debug)]
 struct SsrIds {
-    client_id: u32,
-    connection_id: u32,
+    client_id: AtomicU32,
+    connection_id: AtomicU32,
 }
 
 impl SsrIds {
     fn new() -> Self {
-        let mut me = SsrIds {
-            client_id: 0,
-            connection_id: 0,
+        let me = SsrIds {
+            client_id: AtomicU32::new(0),
+            connection_id: AtomicU32::new(0),
         };
         me.reset();
         me
     }
 
-    fn reset(&mut self) {
+    fn reset(&self) {
         let mut rng = thread_rng();
-        self.client_id = rng.gen();
-        self.connection_id = rng.gen_range(0..0xFFFFFF);
+        self.client_id.swap(rng.gen(), Ordering::SeqCst);
+        self.connection_id
+            .swap(rng.gen_range(1..0xFFFFFF), Ordering::SeqCst);
     }
 
-    fn new_connection(&mut self) -> (u32, u32) {
-        if self.connection_id >= 0xFF000000 {
+    fn new_connection(&self) -> (u32, u32) {
+        if self.connection_id.load(Ordering::SeqCst) >= 0xFF000000 {
             self.reset();
         }
-        self.connection_id += 1;
-        (self.client_id, self.connection_id)
+
+        (
+            self.client_id.load(Ordering::SeqCst),
+            self.connection_id.fetch_add(1, Ordering::SeqCst),
+        )
     }
 }
 
@@ -79,7 +85,7 @@ pub struct SsrClientAuthConfig {
 
 #[derive(Debug)]
 pub struct SsrClientAuthProcessor {
-    ids: Mutex<SsrIds>,
+    ids: SsrIds,
     user_id: Option<u32>,
     user_key: Option<Bytes>,
     protocol: SsrClientAuthType,
@@ -100,7 +106,7 @@ impl SsrClientAuthProcessor {
             }
         });
         Self {
-            ids: Mutex::new(SsrIds::new()),
+            ids: SsrIds::new(),
             user_id,
             protocol,
             user_key,
@@ -120,8 +126,7 @@ impl SsrClientAuthProcessor {
     }
 
     fn new_connection(&self) -> (u32, u32) {
-        let mut ids = self.ids.lock().unwrap();
-        ids.new_connection()
+        self.ids.new_connection()
     }
 }
 

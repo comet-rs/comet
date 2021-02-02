@@ -1,8 +1,5 @@
 use super::{NewOutboundHandler, OutboundHandler, TcpHandler, UdpHandler};
-use crate::{
-    config::{Outbound, OutboundAddr},
-    prelude::*,
-};
+use crate::{config::Outbound, prelude::*};
 
 pub struct TcpUdpHandler {
     tcp: TcpHandler,
@@ -21,13 +18,6 @@ impl OutboundHandler for TcpUdpHandler {
             TransportType::Tcp => self.tcp.handle(tag, conn, ctx).await,
             TransportType::Udp => self.udp.handle(tag, conn, ctx).await,
         }
-    }
-
-    fn port(&self) -> Option<u16> {
-        None
-    }
-    fn addr(&self) -> Option<&OutboundAddr> {
-        None
     }
 }
 

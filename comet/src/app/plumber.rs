@@ -54,7 +54,7 @@ impl Plumber {
             .get_key_value(name)
             .ok_or_else(|| anyhow!("Processor {} not found", name))?;
 
-        Ok((create_fn.0, create_fn.1(config, pipe_tag)?))
+        Ok((create_fn.0, create_fn.1(config, pipe_tag).with_context(|| format!("creating {}", name))?))
     }
 
     pub async fn process(
@@ -65,6 +65,15 @@ impl Plumber {
         ctx: AppContextRef,
     ) -> Result<ProxyStream> {
         Ok(self.get_pipeline(tag)?.process(stream, conn, ctx).await?)
+    }
+
+    pub async fn prepare(
+        self: Arc<Self>,
+        tag: &str,
+        conn: &mut Connection,
+        ctx: AppContextRef,
+    ) -> Result<()> {
+        Ok(self.get_pipeline(tag)?.prepare(conn, ctx).await?)
     }
 
     pub fn get_pipeline(&self, tag: &str) -> Result<&Pipeline> {
@@ -107,9 +116,20 @@ impl Pipeline {
     ) -> Result<ProxyStream> {
         for item in &self.items {
             let result = item.1.clone().process(stream, conn, ctx.clone()).await;
-            stream = result.with_context(|| format!("Error running processor {}", item.0))?;
+            stream = result.with_context(|| format!("running processor {}", item.0))?;
         }
         Ok(stream)
+    }
+
+    pub async fn prepare(&self, conn: &mut Connection, ctx: AppContextRef) -> Result<()> {
+        for item in &self.items {
+            item.1
+                .clone()
+                .prepare(conn, ctx.clone())
+                .await
+                .with_context(|| format!("preparing processor {}", item.0))?;
+        }
+        Ok(())
     }
 }
 
@@ -118,11 +138,14 @@ pub trait Processor: Send + Sync {
     /// Prepares the context and connection before a outbound connection.
     /// DOES NOT RUN when used as inbound processor.
     ///
+    /// Note: `dest_addr` set in this stage will be overwritten by the original value
+    /// after outbound connection.
+    ///
     /// Defaults to a no-op.
     async fn prepare(self: Arc<Self>, _conn: &mut Connection, _ctx: AppContextRef) -> Result<()> {
         Ok(())
     }
-    
+
     /// Processing and wrapping of a proxy stream.
     ///
     /// Defaults to a no-op.

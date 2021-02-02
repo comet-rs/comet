@@ -1,5 +1,4 @@
-use super::{NewOutboundHandler, Outbound, OutboundAddr, OutboundHandler};
-use crate::config::OutboundTransportConfig;
+use super::{NewOutboundHandler, Outbound, OutboundHandler};
 use crate::prelude::*;
 use crate::utils::metered_stream::MeteredStream;
 use anyhow::anyhow;
@@ -8,7 +7,6 @@ use std::net::SocketAddr;
 use tokio::io::BufReader;
 
 pub struct TcpHandler {
-    transport: OutboundTransportConfig,
     metering: bool,
 }
 
@@ -45,26 +43,19 @@ impl OutboundHandler for TcpHandler {
 
         for ip in ips {
             match self.connect(tag, ip, port, ctx).await {
-                Ok(stream) => return Ok(stream.into()),
+                Ok(stream) => {
+                    return Ok(stream.into())
+                },
                 Err(err) => warn!("Trying {}:{} failed: {}", ip, port, err),
             }
         }
         Err(anyhow!("All attempts failed"))
-    }
-
-    fn port(&self) -> std::option::Option<u16> {
-        self.transport.port
-    }
-
-    fn addr(&self) -> std::option::Option<&OutboundAddr> {
-        self.transport.addr.as_ref()
     }
 }
 
 impl NewOutboundHandler for TcpHandler {
     fn new(config: &Outbound) -> Self {
         Self {
-            transport: config.transport.clone(),
             metering: config.metering,
         }
     }

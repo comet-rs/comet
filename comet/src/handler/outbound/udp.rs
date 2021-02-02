@@ -1,5 +1,4 @@
-use super::{NewOutboundHandler, Outbound, OutboundAddr, OutboundHandler};
-use crate::config::OutboundTransportConfig;
+use super::{NewOutboundHandler, Outbound, OutboundHandler};
 use crate::prelude::*;
 use anyhow::anyhow;
 use log::error;
@@ -8,9 +7,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use tokio::sync::mpsc::channel;
 use tokio_stream::wrappers::ReceiverStream;
 
-pub struct UdpHandler {
-    transport: OutboundTransportConfig,
-}
+pub struct UdpHandler {}
 
 macro_rules! break_if_err {
     ($e:expr) => {
@@ -74,20 +71,10 @@ impl OutboundHandler for UdpHandler {
 
         Ok(UdpStream::new(ReceiverStream::new(read_receiver), write_sender).into())
     }
-
-    fn port(&self) -> std::option::Option<u16> {
-        self.transport.port
-    }
-
-    fn addr(&self) -> std::option::Option<&OutboundAddr> {
-        self.transport.addr.as_ref()
-    }
 }
 
 impl NewOutboundHandler for UdpHandler {
-    fn new(config: &Outbound) -> Self {
-        Self {
-            transport: config.transport.clone(),
-        }
+    fn new(_config: &Outbound) -> Self {
+        Self {}
     }
 }

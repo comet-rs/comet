@@ -10,7 +10,8 @@ pub struct Outbound {
     pub metering: bool,
     #[serde(default)]
     pub timeout: u32,
-    pub transport: OutboundTransportConfig,
+    #[serde(flatten)]
+    pub typ: OutboundTransportType,
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -27,14 +28,6 @@ impl Default for OutboundTransportType {
     fn default() -> Self {
         Self::TcpUdp
     }
-}
-
-#[derive(Deserialize, Clone, Debug, Default)]
-pub struct OutboundTransportConfig {
-    #[serde(flatten)]
-    pub r#type: OutboundTransportType,
-    pub port: Option<u16>,
-    pub addr: Option<OutboundAddr>,
 }
 
 #[derive(Deserialize, Clone, Debug)]

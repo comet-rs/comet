@@ -21,6 +21,10 @@ use crate::prelude::*;
 
 use anyhow::Context;
 
+tokio::task_local! {
+    pub static CONN_ID: SmolStr;
+}
+
 pub async fn run(ctx: AppContextRef) -> Result<()> {
     let mut conns = ctx.clone_inbound_manager().start(ctx.clone()).await?;
     ctx.dns.start(ctx.clone());
@@ -29,22 +33,21 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
     let _process_handle = tokio::spawn(async move {
         while let Some((mut conn, stream)) = conns.recv().await {
             let ctx = ctx_tcp.clone();
-            tokio::spawn(async move {
+            let id = conn.id.clone();
+            
+            let task = async move {
                 match dispatcher::handle_conn(&mut conn, stream, ctx).await {
                     Ok(()) => {
-                        info!("Finished handling {}", conn);
+                        info!("Finished handling");
                     }
                     Err(err) => {
                         let cause: Vec<_> = err.chain().skip(1).map(|c| format!("{}", c)).collect();
-                        error!(
-                            "Failed to handle {} because {} > {}",
-                            conn,
-                            err,
-                            cause.join(" > ")
-                        );
+                        error!("Failed to handle because {} > {}", err, cause.join(" > "));
                     }
                 }
-            });
+            };
+
+            tokio::spawn(CONN_ID.scope(id, task));
         }
     });
 

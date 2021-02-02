@@ -24,7 +24,7 @@ impl OutboundManager {
             .outbounds
             .iter()
             .map(|(tag, outbound)| {
-                let handler: Box<dyn OutboundHandler> = match outbound.transport.r#type {
+                let handler: Box<dyn OutboundHandler> = match outbound.typ {
                     OutboundTransportType::Tcp => Box::new(TcpHandler::new(outbound)),
                     OutboundTransportType::Udp => Box::new(UdpHandler::new(outbound)),
                     OutboundTransportType::Dashboard => Box::new(DashboardHandler::new(outbound)),

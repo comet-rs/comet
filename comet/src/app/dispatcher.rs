@@ -9,6 +9,7 @@ pub async fn handle_conn(
     stream: ProxyStream,
     ctx: AppContextRef,
 ) -> Result<()> {
+    // Inbound Pipeline
     let stream = if let Some(ref inbound_pipeline) = conn.inbound_pipeline {
         let inbound_pipeline = inbound_pipeline.clone();
         ctx.clone_plumber()
@@ -21,16 +22,31 @@ pub async fn handle_conn(
 
     info!("Accepted {}", conn);
 
+    // Routing
     let outbound_tag = ctx.router.match_conn(conn, &ctx).await;
 
-    info!("{} routed to {}", conn, outbound_tag);
+    info!("Routed to {}", outbound_tag);
 
+    // Prepare, save original dest
+    let dest_ori = conn.dest_addr.clone();
+    if let Some(outbound_pipeline) = ctx.outbound_manager.get_pipeline(outbound_tag)? {
+        ctx.clone_plumber()
+            .prepare(&outbound_pipeline, conn, ctx.clone())
+            .await
+            .with_context(|| format!("preparing outbound pipeline {}", outbound_pipeline))?;
+    }
+
+    // Connect
     let mut outbound = ctx
         .outbound_manager
         .connect(&outbound_tag, conn, &ctx)
         .await
         .with_context(|| format!("connecting outbound {}", outbound_tag))?;
+    
+    // Restore dest
+    conn.dest_addr = dest_ori;
 
+    // Outbound Pipeline
     if let Some(outbound_pipeline) = ctx.outbound_manager.get_pipeline(outbound_tag)? {
         outbound = ctx
             .clone_plumber()
@@ -39,6 +55,7 @@ pub async fn handle_conn(
             .with_context(|| format!("running outbound pipeline {}", outbound_pipeline))?;
     }
 
+    // Bi-directional Copy
     match (stream, outbound) {
         (ProxyStream::Tcp(stream), ProxyStream::Tcp(outbound)) => {
             let mut uplink = outbound.split();
@@ -50,13 +67,13 @@ pub async fn handle_conn(
             tokio::select! {
               res = c2s => {
                 return Ok(res.map(|_| {
-                  debug!("{} client -> server closed", conn);
+                  debug!("Client -> server closed");
                 }).with_context(|| "copying client -> server")?);
               }
 
               res = s2c => {
                 return Ok(res.map(|_| {
-                  debug!("{} server -> client closed", conn);
+                  debug!("Server -> client closed");
                 }).with_context(|| "copying server -> client")?);
               }
             }

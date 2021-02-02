@@ -8,19 +8,41 @@ pub fn register(plumber: &mut Plumber) {
 }
 
 #[derive(Debug, Deserialize)]
-struct SetDestProcessor {
-    dest: Option<DestAddr>,
+#[serde(tag = "for", rename_all = "lowercase")]
+enum SetDestProcessor {
+    /// Transport destination for actual (system) connection
+    Transport { dest: Option<DestAddr> },
+    /// Logical destination for proxying
+    Logical { dest: Option<DestAddr> },
 }
 
 #[async_trait]
 impl Processor for SetDestProcessor {
     async fn prepare(self: Arc<Self>, conn: &mut Connection, _ctx: AppContextRef) -> Result<()> {
-        if let Some(dest) = &self.dest {
-            conn.dest_addr = dest.clone();
-        } else if let Some(dest) = conn.get_var::<DestAddr>(vars::DEST) {
-            conn.dest_addr = dest.clone();
+        if let Self::Transport { dest } = &*self {
+            if let Some(dest) = dest {
+                conn.dest_addr = dest.clone();
+            } else if let Some(dest) = conn.get_var::<DestAddr>(vars::DEST) {
+                conn.dest_addr = dest.clone();
+            }
         }
 
         Ok(())
+    }
+
+    async fn process(
+        self: Arc<Self>,
+        stream: ProxyStream,
+        conn: &mut Connection,
+        _ctx: AppContextRef,
+    ) -> Result<ProxyStream> {
+        if let Self::Logical { dest } = &*self {
+            if let Some(dest) = dest {
+                conn.dest_addr = dest.clone();
+            } else if let Some(dest) = conn.get_var::<DestAddr>(vars::DEST) {
+                conn.dest_addr = dest.clone();
+            }
+        }
+        Ok(stream)
     }
 }

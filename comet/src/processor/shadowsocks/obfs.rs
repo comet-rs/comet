@@ -1,14 +1,16 @@
-use crate::{check_eof, crypto::random::xor_rng};
 use crate::prelude::*;
 use crate::utils::io::eof;
+use crate::{check_eof, crypto::random::xor_rng};
 use crate::{delegate_flush, delegate_read, delegate_shutdown, delegate_write_all};
 use futures::ready;
 use lazy_static::lazy_static;
+use rand::{prelude::SliceRandom, thread_rng, Rng};
 use std::cmp;
 use std::task::Context;
 use tokio::io::ReadBuf;
 use tokio_util::io::poll_read_buf;
-use rand::{Rng, prelude::SliceRandom, thread_rng};
+
+use super::ObfsType;
 
 pub fn register(plumber: &mut Plumber) {
     plumber.register("ssr_obfs_client", |conf, _| {
@@ -53,6 +55,26 @@ pub struct ClientProcessor {
     config: ClientConfig,
 }
 
+impl ClientProcessor {
+    pub(super) fn new_param(obfs: ObfsType, param: &str, port: Option<u16>) -> Self {
+        let config = match obfs {
+            ObfsType::Plain => unimplemented!(),
+            ObfsType::HttpSimple => {
+                let hosts: Vec<SmolStr> = param.split(',').map(|s| s.into()).collect();
+                let headers = HashMap::new();
+
+                ClientConfig::HttpSimple {
+                    hosts,
+                    headers,
+                    port: port.unwrap_or(80),
+                }
+            }
+        };
+
+        Self { config }
+    }
+}
+
 #[async_trait]
 impl Processor for ClientProcessor {
     async fn process(
@@ -72,9 +94,9 @@ impl Processor for ClientProcessor {
             } => {
                 let host = if hosts.is_empty() {
                     if conn.dest_addr.domain.is_some() {
-                        format!("{}", conn.dest_addr.domain.as_ref().unwrap())
+                        conn.dest_addr.domain.as_ref().unwrap().to_string()
                     } else {
-                        format!("{}", conn.dest_addr.ip.as_ref().unwrap())
+                        conn.dest_addr.ip.as_ref().unwrap().to_string()
                     }
                 } else {
                     hosts.choose(&mut rng).unwrap().to_string()
@@ -215,8 +237,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for SimpleHttpWriter<W> {
                         ObfsHttpMethod::Get => "GET /",
                         ObfsHttpMethod::Post => "POST /",
                     });
-                    let encode_len =
-                        cmp::min(buf.len(), 30 + 16 + thread_rng().gen_range(0..64));
+                    let encode_len = cmp::min(buf.len(), 30 + 16 + thread_rng().gen_range(0..64));
                     full_header_buf.reserve(encode_len * 3);
                     for byte in &buf[..encode_len] {
                         let s = format!("{:x}", byte);

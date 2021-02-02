@@ -1,4 +1,4 @@
-use super::{NewOutboundHandler, Outbound, OutboundAddr, OutboundHandler};
+use super::{NewOutboundHandler, Outbound, OutboundHandler};
 use crate::prelude::*;
 use futures::{SinkExt, StreamExt};
 use once_cell::sync::OnceCell;
@@ -82,13 +82,6 @@ impl OutboundHandler for DashboardHandler {
         sender.send(uplink).await?;
 
         Ok(RWPair::new(downlink).into())
-    }
-
-    fn port(&self) -> Option<u16> {
-        None
-    }
-    fn addr(&self) -> Option<&OutboundAddr> {
-        None
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::TransportType;
 use anyhow::{anyhow, Result};
+use rand::{Rng, distributions::Alphanumeric, thread_rng};
 use serde_with::DeserializeFromStr;
 use smol_str::SmolStr;
 use std::borrow::Borrow;
@@ -121,6 +122,7 @@ impl From<IpAddr> for AddrType {
 
 #[derive(Debug)]
 pub struct Connection {
+    pub id: SmolStr,
     pub inbound_tag: SmolStr,
     pub inbound_pipeline: Option<SmolStr>,
     pub src_addr: SocketAddr,
@@ -128,6 +130,15 @@ pub struct Connection {
     pub variables: HashMap<SmolStr, Box<dyn Any + Send + Sync>>,
     pub typ: TransportType,
     pub internal: bool,
+}
+
+fn new_id() -> SmolStr {
+    let mut rng = thread_rng();
+    std::iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .map(char::from)
+        .take(7)
+        .collect()
 }
 
 impl Connection {
@@ -138,6 +149,7 @@ impl Connection {
         typ: TransportType,
     ) -> Self {
         Connection {
+            id: new_id(),
             inbound_tag: inbound_tag.into(),
             inbound_pipeline: inbound_pipeline.into(),
             src_addr: src_addr.into(),
@@ -161,8 +173,8 @@ impl fmt::Display for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
             f,
-            "{}:{}@{} -> {}",
-            self.typ, self.src_addr, self.inbound_tag, self.dest_addr
+            "({}) {}:{}@{} -> {}",
+            self.id,self.typ, self.src_addr, self.inbound_tag, self.dest_addr
         )
     }
 }

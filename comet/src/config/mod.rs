@@ -8,7 +8,7 @@ use tokio::fs::{create_dir_all, File};
 
 pub mod outbound;
 
-pub use outbound::{Outbound, OutboundAddr, OutboundTransportConfig, OutboundTransportType};
+pub use outbound::{Outbound, OutboundAddr, OutboundTransportType};
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {

@@ -1,7 +1,7 @@
-pub mod auth;
-pub mod handshake;
-pub mod obfs;
-pub mod stream_cipher;
+mod auth;
+mod handshake;
+mod obfs;
+mod stream_cipher;
 
 use crate::Plumber;
 use crate::{prelude::*, utils::urlsafe_base64_decode_string};
@@ -31,7 +31,7 @@ impl Default for ProtocolType {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Copy)]
 #[serde(rename_all(deserialize = "snake_case"))]
 enum ObfsType {
     Plain,
@@ -61,76 +61,99 @@ pub struct ClientConfig {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 enum SsrClientConfig {
-    Config(ClientConfig),
-    Url { url: String },
-}
-
-impl SsrClientConfig {
-    fn into_config(self) -> Result<ClientConfig> {
-        match self {
-            Self::Config(c) => Ok(c),
-            Self::Url { url } => Ok(parse_url(&url)?.1),
-        }
-    }
+    Config {
+        server: Option<DestAddr>,
+        #[serde(flatten)]
+        inner: ClientConfig,
+    },
+    Url {
+        url: String,
+    },
 }
 
 pub struct SsrClientProcessor {
-    obfs: Option<Box<dyn Processor>>,
-    cipher: Option<Box<dyn Processor>>,
-    protocol: Option<Box<dyn Processor>>,
-    handshake: ShadowsocksClientHandshakeProcessor,
+    obfs: Option<Arc<dyn Processor>>,
+    cipher: Option<Arc<dyn Processor>>,
+    auth: Option<Arc<dyn Processor>>,
+    handshake: Arc<ShadowsocksClientHandshakeProcessor>,
+    dest: Option<DestAddr>,
 }
 
 impl SsrClientProcessor {
-    fn new(config: ClientConfig) -> Result<Self> {
+    fn new(config: ClientConfig, dest: Option<DestAddr>) -> Result<Self> {
+        dbg!(&config);
         let handshake = handshake::ShadowsocksClientHandshakeProcessor::new();
 
         let protocol_param = config.protocol_param.as_str();
 
-        let protocol: Option<Box<dyn Processor>> = match config.protocol {
+        let auth: Option<Arc<dyn Processor>> = match config.protocol {
             ProtocolType::Origin => None,
-            ProtocolType::AuthAes128Md5 => Some(Box::new(auth::SsrClientAuthProcessor::new_param(
+            ProtocolType::AuthAes128Md5 => Some(Arc::new(auth::SsrClientAuthProcessor::new_param(
                 auth::SsrClientAuthType::AuthAes128Md5,
                 protocol_param,
             )?)),
             ProtocolType::AuthAes128Sha1 => {
-                Some(Box::new(auth::SsrClientAuthProcessor::new_param(
+                Some(Arc::new(auth::SsrClientAuthProcessor::new_param(
                     auth::SsrClientAuthType::AuthAes128Sha1,
                     protocol_param,
                 )?))
             }
         };
 
-        let cipher: Option<Box<dyn Processor>> = match config.method {
-            MethodType::Aes256Cfb => Some(Box::new(stream_cipher::ClientProcessor::new(
+        let cipher: Option<Arc<dyn Processor>> = match config.method {
+            MethodType::Aes256Cfb => Some(Arc::new(stream_cipher::ClientProcessor::new(
                 stream_cipher::SsStreamCipherKind::Aes256Cfb,
                 config.password.as_str(),
             ))),
         };
 
-        let obfs: Option<Box<dyn Processor>> = match config.obfs {
+        let obfs: Option<Arc<dyn Processor>> = match config.obfs {
             ObfsType::Plain => None,
-            ObfsType::HttpSimple => None,
+            _ => Some(Arc::new(obfs::ClientProcessor::new_param(
+                config.obfs,
+                config.obfs_param.as_str(),
+                dest.as_ref().and_then(|d| d.port),
+            ))),
         };
 
         Ok(Self {
             obfs,
             cipher,
-            protocol,
-            handshake,
+            auth,
+            handshake: Arc::new(handshake),
+            dest,
         })
     }
 }
 
 #[async_trait]
 impl Processor for SsrClientProcessor {
+    async fn prepare(self: Arc<Self>, conn: &mut Connection, _ctx: AppContextRef) -> Result<()> {
+        if let Some(dest) = &self.dest {
+            conn.dest_addr = dest.clone();
+        }
+        Ok(())
+    }
     async fn process(
         self: Arc<Self>,
-        stream: ProxyStream,
+        mut stream: ProxyStream,
         conn: &mut Connection,
         ctx: AppContextRef,
     ) -> Result<ProxyStream> {
-        todo!()
+        if let Some(obfs) = &self.obfs {
+            stream = obfs.clone().process(stream, conn, ctx.clone()).await?;
+        }
+        if let Some(cipher) = &self.cipher {
+            stream = cipher.clone().process(stream, conn, ctx.clone()).await?;
+        }
+        if let Some(auth) = &self.auth {
+            stream = auth.clone().process(stream, conn, ctx.clone()).await?;
+        }
+        stream = self.handshake.clone().process(stream, conn, ctx).await?;
+        if let Some(dest) = &self.dest {
+            conn.dest_addr = dest.clone();
+        }
+        Ok(stream)
     }
 }
 
@@ -139,13 +162,18 @@ pub fn register(plumber: &mut Plumber) {
     handshake::register(plumber);
     obfs::register(plumber);
     stream_cipher::register(plumber);
+    
     plumber.register("ssr_client", |config, _| {
         let config: SsrClientConfig = from_value(config)?;
-        let config = match config {
-            SsrClientConfig::Config(c) => c,
-            SsrClientConfig::Url { url } => parse_url(&url)?.1,
+        let (config, dest) = match config {
+            SsrClientConfig::Config { inner, server } => (inner, server),
+            SsrClientConfig::Url { url } => {
+                let (dest, config, _) = parse_url(&url)?;
+                (config, Some(dest))
+            }
         };
-        Ok(Box::new(SsrClientProcessor::new(config)?))
+
+        Ok(Box::new(SsrClientProcessor::new(config, dest)?))
     });
 }
 

@@ -17,7 +17,7 @@ fn setup_logger(level: LevelFilter) -> Result<(), fern::InitError> {
         .format(move |out, message, record| {
             let date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
             let level = colors_level.color(record.level());
-            let conn_id = CONN_ID.try_with(|id| id.clone()).ok();
+            let conn_id = CONN_ID.try_with(|id| *id).ok();
             let target = record.target();
 
             if let Some(conn_id) = conn_id {

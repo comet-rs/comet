@@ -22,7 +22,7 @@ use crate::prelude::*;
 use anyhow::Context;
 
 tokio::task_local! {
-    pub static CONN_ID: SmolStr;
+    pub static CONN_ID: ConnectionId;
 }
 
 pub async fn run(ctx: AppContextRef) -> Result<()> {

@@ -91,7 +91,7 @@ impl InboundManager {
                 TransportType::Tcp,
             );
 
-            info!("Inbound {}/TCP accepted from {}", tag, src_addr);
+            info!("({}) Inbound {}/TCP accepted from {}", conn.id, tag, src_addr);
 
             let stream = if inbound.metering {
                 RWPair::new(MeteredStream::new_inbound(
@@ -160,7 +160,7 @@ impl InboundManager {
                 inbound.pipeline.clone(),
                 TransportType::Udp,
             );
-            info!("Inbound {}/UDP accepted from {}", tag, src_addr);
+            info!("({}) Inbound {}/UDP accepted from {}", conn.id, tag, src_addr);
 
             sender
                 .send((

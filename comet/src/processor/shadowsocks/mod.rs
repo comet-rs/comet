@@ -81,7 +81,6 @@ pub struct SsrClientProcessor {
 
 impl SsrClientProcessor {
     fn new(config: ClientConfig, dest: Option<DestAddr>) -> Result<Self> {
-        dbg!(&config);
         let handshake = handshake::ShadowsocksClientHandshakeProcessor::new();
 
         let protocol_param = config.protocol_param.as_str();
@@ -162,7 +161,7 @@ pub fn register(plumber: &mut Plumber) {
     handshake::register(plumber);
     obfs::register(plumber);
     stream_cipher::register(plumber);
-    
+
     plumber.register("ssr_client", |config, _| {
         let config: SsrClientConfig = from_value(config)?;
         let (config, dest) = match config {

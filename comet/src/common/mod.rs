@@ -6,7 +6,7 @@ mod context;
 mod packet;
 mod rwpair;
 
-pub use connection::{AddrType, Connection, DestAddr, vars};
+pub use connection::{vars, AddrType, Connection, ConnectionId, DestAddr};
 pub use context::{AppContext, AppContextRef};
 pub use packet::{UdpPacket, UdpStream};
 pub use rwpair::RWPair;

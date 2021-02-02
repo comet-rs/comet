@@ -1,6 +1,6 @@
 use crate::TransportType;
 use anyhow::{anyhow, Result};
-use rand::{Rng, distributions::Alphanumeric, thread_rng};
+use rand::{distributions::Alphanumeric, prelude::Distribution, thread_rng};
 use serde_with::DeserializeFromStr;
 use smol_str::SmolStr;
 use std::borrow::Borrow;
@@ -120,9 +120,32 @@ impl From<IpAddr> for AddrType {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConnectionId([u8; 4]);
+
+impl ConnectionId {
+    pub fn new_rand() -> Self {
+        let mut rng = thread_rng();
+        let arr = [
+            Alphanumeric.sample(&mut rng),
+            Alphanumeric.sample(&mut rng),
+            Alphanumeric.sample(&mut rng),
+            Alphanumeric.sample(&mut rng),
+        ];
+        Self(arr)
+    }
+}
+
+impl std::fmt::Display for ConnectionId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = unsafe { std::str::from_utf8_unchecked(&self.0) };
+        f.write_str(s)
+    }
+}
+
 #[derive(Debug)]
 pub struct Connection {
-    pub id: SmolStr,
+    pub id: ConnectionId,
     pub inbound_tag: SmolStr,
     pub inbound_pipeline: Option<SmolStr>,
     pub src_addr: SocketAddr,
@@ -130,15 +153,6 @@ pub struct Connection {
     pub variables: HashMap<SmolStr, Box<dyn Any + Send + Sync>>,
     pub typ: TransportType,
     pub internal: bool,
-}
-
-fn new_id() -> SmolStr {
-    let mut rng = thread_rng();
-    std::iter::repeat(())
-        .map(|()| rng.sample(Alphanumeric))
-        .map(char::from)
-        .take(7)
-        .collect()
 }
 
 impl Connection {
@@ -149,7 +163,7 @@ impl Connection {
         typ: TransportType,
     ) -> Self {
         Connection {
-            id: new_id(),
+            id: ConnectionId::new_rand(),
             inbound_tag: inbound_tag.into(),
             inbound_pipeline: inbound_pipeline.into(),
             src_addr: src_addr.into(),
@@ -174,7 +188,7 @@ impl fmt::Display for Connection {
         write!(
             f,
             "({}) {}:{}@{} -> {}",
-            self.id,self.typ, self.src_addr, self.inbound_tag, self.dest_addr
+            self.id, self.typ, self.src_addr, self.inbound_tag, self.dest_addr
         )
     }
 }

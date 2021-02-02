@@ -3,8 +3,6 @@ use matching::MatchMode;
 use crate::config::Config;
 use crate::prelude::*;
 
-use self::matching::MatchCondition;
-
 pub mod matching;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -73,6 +71,7 @@ impl Router {
         if let Some(res) = self.try_match_conn(conn, MatchMode::Any, ctx).await {
             return res;
         }
+        
         if self.config.resolve == Resolve::IfNonMatch {
             debug!(
                 "{} first match attempt unsuccessful, retrying with IP",

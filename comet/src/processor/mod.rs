@@ -10,6 +10,7 @@ pub mod sniffer;
 pub mod socks5_proxy;
 pub mod switch;
 pub mod timeout;
+#[cfg(feature = "tls-mitm")]
 pub mod tls_mitm;
 
 use crate::app::plumber::Plumber;
@@ -27,5 +28,6 @@ pub fn do_register(plumber: &mut Plumber) {
     shadowsocks::register(plumber);
     timeout::register(plumber);
     any_proxy::register(plumber);
+    #[cfg(feature = "tls-mitm")]
     tls_mitm::register(plumber);
 }

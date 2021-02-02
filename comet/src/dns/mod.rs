@@ -1,13 +1,18 @@
 #![allow(unused_imports)]
+use crate::config::Config;
 use crate::net_wrapper::bind_udp;
 use crate::prelude::*;
-use crate::{config::Config, processor::tls_mitm};
 use crate::{crypto::random::xor_rng, router::matching::MatchCondition};
 use anyhow::anyhow;
 use lru_cache::LruCache;
 use rand::Rng;
 use socket::{CustomTokioResolver, CustomTokioRuntime};
-use std::{borrow::Cow, net::{IpAddr, Ipv4Addr, SocketAddr}, task::Context, time::Duration};
+use std::{
+    borrow::Cow,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    task::Context,
+    time::Duration,
+};
 use std::{str::FromStr, time::SystemTime};
 use tokio::sync::{Mutex, RwLock};
 use trust_dns_resolver::{
@@ -49,7 +54,7 @@ pub struct DnsConfigItem {
     #[serde(default)]
     /// Requests will not go through Comet's network stack, reducing
     /// latency.
-    direct: bool
+    direct: bool,
 }
 
 fn default_timeout() -> Duration {

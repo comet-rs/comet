@@ -8,7 +8,6 @@ pub mod http;
 pub mod shadowsocks;
 pub mod sniffer;
 pub mod socks5_proxy;
-pub mod switch;
 pub mod timeout;
 #[cfg(feature = "tls-mitm")]
 pub mod tls_mitm;

@@ -31,6 +31,21 @@ impl RWPair {
     ) -> RWPair {
         Self::Parts(Box::new(read_half), Box::new(write_half))
     }
+
+    pub fn split(
+        self,
+    ) -> (
+        Box<dyn AsyncRead + Unpin + Send + Sync>,
+        Box<dyn AsyncWrite + Unpin + Send + Sync>,
+    ) {
+        match self {
+            RWPair::Full(f) => {
+                let (r, w) = tokio::io::split(f);
+                (Box::new(r), Box::new(w))
+            }
+            RWPair::Parts(r, w) => (r, w),
+        }
+    }
 }
 
 impl AsyncRead for RWPair {

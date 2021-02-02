@@ -46,6 +46,7 @@ impl SsStreamCipherKind {
             cipher_kind.key_len(),
         )
     }
+
     fn generate_salt(&self) -> Result<Bytes> {
         let cipher_kind: StreamCipherKind = (*self).into();
         let salt_len = cipher_kind.iv_len().unwrap();
@@ -57,6 +58,7 @@ impl SsStreamCipherKind {
         random::rand_bytes(&mut salt)?;
         Ok(salt.freeze())
     }
+
     fn to_crypter(
         &self,
         mode: CrypterMode,
@@ -100,7 +102,9 @@ impl Processor for ClientProcessor {
     ) -> Result<ProxyStream> {
         let stream = stream.into_tcp()?;
         let salt = self.method.generate_salt()?;
+
         let stream = ClientStream::new(stream, self.method, &self.master_key, &salt)?;
+        
         conn.set_var("ss-salt", salt);
         conn.set_var("ss-key", self.master_key.clone());
 

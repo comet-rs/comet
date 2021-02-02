@@ -14,7 +14,7 @@ pub async fn handle_conn(
         ctx.clone_plumber()
             .process(&inbound_pipeline, conn, stream, ctx.clone())
             .await
-            .with_context(|| format!("When running inbound pipeline {}", inbound_pipeline))?
+            .with_context(|| format!("running inbound pipeline {}", inbound_pipeline))?
     } else {
         stream
     };
@@ -29,36 +29,35 @@ pub async fn handle_conn(
         .outbound_manager
         .connect(&outbound_tag, conn, &ctx)
         .await
-        .with_context(|| format!("When connecting outbound {}", outbound_tag))?;
+        .with_context(|| format!("connecting outbound {}", outbound_tag))?;
 
     if let Some(outbound_pipeline) = ctx.outbound_manager.get_pipeline(outbound_tag)? {
         outbound = ctx
             .clone_plumber()
             .process(&outbound_pipeline, conn, outbound, ctx.clone())
             .await
-            .with_context(|| format!("When running outbound pipeline {}", outbound_pipeline))?;
+            .with_context(|| format!("running outbound pipeline {}", outbound_pipeline))?;
     }
 
     match (stream, outbound) {
         (ProxyStream::Tcp(stream), ProxyStream::Tcp(outbound)) => {
-            use tokio::io::{copy, split};
+            let mut uplink = outbound.split();
+            let mut downlink = stream.split();
 
-            let mut uplink = split(outbound);
-            let mut downlink = split(stream);
-
-            let c2s = copy(&mut downlink.0, &mut uplink.1);
-            let s2c = copy(&mut uplink.0, &mut downlink.1);
+            let c2s = tokio::io::copy(&mut downlink.0, &mut uplink.1);
+            let s2c = tokio::io::copy(&mut uplink.0, &mut downlink.1);
 
             tokio::select! {
               res = c2s => {
                 return Ok(res.map(|_| {
-                  debug!("{} Client -> Server closed", conn);
-                }).with_context(|| "When copying client -> server")?);
+                  debug!("{} client -> server closed", conn);
+                }).with_context(|| "copying client -> server")?);
               }
+
               res = s2c => {
                 return Ok(res.map(|_| {
-                  debug!("{} Server -> Client closed", conn);
-                }).with_context(|| "When copying server -> client")?);
+                  debug!("{} server -> client closed", conn);
+                }).with_context(|| "copying server -> client")?);
               }
             }
         }

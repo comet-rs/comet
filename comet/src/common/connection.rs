@@ -1,12 +1,12 @@
 use crate::TransportType;
 use anyhow::{anyhow, Result};
 use smol_str::SmolStr;
-use std::any::Any;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt;
 use std::net::IpAddr;
 use std::net::SocketAddr;
+use std::{any::Any, str::FromStr};
 
 #[derive(Debug, Default, Clone)]
 pub struct DestAddr {
@@ -63,6 +63,14 @@ impl DestAddr {
     pub fn is_valid(&self) -> bool {
         (self.domain.is_some() || self.ip.is_some()) && self.port.is_some()
     }
+
+    pub fn set_host_from_str(&mut self, host: &str) {
+        if let Ok(ip) = IpAddr::from_str(host) {
+            self.ip = Some(ip);
+        } else {
+            self.domain = Some(host.into());
+        }
+    }
 }
 
 impl fmt::Display for DestAddr {
@@ -73,6 +81,25 @@ impl fmt::Display for DestAddr {
             .map(|ip| ip.to_string())
             .unwrap_or_else(|| "?".to_string());
         write!(f, "[{}/{}]:{}", domain, ip, self.port.unwrap_or(0))
+    }
+}
+
+impl FromStr for DestAddr {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let mut this = Self::default();
+
+        let mut split = s.splitn(2, ':');
+        let host = split.next().unwrap();
+        this.port = split
+            .next()
+            .map(|port_s| u16::from_str_radix(port_s, 10))
+            .transpose()?;
+
+        this.set_host_from_str(host);
+
+        Ok(this)
     }
 }
 

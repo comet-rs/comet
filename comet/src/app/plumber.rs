@@ -115,10 +115,23 @@ impl Pipeline {
 
 #[async_trait]
 pub trait Processor: Send + Sync {
+    /// Prepares the context and connection before a outbound connection.
+    /// DOES NOT RUN when used as inbound processor.
+    ///
+    /// Defaults to a no-op.
+    async fn prepare(self: Arc<Self>, _conn: &mut Connection, _ctx: AppContextRef) -> Result<()> {
+        Ok(())
+    }
+    
+    /// Processing and wrapping of a proxy stream.
+    ///
+    /// Defaults to a no-op.
     async fn process(
         self: Arc<Self>,
         stream: ProxyStream,
-        conn: &mut Connection,
-        ctx: AppContextRef,
-    ) -> Result<ProxyStream>;
+        _conn: &mut Connection,
+        _ctx: AppContextRef,
+    ) -> Result<ProxyStream> {
+        Ok(stream)
+    }
 }

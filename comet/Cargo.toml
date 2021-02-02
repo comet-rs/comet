@@ -23,7 +23,7 @@ hyper = "0.14"
 tungstenite = { version = "0.12", default-features = false }
 tokio-tungstenite = "0.13"
 warp = { version = "0.3", default-features = false, features = ["websocket"] }
-rcgen = { version = "0.8", features = ["x509-parser"] }
+rcgen = { version = "0.8", features = ["x509-parser"], optional = true }
 tokio-rustls = { version = "0.22", optional = true }
 
 # Async
@@ -44,7 +44,7 @@ ipnetwork = "0.17"
 smol_str = { version = "0.1", features = ["serde"] }
 
 once_cell = "1.5"
-pin-project-lite = "0.2.0"
+pin-project-lite = "0.2"
 flurry = "0.3.1"
 base64 = "0.13.0"
 rand_xorshift = "0.3.0"
@@ -72,7 +72,7 @@ cipher = "0.2"
 hmac = "0.10"
 
 [features]
-default = ["use-native-tls"]
+default = ["use-rustls"]
 use-rustls = [
   "trust-dns-resolver/dns-over-tls",
   "trust-dns-resolver/dns-over-https-rustls",
@@ -80,7 +80,7 @@ use-rustls = [
   "reqwest/rustls-tls-webpki-roots",
   "tokio-rustls",
 ]
-tls-mitm = ["tokio-rustls"]
+tls-mitm = ["tokio-rustls", "rcgen"]
 use-native-tls = [
   "trust-dns-resolver/dns-over-tls",
   "trust-dns-resolver/dns-over-native-tls",

@@ -12,6 +12,7 @@ pub mod protos;
 pub mod router;
 pub mod rule_provider;
 pub mod utils;
+pub mod server_provider;
 
 #[cfg(target_os = "android")]
 pub mod android;

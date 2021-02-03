@@ -67,10 +67,6 @@ libc = "0.2"
 nix = "0.19"
 pnet = "0.27.2"
 
-[target.'cfg(target_os = "windows")'.dependencies]
-cipher = "0.2"
-hmac = "0.10"
-
 [features]
 default = ["use-rustls"]
 use-rustls = [

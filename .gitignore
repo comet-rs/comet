@@ -3,3 +3,4 @@
 rls*.log
 config.yml
 *.der
+/data/

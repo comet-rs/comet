@@ -97,6 +97,8 @@ impl<'a> TryFrom<&GeoSite<'a>> for RuleSet {
             .anchored(true)
             .build(&domains);
 
+        debug!("Aho Corasick takes {} bytes", ac.heap_bytes());
+
         let ret = Self::Domain {
             full_domains,
             keywords,

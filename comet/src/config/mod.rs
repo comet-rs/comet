@@ -1,4 +1,4 @@
-use crate::{dns::DnsConfig, prelude::*, router::RouterConfig, rule_provider::ProviderConfig};
+use crate::{dns::DnsConfig, prelude::*, router::RouterConfig};
 use anyhow::Result;
 use serde::Deserialize;
 use smol_str::SmolStr;
@@ -24,7 +24,9 @@ pub struct Config {
     #[cfg(target_os = "android")]
     pub android: AndroidConfig,
     #[serde(default)]
-    pub rule_providers: HashMap<SmolStr, ProviderConfig>,
+    pub rule_providers: HashMap<SmolStr, crate::rule_provider::ProviderConfig>,
+    #[serde(default)]
+    pub server_providers: HashMap<SmolStr, crate::server_provider::ProviderConfig>,
     #[serde(default)]
     pub dns: DnsConfig,
 }

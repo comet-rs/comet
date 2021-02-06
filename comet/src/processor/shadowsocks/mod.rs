@@ -167,8 +167,8 @@ pub fn register(plumber: &mut Plumber) {
         let (config, dest) = match config {
             SsrClientConfig::Config { inner, server } => (inner, server),
             SsrClientConfig::Url { url } => {
-                let (dest, config, _) = parse_url(&url)?;
-                (config, Some(dest))
+                let item = parse_url(&url)?;
+                (item.config, Some(item.dest))
             }
         };
 
@@ -176,7 +176,14 @@ pub fn register(plumber: &mut Plumber) {
     });
 }
 
-pub fn parse_url(url: &str) -> Result<(DestAddr, ClientConfig, HashMap<SmolStr, String>)> {
+#[derive(Debug, Clone)]
+pub struct SsrUrlItem {
+    pub dest: DestAddr,
+    pub config: ClientConfig,
+    pub extras: HashMap<SmolStr, String>,
+}
+
+pub fn parse_url(url: &str) -> Result<SsrUrlItem> {
     let mut dest = DestAddr::default();
 
     let encoded = url
@@ -235,5 +242,15 @@ pub fn parse_url(url: &str) -> Result<(DestAddr, ClientConfig, HashMap<SmolStr, 
         obfs_param: obfs_param.into(),
     };
 
-    Ok((dest, config, extras))
+    Ok(SsrUrlItem {
+        dest,
+        config,
+        extras,
+    })
+}
+
+pub fn parse_subscription(content: &str) -> Result<Vec<SsrUrlItem>> {
+    let decoded = base64::decode(content)?;
+    let decoded_str = std::str::from_utf8(&decoded)?;
+    decoded_str.lines().map(parse_url).collect()
 }

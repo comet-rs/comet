@@ -322,6 +322,7 @@ dependencies = [
  "net2",
  "nix",
  "once_cell",
+ "pin-project 1.0.4",
  "pin-project-lite",
  "pnet",
  "quick-protobuf",

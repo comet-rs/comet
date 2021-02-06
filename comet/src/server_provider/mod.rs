@@ -93,12 +93,12 @@ impl ManagerServer {
     }
 
     async fn run(mut self) {
-        let url = "https://api.touhou.center/link/VvyEQXSCboXSqbqR?mu=0";
-        let res = reqwest::get(url).await.unwrap();
-        let buf = res.bytes().await.unwrap();
-        let buf_s = std::str::from_utf8(&buf).unwrap();
-        let parsed = shadowsocks::parse_subscription(buf_s);
-        dbg!(parsed);
+        // let url = "https://api.touhou.center/link/VvyEQXSCboXSqbqR?mu=0";
+        // let res = reqwest::get(url).await.unwrap();
+        // let buf = res.bytes().await.unwrap();
+        // let buf_s = std::str::from_utf8(&buf).unwrap();
+        // let parsed = shadowsocks::parse_subscription(buf_s);
+        // dbg!(parsed);
     }
 }
 

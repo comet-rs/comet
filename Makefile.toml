@@ -1,0 +1,12 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+RUSTFLAGS = "-Ctarget-cpu=skylake -Ctarget-feature=+aes,+sse2,+sse4.1,+ssse3"
+
+[tasks.run]
+command = "cargo"
+env = { RUSTFLAGS = "" }
+args = ["run", "-p", "comet-bin"]
+
+[tasks.release]
+command = "cargo"
+args = ["build", "-p", "comet-bin", "--release"]

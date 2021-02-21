@@ -4,7 +4,7 @@ use std::{
     net::Ipv4Addr,
 };
 
-use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
+use itertools::Itertools;
 use regex::Regex;
 
 use crate::{
@@ -19,7 +19,7 @@ pub enum RuleSet {
         full_domains: HashSet<SmolStr>,
         keywords: Vec<SmolStr>,
         regexes: Vec<Regex>,
-        domains: Box<AhoCorasick>,
+        domains: HashSet<SmolStr>,
     },
     Ip {
         v4: Ipv4List,
@@ -40,7 +40,7 @@ impl RuleSet {
                 _,
             ) => {
                 mode.domain()
-                    && (domains.is_match(&to_reversed_fqdn(domain))
+                    && (match_domain(domain, domains)
                         || full_domains.contains(domain)
                         || regexes.iter().any(|re| re.is_match(domain))
                         || keywords.iter().any(|kw| domain.contains(kw.as_str())))
@@ -58,11 +58,27 @@ impl RuleSet {
 }
 
 /// Converts `www.google.com` to `com.google.www.` for easier prefix matching
-pub fn to_reversed_fqdn(domain: &str) -> String {
+pub fn to_reversed_fqdn(domain: &str) -> impl Iterator<Item = &str> {
     // www.google.com => [com,google,www]
     let rev = domain.split('.').rev();
+
     // com.google.www. or cn.
-    rev.chain(std::iter::once("")).collect::<Vec<_>>().join(".")
+    let dots = std::iter::repeat_with(|| ".");
+    rev.interleave_shortest(dots)
+}
+
+fn match_domain(domain: &str, set: &HashSet<SmolStr>) -> bool {
+    let rev = to_reversed_fqdn(domain).collect_vec();
+
+    for i in (2..rev.len()).step_by(2) {
+        let s = rev[0..i].iter().map(|s| *s).collect::<SmolStr>();
+
+        if set.contains(&s) {
+            return true;
+        }
+    }
+
+    false
 }
 
 impl<'a> TryFrom<&GeoSite<'a>> for RuleSet {
@@ -70,9 +86,10 @@ impl<'a> TryFrom<&GeoSite<'a>> for RuleSet {
 
     fn try_from(value: &GeoSite) -> Result<Self> {
         use crate::protos::v2ray::config::mod_Domain::Type as DomainType;
+
         let mut full_domains = HashSet::new();
         let mut keywords = vec![];
-        let mut domains = vec![];
+        let mut domains = HashSet::new();
         let mut regexes = vec![];
 
         for domain in &value.domain {
@@ -84,7 +101,7 @@ impl<'a> TryFrom<&GeoSite<'a>> for RuleSet {
                     regexes.push(Regex::new(&domain.value)?);
                 }
                 DomainType::Domain => {
-                    domains.push(to_reversed_fqdn(&domain.value));
+                    domains.insert(to_reversed_fqdn(&domain.value).collect());
                 }
                 DomainType::Full => {
                     full_domains.insert(SmolStr::from(domain.value.as_ref()));
@@ -92,18 +109,11 @@ impl<'a> TryFrom<&GeoSite<'a>> for RuleSet {
             }
         }
 
-        let ac = AhoCorasickBuilder::new()
-            .auto_configure(&domains)
-            .anchored(true)
-            .build(&domains);
-
-        debug!("Aho Corasick takes {} bytes", ac.heap_bytes());
-
         let ret = Self::Domain {
             full_domains,
             keywords,
             regexes,
-            domains: Box::new(ac),
+            domains,
         };
 
         Ok(ret)

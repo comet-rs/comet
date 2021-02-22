@@ -49,7 +49,7 @@ impl SsStreamCipherKind {
 
     fn generate_salt(&self) -> Result<Bytes> {
         let cipher_kind: StreamCipherKind = (*self).into();
-        let salt_len = cipher_kind.iv_len().unwrap();
+        let salt_len = cipher_kind.iv_len();
         let mut salt = BytesMut::with_capacity(salt_len);
         unsafe {
             salt.set_len(salt_len);

@@ -23,6 +23,7 @@ pub trait Hasher {
     fn finish(&mut self) -> Bytes;
 }
 
+#[derive(Clone)]
 enum SsHasherInner {
     Md5(ss_hash::Md5),
     Sha1(ss_hash::Sha1),
@@ -50,6 +51,7 @@ impl SsHasherInner {
     }
 }
 
+#[derive(Clone)]
 pub struct SsHasher(Option<SsHasherInner>);
 
 impl SsHasher {
@@ -75,6 +77,7 @@ pub trait Signer {
     fn finish(&mut self) -> Bytes;
 }
 
+#[derive(Clone)]
 pub enum SsSignerInner {
     Md5(ss_mac::HmacMd5),
     Sha1(ss_mac::HmacSha1),
@@ -123,8 +126,8 @@ impl Signer for SsSigner {
     }
 }
 
-pub fn new_hasher(kind: HashKind) -> Box<dyn Hasher> {
-    Box::new(SsHasher::new(kind))
+pub fn new_hasher(kind: HashKind) -> SsHasher {
+    SsHasher::new(kind)
 }
 
 pub fn hash_bytes(kind: HashKind, input: &[u8]) -> Bytes {
@@ -133,8 +136,8 @@ pub fn hash_bytes(kind: HashKind, input: &[u8]) -> Bytes {
     hasher.finish()
 }
 
-pub fn new_signer(kind: HashKind, key: &[u8]) -> Box<dyn Signer> {
-    Box::new(SsSigner::new(kind, key))
+pub fn new_signer(kind: HashKind, key: &[u8]) -> SsSigner {
+    SsSigner::new(kind, key)
 }
 
 pub fn sign_bytes(kind: HashKind, key: &[u8], input: &[u8]) -> Bytes {

@@ -1,5 +1,6 @@
 {
   "rust-analyzer.procMacro.enable": true,
-  "rust-analyzer.cargo.loadOutDirsFromCheck": true
+  "rust-analyzer.cargo.loadOutDirsFromCheck": true,
+  "editor.tabSize": 4,
   // "rust-analyzer.cargo.target": "x86_64-pc-windows-gnu"
 }

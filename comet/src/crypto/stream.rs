@@ -34,13 +34,13 @@ impl StreamCipherKind {
         mode: CrypterMode,
         key: &'a [u8],
         iv: &'a [u8],
-    ) -> Result<Box<dyn StreamCrypter>> {
+    ) -> Result<SsCrypter> {
         let crypter = SsCrypter::new(mode, self, key, iv);
-        Ok(Box::new(crypter))
+        Ok(crypter)
     }
 }
 
-struct SsCrypter {
+pub struct SsCrypter {
     inner: Cipher,
     mode: CrypterMode,
 }

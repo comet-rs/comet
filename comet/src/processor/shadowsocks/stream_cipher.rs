@@ -1,3 +1,4 @@
+use crate::crypto::stream::StreamCrypter;
 use crate::prelude::*;
 use crate::utils::io::*;
 use crate::{check_eof, crypto::*};
@@ -59,12 +60,7 @@ impl SsStreamCipherKind {
         Ok(salt.freeze())
     }
 
-    fn to_crypter(
-        &self,
-        mode: CrypterMode,
-        key: &[u8],
-        salt: &[u8],
-    ) -> Result<Box<dyn stream::StreamCrypter>> {
+    fn to_crypter(&self, mode: CrypterMode, key: &[u8], salt: &[u8]) -> Result<stream::SsCrypter> {
         let cipher_kind: stream::StreamCipherKind = (*self).into();
         cipher_kind.to_crypter(mode, key, salt)
     }
@@ -104,10 +100,9 @@ impl Processor for ClientProcessor {
         let salt = self.method.generate_salt()?;
 
         let stream = ClientStream::new(stream, self.method, &self.master_key, &salt)?;
-        
+
         conn.set_var(vars::SS_KEY, self.master_key.clone());
         conn.set_var(vars::SS_SALT, salt);
-        
 
         Ok(RWPair::new(stream).into())
     }
@@ -116,7 +111,7 @@ impl Processor for ClientProcessor {
 struct ClientStream<RW> {
     inner: RW,
     // Writing
-    encrypter: Box<dyn stream::StreamCrypter>,
+    encrypter: stream::SsCrypter,
     write_state: WriteState,
     write_buf: BytesMut,
     // Reading
@@ -214,7 +209,7 @@ enum ReadState {
         method: SsStreamCipherKind,
         salt_buf: Limit<BytesMut>,
     },
-    ReadData(Box<dyn stream::StreamCrypter>),
+    ReadData(stream::SsCrypter),
 }
 
 impl<RW: AsyncRead + Unpin> AsyncRead for ClientStream<RW> {

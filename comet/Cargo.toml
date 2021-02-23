@@ -61,6 +61,7 @@ uuid = { version = "0.8", features = ["serde", "v4"] }
 lz_fnv = "0.1"
 
 crypto2 = "0.1.1"
+sha3 = "0.9.1"
 shadowsocks-crypto = { version = "0.1.2", features = ["v1-stream"] }
 enum-utils = "0.1"
 itertools = "0.10.0"

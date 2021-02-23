@@ -26,8 +26,8 @@ impl UserId {
         self.uuid
     }
 
-    pub fn cmd_key(&self) -> &[u8] {
-        &self.cmd_key[..]
+    pub fn cmd_key(&self) -> [u8; ID_BYTES_LEN] {
+        self.cmd_key
     }
 }
 
@@ -53,7 +53,7 @@ fn next_id(uuid: Uuid) -> Uuid {
     }
 }
 
-pub fn new_alter_ids(primary: UserId, count: u16) -> Vec<UserId> {
+pub fn new_alter_ids(primary: &UserId, count: u16) -> Vec<UserId> {
     let mut ret = Vec::with_capacity(count as usize);
 
     let mut prev = primary.uuid();

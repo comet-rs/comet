@@ -38,9 +38,9 @@ impl AeadCipherKind {
         mode: CrypterMode,
         key: &'a [u8],
         nonce: N,
-    ) -> Result<Box<dyn AeadCrypter + 'a>> {
+    ) -> Result<SsCrypter<N>> {
         let crypter = SsCrypter::new(mode, *self, key, nonce);
-        Ok(Box::new(crypter))
+        Ok(crypter)
     }
 }
 
@@ -86,7 +86,7 @@ impl SsCrypterInner {
     }
 }
 
-struct SsCrypter<N> {
+pub struct SsCrypter<N> {
     inner: SsCrypterInner,
     mode: CrypterMode,
     nonce: N,
@@ -99,6 +99,10 @@ impl<N: NonceSeq> SsCrypter<N> {
             mode,
             nonce,
         }
+    }
+
+    pub fn tag_len(&self) -> usize {
+        self.inner.tag_len()
     }
 }
 

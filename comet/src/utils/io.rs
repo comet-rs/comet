@@ -18,7 +18,7 @@ macro_rules! delegate_write {
     () => {
         fn poll_write(
             mut self: std::pin::Pin<&mut Self>,
-            cx: &mut Context<'_>,
+            cx: &mut std::task::Context<'_>,
             buf: &[u8],
         ) -> Poll<std::io::Result<usize>> {
             Pin::new(&mut self.inner).poll_write(cx, buf)
@@ -29,7 +29,10 @@ macro_rules! delegate_write {
 #[macro_export]
 macro_rules! delegate_flush {
     () => {
-        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        fn poll_flush(
+            mut self: Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> Poll<std::io::Result<()>> {
             Pin::new(&mut self.inner).poll_flush(cx)
         }
     };
@@ -40,7 +43,7 @@ macro_rules! delegate_shutdown {
     () => {
         fn poll_shutdown(
             mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
+            cx: &mut std::task::Context<'_>,
         ) -> Poll<std::io::Result<()>> {
             Pin::new(&mut self.inner).poll_shutdown(cx)
         }
@@ -53,8 +56,8 @@ macro_rules! delegate_read {
         impl<R: AsyncRead + Unpin> AsyncRead for $type<R> {
             fn poll_read(
                 mut self: Pin<&mut Self>,
-                cx: &mut Context<'_>,
-                buf: &mut ReadBuf<'_>,
+                cx: &mut std::task::Context<'_>,
+                buf: &mut tokio::io::ReadBuf<'_>,
             ) -> Poll<std::io::Result<()>> {
                 Pin::new(&mut self.inner).poll_read(cx, buf)
             }

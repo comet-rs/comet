@@ -109,7 +109,7 @@ impl<N: NonceSeq> SsCrypter<N> {
 impl<N: NonceSeq> AeadCrypter for SsCrypter<N> {
     fn update(&mut self, in_out: &mut [u8]) -> Result<usize> {
         let tag_len = self.inner.tag_len();
-        debug_assert!(in_out.len() > tag_len);
+        debug_assert!(in_out.len() >= tag_len);
 
         let nonce = self
             .nonce

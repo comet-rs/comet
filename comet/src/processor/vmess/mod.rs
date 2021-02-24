@@ -12,6 +12,7 @@ use crate::{
 };
 use bytes::BufMut;
 use futures::ready;
+use futures_io::ErrorKind;
 use tokio_util::io::poll_read_buf;
 use uuid::Uuid;
 
@@ -22,6 +23,14 @@ use self::{
     crypto::{ShakeGenerator, VmessNonceSeq},
     session::ClientSession,
 };
+
+pub fn register(plumber: &mut Plumber) {
+    plumber.register("vmess_client", |conf, _| {
+        let config: ClientConfig = from_value(conf)?;
+        let processor = ClientProcessor::new(config);
+        Ok(Box::new(processor))
+    });
+}
 
 const MAX_LEN: usize = 16384;
 const MAX_PADDING_LEN: usize = 64;
@@ -108,6 +117,7 @@ struct ClientReader<R> {
     read_buf: BytesMut,
     shake: ShakeGenerator,
     crypter: aead::SsCrypter<VmessNonceSeq>,
+    session: Arc<ClientSession>,
 }
 
 impl<R: AsyncRead + Unpin> ClientReader<R> {
@@ -131,7 +141,7 @@ impl<R: AsyncRead + Unpin> ClientReader<R> {
             }
             SecurityType::Auto => unimplemented!(),
         };
-        let state = ClientReaderState::ReadHeader(session);
+        let state = ClientReaderState::ReadHeader;
 
         Ok(Self {
             inner,
@@ -140,6 +150,7 @@ impl<R: AsyncRead + Unpin> ClientReader<R> {
             read_buf,
             shake,
             crypter,
+            session,
         })
     }
 
@@ -148,29 +159,35 @@ impl<R: AsyncRead + Unpin> ClientReader<R> {
         cx: &mut std::task::Context<'_>,
         len: usize,
     ) -> Poll<IoResult<()>> {
-        let rem = self.read_buf.remaining_mut();
-        if rem < len {
-            self.read_buf.reserve(len - rem);
-        }
+        loop {
+            let cur_len = self.read_buf.len();
+            if cur_len >= len {
+                return Poll::Ready(Ok(()));
+            }
 
-        if ready!(poll_read_buf(
-            Pin::new(&mut self.inner),
-            cx,
-            &mut self.read_buf
-        ))? == 0
-        {
-            Poll::Ready(Err(eof()))
-        } else {
-            Poll::Ready(Ok(()))
+            let len_to_read = len - cur_len;
+            let rem = self.read_buf.remaining_mut();
+            if rem < len_to_read {
+                self.read_buf.reserve(len_to_read - rem);
+            }
+
+            if ready!(poll_read_buf(
+                Pin::new(&mut self.inner),
+                cx,
+                &mut self.read_buf
+            ))? == 0
+            {
+                return Poll::Ready(Err(eof()));
+            }
         }
     }
 }
 
 enum ClientReaderState {
-    ReadHeader(Arc<ClientSession>),
+    ReadHeader,
     ReadLength,
     ReadData { length: usize, padding: usize },
-    ConsumeData { buf: BytesMut },
+    ConsumeData { decrypted: BytesMut },
 }
 
 impl<R: AsyncRead + Unpin> AsyncRead for ClientReader<R> {
@@ -185,60 +202,54 @@ impl<R: AsyncRead + Unpin> AsyncRead for ClientReader<R> {
 
         let me = &mut *self;
         loop {
-            match &mut me.state {
-                ClientReaderState::ReadHeader(sess) => {
-                    if me.read_buf.len() >= 4 {
-                        let header = me.read_buf.split_to(4);
-                        sess.decode_response_header(&header)
-                            .map_err(|e| io_other_error(e))?;
-
-                        me.state = ClientReaderState::ReadLength;
-                    }
-
+            match me.state {
+                ClientReaderState::ReadHeader => {
                     ready!(me.poll_fill_at_least(cx, 4))?;
+
+                    let header = me.read_buf.split_to(4);
+                    me.session
+                        .decode_response_header(&header)
+                        .map_err(|e| io_other_error(e))?;
+
+                    me.state = ClientReaderState::ReadLength;
                 }
                 ClientReaderState::ReadLength => {
-                    if me.read_buf.len() >= 2 {
-                        // Order matters, read padding size first.
-                        let padding = me.shake.next_padding();
-                        let length = me.shake.encode(me.read_buf.get_u16()) as usize;
+                    ready!(me.poll_fill_at_least(cx, 2))?;
 
-                        me.state = ClientReaderState::ReadData { length, padding };
-                        continue;
+                    // Order matters, read padding size first.
+                    let padding = me.shake.next_padding();
+                    let length = me.shake.encode(me.read_buf.get_u16()) as usize;
+
+                    trace!("Payload = {}, Padding = {}", length, padding);
+
+                    if length - padding == me.crypter.tag_len() {
+                        // Actual EOF
+                        return Poll::Ready(Ok(()));
                     }
 
-                    ready!(me.poll_fill_at_least(cx, 2))?;
+                    me.state = ClientReaderState::ReadData { length, padding };
                 }
                 ClientReaderState::ReadData { length, padding } => {
-                    if me.read_buf.len() >= *length {
-                        // Data + Tag
-                        let data_len = *length - *padding;
-
-                        // Data only
-                        let dec_len = me
-                            .crypter
-                            .update(&mut me.read_buf[..data_len])
-                            .map_err(|e| io_other_error(e))?;
-
-                        let mut decrypted = me.read_buf.split_to(data_len);
-                        decrypted.truncate(dec_len);
-                        me.read_buf.advance(data_len); // Consume padding
-
-                        me.state = ClientReaderState::ConsumeData { buf: decrypted };
-                        continue;
-                    }
-
-                    let length = *length;
                     ready!(me.poll_fill_at_least(cx, length))?;
+
+                    let dec_len = me
+                        .crypter
+                        .update(&mut me.read_buf[..length - padding])
+                        .map_err(|e| io_other_error(e))?;
+
+                    let mut decrypted = me.read_buf.split_to(length);
+                    decrypted.truncate(dec_len);
+
+                    me.state = ClientReaderState::ConsumeData { decrypted };
                 }
-                ClientReaderState::ConsumeData { buf } => {
-                    if me.read_buf.is_empty() {
+                ClientReaderState::ConsumeData { ref mut decrypted } => {
+                    if decrypted.is_empty() {
                         me.state = ClientReaderState::ReadLength;
                         continue;
                     }
 
-                    let len = min(me.read_buf.len(), buf.remaining());
-                    let consumed = me.read_buf.split_to(len);
+                    let len = min(decrypted.len(), buf.remaining());
+                    let consumed = decrypted.split_to(len);
                     buf.put_slice(&consumed);
 
                     return Poll::Ready(Ok(()));
@@ -272,7 +283,7 @@ impl<W: AsyncWrite + Unpin> ClientWriter<W> {
         let crypter = match security {
             SecurityType::Aes128Gcm => aead::AeadCipherKind::Aes128Gcm.to_crypter(
                 CrypterMode::Encrypt,
-                &session.response_key,
+                &session.request_key,
                 nonce_seq,
             )?,
             SecurityType::Chacha20Poly1305 => {
@@ -296,8 +307,64 @@ impl<W: AsyncWrite + Unpin> ClientWriter<W> {
             crypter,
         })
     }
+
+    fn poll_write_priv(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, futures_io::Error>> {
+        loop {
+            match &mut self.state {
+                ClientWriterState::Waiting => {
+                    let padding = self.shake.next_padding();
+                    let tag_len = self.crypter.tag_len();
+                    let consumed = min(buf.len(), MAX_LEN - padding - tag_len);
+
+                    let total_len = consumed + tag_len + padding;
+                    let length_enc = self.shake.encode(total_len as u16);
+
+                    self.write_buf.reserve(2 + total_len);
+                    self.write_buf.put_u16(length_enc);
+
+                    let payload_start = self.write_buf.len();
+                    self.write_buf.extend_from_slice(&buf[0..consumed]);
+                    unsafe {
+                        self.write_buf.advance_mut(tag_len + padding);
+                    }
+
+                    let mut crypto_output =
+                        &mut self.write_buf[payload_start..payload_start + consumed + tag_len];
+                    let n = self
+                        .crypter
+                        .update(&mut crypto_output)
+                        .map_err(|e| io_other_error(e))?;
+                    debug_assert_eq!(n, consumed + tag_len);
+
+                    self.state = ClientWriterState::Writing {
+                        consumed,
+                        written: 0,
+                    };
+                }
+                ClientWriterState::Writing { consumed, written } => {
+                    let n = ready!(
+                        Pin::new(&mut self.inner).poll_write(cx, &self.write_buf[*written..])
+                    )?;
+
+                    *written += n;
+                    if *written >= self.write_buf.len() {
+                        // Writing complete
+                        let consumed = *consumed;
+                        self.state = ClientWriterState::Waiting;
+                        self.write_buf.clear();
+                        return Poll::Ready(Ok(consumed));
+                    }
+                }
+            }
+        }
+    }
 }
 
+#[derive(Debug)]
 enum ClientWriterState {
     Waiting,
     Writing { consumed: usize, written: usize },
@@ -314,49 +381,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for ClientWriter<W> {
         }
 
         let me = &mut *self;
-        loop {
-            match &mut me.state {
-                ClientWriterState::Waiting => {
-                    let consumed = min(buf.len(), MAX_LEN - me.shake.max_padding());
-                    let tag_len = me.crypter.tag_len();
-
-                    let padding = me.shake.next_padding();
-                    let length_enc = me.shake.encode(consumed as u16);
-
-                    let old_len = me.write_buf.len();
-                    me.write_buf.reserve(2 + consumed + tag_len + padding);
-                    me.write_buf.put_u16(length_enc);
-                    me.write_buf.extend_from_slice(&buf[0..consumed]);
-                    unsafe {
-                        me.write_buf.advance_mut(tag_len + padding);
-                    }
-
-                    let mut crypto_output =
-                        &mut me.write_buf[old_len..old_len + consumed + tag_len];
-                    me.crypter
-                        .update(&mut crypto_output)
-                        .map_err(|e| io_other_error(e))?;
-
-                    me.state = ClientWriterState::Writing {
-                        consumed,
-                        written: 0,
-                    };
-                }
-                ClientWriterState::Writing { consumed, written } => {
-                    let n =
-                        ready!(Pin::new(&mut me.inner).poll_write(cx, &me.write_buf[*written..]))?;
-
-                    *written += n;
-                    if *written >= me.write_buf.len() {
-                        // Writing complete
-                        let consumed = *consumed;
-                        me.state = ClientWriterState::Waiting;
-                        me.write_buf.clear();
-                        return Poll::Ready(Ok(consumed));
-                    }
-                }
-            }
-        }
+        me.poll_write_priv(cx, buf)
     }
 
     fn poll_flush(
@@ -370,6 +395,10 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for ClientWriter<W> {
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), futures_io::Error>> {
+        // Finish up with an empty packet
+        let me = &mut *self;
+        ready!(me.poll_write_priv(cx, &[]))?;
+
         Pin::new(&mut self.inner).poll_shutdown(cx)
     }
 }

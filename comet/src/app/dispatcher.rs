@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use anyhow::{bail, Context};
+use futures::FutureExt;
 use std::time::Duration;
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
@@ -16,7 +17,8 @@ pub async fn handle_conn(
         // Inbound Pipeline
         let stream = if let Some(ref inbound_pipeline) = conn.inbound_pipeline {
             let inbound_pipeline = inbound_pipeline.clone();
-            ctx_clone.clone_plumber()
+            ctx_clone
+                .clone_plumber()
                 .process(&inbound_pipeline, conn, stream, ctx_clone.clone())
                 .await
                 .with_context(|| format!("running inbound pipeline {}", inbound_pipeline))?
@@ -27,7 +29,11 @@ pub async fn handle_conn(
         info!("Accepted {}", conn);
 
         // Routing
-        let outbound_tag = ctx_clone.router.match_conn(conn, &ctx_clone).await.to_owned();
+        let outbound_tag = ctx_clone
+            .router
+            .match_conn(conn, &ctx_clone)
+            .await
+            .to_owned();
 
         info!("Routed to {}", outbound_tag);
 
@@ -70,25 +76,44 @@ pub async fn handle_conn(
     // Bi-directional Copy
     match (stream, outbound) {
         (ProxyStream::Tcp(stream), ProxyStream::Tcp(outbound)) => {
-            let mut uplink = outbound.split();
-            let mut downlink = stream.split();
+            use tokio::sync::mpsc::channel as mpsc;
+            let (mut uplink_r, mut uplink_w) = outbound.split();
+            let (mut downlink_r, mut downlink_w) = stream.split();
 
-            let c2s = tokio::io::copy(&mut downlink.0, &mut uplink.1);
-            let s2c = tokio::io::copy(&mut uplink.0, &mut downlink.1);
+            let (cancel_s, mut cancel_r) = mpsc(2);
 
-            tokio::select! {
-              res = c2s => {
-                return Ok(res.map(|_| {
-                  debug!("Client -> server closed");
-                }).with_context(|| "copying client -> server")?);
-              }
+            let cancel_s_cloned = cancel_s.clone();
+            let c2s = tokio::io::copy(&mut downlink_r, &mut uplink_w).map(|r| {
+                debug!("Client closed {:?}", r);
 
-              res = s2c => {
-                return Ok(res.map(|_| {
-                  debug!("Server -> client closed");
-                }).with_context(|| "copying server -> client")?);
-              }
-            }
+                tokio::spawn(async move {
+                    sleep(Duration::from_secs(5)).await;
+                    let _ = cancel_s_cloned.send(()).await;
+                });
+
+                r.with_context(|| "copying client -> server")
+            });
+
+            let s2c = tokio::io::copy(&mut uplink_r, &mut downlink_w).map(|r| {
+                debug!("Server closed {:?}", r);
+
+                tokio::spawn(async move {
+                    sleep(Duration::from_secs(2)).await;
+                    let _ = cancel_s.send(()).await;
+                });
+
+                r.with_context(|| "copying server -> client")
+            });
+
+            let res = tokio::select! {
+                res = futures::future::try_join(c2s, s2c) => res.and(Ok(())),
+                _ = cancel_r.recv() => Ok(())
+            };
+
+            let _ = uplink_w.shutdown().await;
+            let _ = downlink_w.shutdown().await;
+
+            return res;
         }
         (ProxyStream::Udp(mut stream), ProxyStream::Udp(mut outbound)) => loop {
             let mut sleep = Box::pin(sleep(Duration::from_secs(10)));

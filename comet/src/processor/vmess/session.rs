@@ -1,4 +1,4 @@
-use crate::utils::unix_ts;
+use crate::{crypto::hashing::sign_bytes, utils::unix_ts};
 use std::{convert::TryInto, net::IpAddr};
 
 use lz_fnv::{Fnv1a, FnvHasher};
@@ -16,7 +16,9 @@ use crate::{
 };
 use anyhow::bail;
 
+#[derive(Debug, Clone)]
 pub struct ClientSession {
+    auth_info: [u8; 16],
     pub cmd_key: [u8; 16],
     pub cmd_iv: [u8; 16],
     pub request_key: [u8; 16],
@@ -42,8 +44,9 @@ impl ClientSession {
             .try_into()
             .unwrap();
 
+        let timestamp = unix_ts().as_secs().to_be_bytes();
+
         let cmd_iv = {
-            let timestamp = unix_ts().as_secs().to_be_bytes();
             let mut iv_hasher = new_hasher(HashKind::Md5);
             for _ in 0..4 {
                 iv_hasher.update(&timestamp[..]);
@@ -51,7 +54,13 @@ impl ClientSession {
             iv_hasher.finish().as_ref().try_into().unwrap()
         };
 
+        let auth_info = sign_bytes(HashKind::Md5, &user.uuid().as_bytes()[..], &timestamp[..])
+            .as_ref()
+            .try_into()
+            .unwrap();
+
         Self {
+            auth_info,
             cmd_key: user.cmd_key(),
             cmd_iv,
             request_key: req_key,
@@ -70,7 +79,8 @@ impl ClientSession {
         | 版本号 Ver | 数据加密 IV | 数据加密 Key | 响应认证 V | 选项 Opt | 余量 P | 加密方式 Sec | 保留 | 指令 Cmd | 端口 Port | 地址类型 T | 地址 A | 随机值 | 校验 F |
         */
         let mut ret =
-            BytesMut::with_capacity(1 + 16 + 16 + 1 + 1 + 1 /* 4 + 4 bits */ + 1 + 1 + 2 + 1);
+            BytesMut::with_capacity(16 + 1 + 16 + 16 + 1 + 1 + 1 /* 4 + 4 bits */ + 1 + 1 + 2 + 1);
+        ret.put_slice(&self.auth_info); // Auth
         ret.put_u8(1); // Ver
         ret.put_slice(&self.request_iv); // IV
         ret.put_slice(&self.request_key); // Key
@@ -79,8 +89,8 @@ impl ClientSession {
 
         let padding_len = rng.gen_range(0..16);
         let sec = match sec {
-            SecurityType::Aes128Gcm => 0x02,
-            SecurityType::Chacha20Poly1305 => 0x03,
+            SecurityType::Aes128Gcm => 0x03,
+            SecurityType::Chacha20Poly1305 => 0x04,
             SecurityType::Auto => bail!("Auto should not be here"),
         };
         let cmd = match conn.typ {
@@ -115,7 +125,7 @@ impl ClientSession {
         }
 
         let mut hasher = Fnv1a::<u32>::new();
-        hasher.write(&ret);
+        hasher.write(&ret[16..]);
         ret.put_u32(hasher.finish());
 
         let mut crypter = StreamCipherKind::Aes128Cfb.to_crypter(
@@ -124,7 +134,7 @@ impl ClientSession {
             &self.cmd_iv,
         )?;
 
-        let _ = crypter.update(&mut ret);
+        let _ = crypter.update(&mut ret[16..]);
 
         Ok(ret)
     }

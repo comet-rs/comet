@@ -30,6 +30,8 @@ pub fn do_register(plumber: &mut Plumber) {
     timeout::register(plumber);
     any_proxy::register(plumber);
     set_dest::register(plumber);
+    vmess::register(plumber);
+    
     #[cfg(feature = "tls-mitm")]
     tls_mitm::register(plumber);
 }

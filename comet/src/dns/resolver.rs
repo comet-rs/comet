@@ -44,13 +44,15 @@ impl Resolver {
     pub fn from_config(item: &DnsConfigItem) -> Result<Self> {
         use trust_dns_resolver::config::Protocol;
 
-        let mut resolver_opts = ResolverOpts::default();
-        resolver_opts.timeout = item.timeout;
-        resolver_opts.positive_min_ttl = Some(Duration::from_secs(300));
-        resolver_opts.cache_size = if item.cache_size == 0 {
-            128
-        } else {
-            item.cache_size
+        let resolver_opts = ResolverOpts {
+            timeout: item.timeout,
+            positive_min_ttl: Some(Duration::from_secs(300)),
+            cache_size: if item.cache_size == 0 {
+                128
+            } else {
+                item.cache_size
+            },
+            ..Default::default()
         };
 
         let mut name_servers = Vec::with_capacity(item.servers.len());
@@ -143,8 +145,10 @@ impl Resolver {
         ctx: &AppContextRef,
     ) -> Result<Option<Vec<IpAddr>>> {
         if let Some(rule) = &self.rule {
-            let mut dest = DestAddr::default();
-            dest.domain = Some(domain.into());
+            let dest = DestAddr {
+                domain: Some(domain.into()),
+                ..Default::default()
+            };
 
             if !rule.is_match_dest(&dest, MatchMode::DomainOnly, ctx).await {
                 return Ok(None);

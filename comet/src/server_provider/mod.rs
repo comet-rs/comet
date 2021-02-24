@@ -1,3 +1,5 @@
+#![allow(clippy::clippy::new_ret_no_self)]
+
 use std::{
     path::{Path, PathBuf},
     time::Duration,
@@ -6,7 +8,7 @@ use std::{
 use serde_with::{serde_as, DurationSeconds};
 use tokio::{fs::File, sync::mpsc};
 
-use crate::{config::Config, prelude::*, processor::shadowsocks};
+use crate::{config::Config, prelude::*};
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all(deserialize = "snake_case"))]
@@ -92,7 +94,7 @@ impl ManagerServer {
         Ok(ManagerClient { tx: tx_clone })
     }
 
-    async fn run(mut self) {
+    async fn run(self) {
         // let url = "https://api.touhou.center/link/VvyEQXSCboXSqbqR?mu=0";
         // let res = reqwest::get(url).await.unwrap();
         // let buf = res.bytes().await.unwrap();

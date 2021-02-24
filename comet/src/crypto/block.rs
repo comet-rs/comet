@@ -76,11 +76,11 @@ impl SsCrypter {
             BlockCipherKind::Aes128Cbc => Box::new(blockmode::Aes128Cbc::new(key)),
         };
 
-        return Self {
+        Self {
             inner,
             mode,
             iv: iv.into(),
-        };
+        }
     }
 }
 

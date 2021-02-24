@@ -19,7 +19,7 @@ impl HashKind {
 }
 
 pub trait Hasher {
-    fn update(&mut self, data: &[u8]) -> ();
+    fn update(&mut self, data: &[u8]);
     fn finish(&mut self) -> Bytes;
 }
 
@@ -73,7 +73,7 @@ impl Hasher for SsHasher {
 }
 
 pub trait Signer {
-    fn update(&mut self, data: &[u8]) -> ();
+    fn update(&mut self, data: &[u8]);
     fn finish(&mut self) -> Bytes;
 }
 
@@ -143,8 +143,7 @@ pub fn new_signer(kind: HashKind, key: &[u8]) -> SsSigner {
 pub fn sign_bytes(kind: HashKind, key: &[u8], input: &[u8]) -> Bytes {
     let mut signer = new_signer(kind, key);
     signer.update(input);
-    let ret = signer.finish();
-    ret
+    signer.finish()
 }
 
 pub fn evp_bytes_to_key(kind: HashKind, input: &[u8], len: usize) -> Bytes {

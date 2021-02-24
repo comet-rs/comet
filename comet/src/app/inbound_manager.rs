@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc::{channel, unbounded_channel, Sender, UnboundedReceiver, UnboundedSender};
-use tokio::{io::BufReader, sync::Mutex};
+use tokio::sync::Mutex;
 use tokio_stream::wrappers::ReceiverStream;
 
 pub type ConnSender<T> = UnboundedSender<(Connection, T)>;
@@ -203,12 +203,12 @@ impl InboundManager {
 
         self.sender.get().unwrap().send((
             conn,
-            UdpStream::new(ReceiverStream::new(read_receiver), write_sender.clone()).into(),
+            UdpStream::new(ReceiverStream::new(read_receiver), write_sender).into(),
         ))?;
 
-        return Ok(UdpStream::new(
+        Ok(UdpStream::new(
             ReceiverStream::new(write_receiver),
             read_sender,
-        ));
+        ))
     }
 }

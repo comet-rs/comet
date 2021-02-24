@@ -34,7 +34,7 @@ impl FromStr for DomainCondition {
             return Ok(Self::Domain(res.into()));
         }
 
-        return Ok(Self::Keyword(s.into()));
+        Ok(Self::Keyword(s.into()))
     }
 }
 

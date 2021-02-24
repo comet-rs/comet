@@ -17,7 +17,7 @@ impl UserId {
 
         let key = hasher.finish();
         let mut cmd_key = [0u8; ID_BYTES_LEN];
-        &cmd_key[..].copy_from_slice(&key);
+        cmd_key[..].copy_from_slice(&key);
 
         Self { uuid, cmd_key }
     }
@@ -44,7 +44,7 @@ fn next_id(uuid: Uuid) -> Uuid {
 
     loop {
         let new_id = hasher.clone().finish();
-        if &new_id[..] != &uuid.as_bytes()[..] {
+        if new_id[..] != uuid.as_bytes()[..] {
             let mut b: uuid::Bytes = Default::default();
             b[..].copy_from_slice(&new_id);
             return Uuid::from_bytes(b);

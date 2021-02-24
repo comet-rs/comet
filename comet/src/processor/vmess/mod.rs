@@ -104,7 +104,7 @@ impl Processor for ClientProcessor {
         let header = session.encode_request_header(self.security, conn)?;
 
         let reader = ClientReader::new(stream, session.clone(), self.security)?;
-        let writer = ClientWriter::new(reader, session.clone(), self.security, header)?;
+        let writer = ClientWriter::new(reader, session, self.security, header)?;
         Ok(RWPair::new(writer).into())
     }
 }
@@ -208,7 +208,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for ClientReader<R> {
                     let header = me.read_buf.split_to(4);
                     me.session
                         .decode_response_header(&header)
-                        .map_err(|e| io_other_error(e))?;
+                        .map_err(io_other_error)?;
 
                     me.state = ClientReaderState::ReadLength;
                 }
@@ -234,7 +234,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for ClientReader<R> {
                     let dec_len = me
                         .crypter
                         .update(&mut me.read_buf[..length - padding])
-                        .map_err(|e| io_other_error(e))?;
+                        .map_err(io_other_error)?;
 
                     let mut decrypted = me.read_buf.split_to(length);
                     decrypted.truncate(dec_len);
@@ -336,7 +336,7 @@ impl<W: AsyncWrite + Unpin> ClientWriter<W> {
                     let n = self
                         .crypter
                         .update(&mut crypto_output)
-                        .map_err(|e| io_other_error(e))?;
+                        .map_err(io_other_error)?;
                     debug_assert_eq!(n, consumed + tag_len);
 
                     self.state = ClientWriterState::Writing {
@@ -375,7 +375,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for ClientWriter<W> {
         cx: &mut std::task::Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, futures_io::Error>> {
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return Poll::Ready(Ok(0));
         }
 

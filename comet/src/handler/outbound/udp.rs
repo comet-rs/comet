@@ -49,7 +49,7 @@ impl OutboundHandler for UdpHandler {
                     recv_res = socket.recv_from(&mut buffer) => {
                         let (n, addr) = break_if_err!(recv_res);
                         let packet = BytesMut::from(&buffer[0..n]);
-                        if let Err(_) = read_sender.send(UdpPacket::new(addr, packet)).await {
+                        if read_sender.send(UdpPacket::new(addr, packet)).await.is_err() {
                             // Dropped
                             break;
                         }

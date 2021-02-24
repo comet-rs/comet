@@ -120,12 +120,12 @@ pub async fn handle_conn(
 
             tokio::select! {
               Some(packet) = outbound.next() => {
-                if let Err(_) = stream.send(packet).await {
+                if stream.send(packet).await.is_err() {
                   break;
                 }
               },
               Some(packet) = stream.next() => {
-                if let Err(_) = outbound.send(packet).await {
+                if outbound.send(packet).await.is_err() {
                   break;
                 }
               },

@@ -71,7 +71,7 @@ fn match_domain(domain: &str, set: &HashSet<SmolStr>) -> bool {
     let rev = to_reversed_fqdn(domain).collect_vec();
 
     for i in (2..rev.len()).step_by(2) {
-        let s = rev[0..i].iter().map(|s| *s).collect::<SmolStr>();
+        let s = rev[0..i].iter().copied().collect::<SmolStr>();
 
         if set.contains(&s) {
             return true;
@@ -171,7 +171,7 @@ impl Ipv4List {
             .get(&octets[0])
             .map(|children| {
                 for (prefix, tail) in children {
-                    let mask = !(0xffff_ffff as u64 >> *prefix) as u32;
+                    let mask = !(0xffff_ffff_u64 >> *prefix) as u32;
                     let net = u32::from_be_bytes([0, tail[0], tail[1], tail[2]]) & mask;
 
                     if ip_tail & mask == net {
@@ -179,7 +179,7 @@ impl Ipv4List {
                     }
                 }
 
-                return false;
+                false
             })
             .unwrap_or(false)
     }

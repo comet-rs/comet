@@ -77,7 +77,7 @@ impl OutboundHandler for DashboardHandler {
             tokio::spawn(async move {
                 Self::run_server(incoming, ctx).await;
             });
-            return sender;
+            sender
         });
         sender.send(uplink).await?;
 

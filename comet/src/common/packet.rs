@@ -25,7 +25,7 @@ impl UdpPacket {
     }
 
     pub fn target(&self) -> Option<SocketAddr> {
-        return self.target;
+        self.target
     }
 }
 

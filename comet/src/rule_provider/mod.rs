@@ -1,3 +1,5 @@
+#![allow(clippy::clippy::new_ret_no_self)]
+
 use std::{
     convert::TryFrom,
     path::{Path, PathBuf},
@@ -282,7 +284,7 @@ impl RuleProviderServer {
                 inner.insert(
                     sub,
                     rule_set
-                        .map(|r| RuleSetState::Loaded(r))
+                        .map(RuleSetState::Loaded)
                         .unwrap_or(RuleSetState::Loading),
                 );
             }

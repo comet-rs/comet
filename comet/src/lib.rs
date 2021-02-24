@@ -34,7 +34,7 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
     let _process_handle = tokio::spawn(async move {
         while let Some((mut conn, stream)) = conns.recv().await {
             let ctx = ctx_tcp.clone();
-            let id = conn.id.clone();
+            let id = conn.id;
 
             let task = async move {
                 match dispatcher::handle_conn(&mut conn, stream, ctx).await {

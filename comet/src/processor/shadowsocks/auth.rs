@@ -92,11 +92,7 @@ pub struct SsrClientAuthProcessor {
 }
 
 impl SsrClientAuthProcessor {
-    pub fn new<'a>(
-        user_id: Option<u32>,
-        user_key: Option<&'a str>,
-        protocol: SsrClientAuthType,
-    ) -> Self {
+    pub fn new(user_id: Option<u32>, user_key: Option<&str>, protocol: SsrClientAuthType) -> Self {
         let user_key = user_key.map(|key| match protocol {
             SsrClientAuthType::AuthAes128Md5 => {
                 hashing::hash_bytes(hashing::HashKind::Md5, key.as_bytes())

@@ -397,7 +397,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for ClientWriter<W> {
     ) -> Poll<Result<(), futures_io::Error>> {
         // Finish up with an empty packet
         let me = &mut *self;
-        ready!(me.poll_write_priv(cx, &[]))?;
+        let _ = ready!(me.poll_write_priv(cx, &[]));
 
         Pin::new(&mut self.inner).poll_shutdown(cx)
     }

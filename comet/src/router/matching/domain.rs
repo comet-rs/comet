@@ -7,7 +7,7 @@ use serde_with::DeserializeFromStr;
 
 #[derive(Debug, Clone, DeserializeFromStr)]
 pub enum DomainCondition {
-    Regex(Regex),
+    Regex(Box<Regex>),
     Keyword(SmolStr),
     Domain(SmolStr),
     Full(SmolStr),
@@ -19,7 +19,7 @@ impl FromStr for DomainCondition {
     fn from_str(s: &str) -> Result<Self> {
         if let Some(res) = s.strip_prefix("regex:") {
             let re = Regex::new(res)?;
-            return Ok(Self::Regex(re));
+            return Ok(Self::Regex(Box::new(re)));
         }
 
         if let Some(res) = s.strip_prefix("full:") {

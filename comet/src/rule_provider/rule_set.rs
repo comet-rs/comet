@@ -158,7 +158,7 @@ impl Ipv4List {
         let tail: [u8; 3] = addr[1..].try_into().unwrap();
 
         let item = (prefix, tail);
-        let children = self.map.entry(head).or_insert_with(|| vec![]);
+        let children = self.map.entry(head).or_insert_with(Vec::new);
 
         children.push(item);
     }

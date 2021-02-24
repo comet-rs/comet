@@ -54,7 +54,10 @@ impl Plumber {
             .get_key_value(name)
             .ok_or_else(|| anyhow!("Processor {} not found", name))?;
 
-        Ok((create_fn.0, create_fn.1(config, pipe_tag).with_context(|| format!("creating {}", name))?))
+        Ok((
+            create_fn.0,
+            create_fn.1(config, pipe_tag).with_context(|| format!("creating {}", name))?,
+        ))
     }
 
     pub async fn process(

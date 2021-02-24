@@ -43,9 +43,7 @@ impl OutboundHandler for TcpHandler {
 
         for ip in ips {
             match self.connect(tag, ip, port, ctx).await {
-                Ok(stream) => {
-                    return Ok(stream.into())
-                },
+                Ok(stream) => return Ok(stream.into()),
                 Err(err) => warn!("Trying {}:{} failed: {}", ip, port, err),
             }
         }

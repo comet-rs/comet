@@ -12,7 +12,6 @@ use crate::{
 };
 use bytes::BufMut;
 use futures::ready;
-use futures_io::ErrorKind;
 use tokio_util::io::poll_read_buf;
 use uuid::Uuid;
 

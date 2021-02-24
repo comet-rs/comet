@@ -17,7 +17,7 @@ impl InternalHttpConnector {
             tag: tag.into(),
         }
     }
-    
+
     async fn call_async(&mut self, dst: Uri) -> Result<RWPair> {
         let host = match dst.host() {
             Some(s) => s,

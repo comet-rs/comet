@@ -11,8 +11,8 @@ pub mod processor;
 pub mod protos;
 pub mod router;
 pub mod rule_provider;
-pub mod utils;
 pub mod server_provider;
+pub mod utils;
 
 #[cfg(target_os = "android")]
 pub mod android;
@@ -35,7 +35,7 @@ pub async fn run(ctx: AppContextRef) -> Result<()> {
         while let Some((mut conn, stream)) = conns.recv().await {
             let ctx = ctx_tcp.clone();
             let id = conn.id.clone();
-            
+
             let task = async move {
                 match dispatcher::handle_conn(&mut conn, stream, ctx).await {
                     Ok(()) => {

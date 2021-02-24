@@ -83,12 +83,12 @@ impl Resolver {
                     protocol = Protocol::Udp;
                     tls_name = None;
                 }
-                #[cfg(feature="use-rustls")]
+                #[cfg(feature = "use-rustls")]
                 "https" => {
                     port = url.port().unwrap_or(443);
                     protocol = Protocol::Https;
                 }
-                #[cfg(any(feature="use-rustls", feature="use-native-tls"))]
+                #[cfg(any(feature = "use-rustls", feature = "use-native-tls"))]
                 "tls" => {
                     port = url.port().unwrap_or(853);
                     protocol = Protocol::Tls;
@@ -101,7 +101,7 @@ impl Resolver {
                 protocol,
                 tls_dns_name: tls_name.map(|s| s.clone().into_owned()),
                 trust_nx_responses: true,
-                #[cfg(feature="use-rustls")]
+                #[cfg(feature = "use-rustls")]
                 tls_config: None,
             });
         }
@@ -150,7 +150,7 @@ impl Resolver {
                 return Ok(None);
             }
         }
-        
+
         let result = self.trust.lookup_ip(domain).await?;
         let ans: Vec<IpAddr> = result.iter().collect();
 

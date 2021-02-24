@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
-use rand::{Rng, SeedableRng, rngs::OsRng};
-use rand::{RngCore,thread_rng};
+use rand::{rngs::OsRng, Rng, SeedableRng};
+use rand::{thread_rng, RngCore};
 use rand_xorshift::XorShiftRng;
 
 pub fn rand_bytes(buf: &mut [u8]) -> Result<()> {

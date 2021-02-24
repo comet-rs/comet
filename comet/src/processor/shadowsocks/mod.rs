@@ -1,8 +1,8 @@
+mod aead_cipher;
 mod auth;
 mod handshake;
 mod obfs;
 mod stream_cipher;
-mod aead_cipher;
 
 use crate::Plumber;
 use crate::{prelude::*, utils::urlsafe_base64_decode_string};

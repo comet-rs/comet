@@ -321,7 +321,7 @@ pub fn run_router(fd: u16, ctx: AppContextRef, running: Arc<AtomicBool>) -> Resu
                 4 => handle_ipv4(&mut buffer[0..n], &ctx),
                 _ => continue,
             };
-            
+
             if handle_result.is_ok() {
                 buffer.resize(n, 0);
                 write_queue.push_back(buffer);

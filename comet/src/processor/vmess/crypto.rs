@@ -3,7 +3,10 @@ use sha3::{
     Sha3XofReader, Shake128,
 };
 
-use crate::crypto::{aead::NonceSeq, hashing::{HashKind, hash_bytes}};
+use crate::crypto::{
+    aead::NonceSeq,
+    hashing::{hash_bytes, HashKind},
+};
 
 pub struct ShakeGenerator(Sha3XofReader);
 

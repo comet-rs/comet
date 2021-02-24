@@ -1,9 +1,9 @@
+pub mod connector;
 pub mod io;
 pub mod metered_stream;
-pub mod connector;
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::Result;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub fn unix_ts() -> Duration {
     let start = SystemTime::now();

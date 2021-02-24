@@ -74,7 +74,7 @@ impl ProviderConfig {
 
                 for entry in &parsed.entry {
                     if entry.country_code.eq_ignore_ascii_case(sub) {
-                        return Ok(RuleSet::try_from(entry)?);
+                        return RuleSet::try_from(entry);
                     }
                 }
 
@@ -86,7 +86,7 @@ impl ProviderConfig {
 
                 for entry in &parsed.entry {
                     if entry.country_code.eq_ignore_ascii_case(sub) {
-                        return Ok(RuleSet::try_from(entry)?);
+                        return RuleSet::try_from(entry);
                     }
                 }
 

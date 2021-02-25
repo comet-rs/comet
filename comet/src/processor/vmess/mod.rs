@@ -210,6 +210,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for ClientReader<R> {
                         .decode_response_header(&header)
                         .map_err(io_other_error)?;
 
+                    debug!("Client handshake done.");
                     me.state = ClientReaderState::ReadLength;
                 }
                 ClientReaderState::ReadLength => {

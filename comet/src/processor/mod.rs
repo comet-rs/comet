@@ -13,6 +13,7 @@ pub mod timeout;
 #[cfg(feature = "tls-mitm")]
 pub mod tls_mitm;
 pub mod vmess;
+pub mod ws;
 
 use crate::app::plumber::Plumber;
 
@@ -31,6 +32,7 @@ pub fn do_register(plumber: &mut Plumber) {
     any_proxy::register(plumber);
     set_dest::register(plumber);
     vmess::register(plumber);
+    ws::register(plumber);
 
     #[cfg(feature = "tls-mitm")]
     tls_mitm::register(plumber);

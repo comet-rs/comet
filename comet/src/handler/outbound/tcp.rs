@@ -20,11 +20,7 @@ impl TcpHandler {
     ) -> Result<RWPair> {
         let stream = crate::net_wrapper::connect_tcp(&SocketAddr::from((addr, port))).await?;
         Ok(if self.metering {
-            RWPair::new(MeteredStream::new_outbound(
-                BufReader::new(stream),
-                &tag,
-                &ctx,
-            ))
+            RWPair::new(MeteredStream::new_outbound(stream, &tag, &ctx))
         } else {
             RWPair::new(BufReader::new(stream))
         })

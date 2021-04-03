@@ -274,6 +274,7 @@ impl<RW> AuthAes128ClientStream<RW> {
             part2_enc_key_raw.push_str(match self.hash_kind {
                 hashing::HashKind::Md5 => "auth_aes128_md5",
                 hashing::HashKind::Sha1 => "auth_aes128_sha1",
+                _ => unimplemented!(),
             });
             let part2_enc_key = hashing::evp_bytes_to_key(
                 hashing::HashKind::Md5,

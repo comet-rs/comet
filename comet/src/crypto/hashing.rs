@@ -7,6 +7,7 @@ use std::cmp::min;
 pub enum HashKind {
     Md5,
     Sha1,
+    Sha224,
 }
 
 impl HashKind {
@@ -14,6 +15,7 @@ impl HashKind {
         match self {
             HashKind::Md5 => 16,
             HashKind::Sha1 => 20,
+            HashKind::Sha224 => 28,
         }
     }
 }
@@ -27,6 +29,7 @@ pub trait Hasher {
 enum SsHasherInner {
     Md5(ss_hash::Md5),
     Sha1(ss_hash::Sha1),
+    Sha224(ss_hash::Sha224),
 }
 
 impl SsHasherInner {
@@ -34,12 +37,14 @@ impl SsHasherInner {
         match kind {
             HashKind::Md5 => Self::Md5(ss_hash::Md5::new()),
             HashKind::Sha1 => Self::Sha1(ss_hash::Sha1::new()),
+            HashKind::Sha224 => Self::Sha224(ss_hash::Sha224::new()),
         }
     }
     fn update(&mut self, data: &[u8]) {
         match self {
             Self::Md5(s) => s.update(data),
             Self::Sha1(s) => s.update(data),
+            Self::Sha224(s) => s.update(data),
         }
     }
 
@@ -47,6 +52,7 @@ impl SsHasherInner {
         match self {
             Self::Md5(s) => Bytes::copy_from_slice(&s.finalize()),
             Self::Sha1(s) => Bytes::copy_from_slice(&s.finalize()),
+            Self::Sha224(s) => Bytes::copy_from_slice(&s.finalize()),
         }
     }
 }
@@ -88,6 +94,7 @@ impl SsSignerInner {
         match kind {
             HashKind::Md5 => Self::Md5(ss_mac::HmacMd5::new(key)),
             HashKind::Sha1 => Self::Sha1(ss_mac::HmacSha1::new(key)),
+            _ => unimplemented!(),
         }
     }
 

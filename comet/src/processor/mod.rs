@@ -12,6 +12,7 @@ pub mod socks5_proxy;
 pub mod timeout;
 #[cfg(feature = "tls-mitm")]
 pub mod tls_mitm;
+pub mod trojan;
 pub mod vmess;
 pub mod ws;
 
@@ -33,6 +34,7 @@ pub fn do_register(plumber: &mut Plumber) {
     set_dest::register(plumber);
     vmess::register(plumber);
     ws::register(plumber);
+    trojan::register(plumber);
 
     #[cfg(feature = "tls-mitm")]
     tls_mitm::register(plumber);

@@ -289,6 +289,7 @@ dependencies = [
  "base64",
  "bytes",
  "crypto2",
+ "ct-logs",
  "enum-utils",
  "flurry",
  "futures",
@@ -336,6 +337,7 @@ dependencies = [
  "url",
  "uuid",
  "warp",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -427,6 +429,15 @@ name = "crypto2"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "568a195a71be2ecc2712366d8a7a7e8b4f9a94c80822ff178c7cf1c4e73f5eb1"
+
+[[package]]
+name = "ct-logs"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1a816186fa68d9e426e3cb4ae4dff1fcd8e4a2c34b781bf7a822574a0d0aac8"
+dependencies = [
+ "sct",
+]
 
 [[package]]
 name = "darling"

@@ -25,6 +25,8 @@ tokio-tungstenite = "0.13"
 warp = { version = "0.3", default-features = false, features = ["websocket"] }
 rcgen = { version = "0.8", features = ["x509-parser"], optional = true }
 tokio-rustls = { version = "0.22", optional = true }
+webpki-roots = "0.21.1"
+ct-logs = "0.8.0"
 
 # Async
 tokio = { version = "1", features = ["full"] }

@@ -60,10 +60,11 @@ impl OutboundManager {
     }
 
     pub fn get_pipeline(&self, tag: &str) -> Result<Option<&str>> {
-        Ok(match self.get_outbound(tag)?.pipeline.as_ref() {
-            Some(r) => Some(r),
-            None => None,
-        })
+        Ok(self
+            .get_outbound(tag)?
+            .pipeline
+            .as_ref()
+            .map(|r| r.as_str()))
     }
 
     fn get_outbound(&self, tag: &str) -> Result<&OutboundInstance> {

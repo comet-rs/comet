@@ -219,7 +219,7 @@ pub fn parse_url(url: &str) -> Result<SsrUrlItem> {
         main_split
             .next()
             .ok_or_else(invalid_url_fn)
-            .and_then(|s| Ok(u16::from_str_radix(s, 10)?))?,
+            .and_then(|s| Ok(s.parse()?))?,
     );
 
     let protocol: ProtocolType = from_value(YamlValue::String(

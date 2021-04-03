@@ -53,12 +53,8 @@ impl Processor for ServerProcessor {
                                 let host = std::str::from_utf8(header.value)?;
                                 let mut split = host.split(':');
                                 let domain = split.next().unwrap();
-                                conn.dest_addr.port = Some(
-                                    split
-                                        .next()
-                                        .and_then(|p| u16::from_str_radix(p, 10).ok())
-                                        .unwrap_or(80),
-                                );
+                                conn.dest_addr.port =
+                                    Some(split.next().and_then(|p| p.parse().ok()).unwrap_or(80));
                                 if let Ok(ip) = IpAddr::from_str(&domain) {
                                     conn.dest_addr.ip = Some(ip)
                                 } else {

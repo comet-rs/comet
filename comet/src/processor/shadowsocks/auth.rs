@@ -112,7 +112,7 @@ impl SsrClientAuthProcessor {
     pub fn new_param(protocol: SsrClientAuthType, param: &str) -> Result<Self> {
         Ok(if param.contains(':') {
             let mut param_split = param.splitn(2, ':');
-            let user_id = u32::from_str_radix(param_split.next().unwrap(), 10)?;
+            let user_id = param_split.next().unwrap().parse()?;
             let user_key = param_split.next().unwrap();
 
             Self::new(Some(user_id), Some(user_key), protocol)

@@ -31,7 +31,7 @@ fn find_uid(content: &str, port: u16) -> Result<Option<u32>> {
             let uid = split
                 .nth(uid_pos - 4)
                 .ok_or_else(|| anyhow!("Unable to parse uid"))?;
-            return Ok(Some(u32::from_str_radix(uid, 10)?));
+            return Ok(Some(uid.parse()?));
         }
     }
     Ok(None)

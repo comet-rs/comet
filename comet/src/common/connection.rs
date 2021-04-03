@@ -94,10 +94,7 @@ impl FromStr for DestAddr {
 
         let mut split = s.splitn(2, ':');
         let host = split.next().unwrap();
-        this.port = split
-            .next()
-            .map(|port_s| u16::from_str_radix(port_s, 10))
-            .transpose()?;
+        this.port = split.next().map(|port_s| port_s.parse()).transpose()?;
 
         this.set_host_from_str(host);
 

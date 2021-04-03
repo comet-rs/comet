@@ -42,7 +42,7 @@ impl Provider {
         let mut path = data_dir.to_path_buf();
         path.push(format!("{}.lst", tag));
 
-        Self { config, path }
+        Self { path, config }
     }
 
     async fn load(&self) -> Result<()> {

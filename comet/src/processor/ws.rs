@@ -59,6 +59,7 @@ impl Processor for ClientProcessor {
     }
 }
 
+#[derive(Debug)]
 struct WsWriter<W> {
     inner: W,
 }

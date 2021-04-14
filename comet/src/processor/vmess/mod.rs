@@ -109,6 +109,7 @@ impl Processor for ClientProcessor {
     }
 }
 
+#[derive(Debug)]
 struct ClientReader<R> {
     inner: R,
     security: SecurityType,
@@ -182,6 +183,7 @@ impl<R: AsyncRead + Unpin> ClientReader<R> {
     }
 }
 
+#[derive(Debug)]
 enum ClientReaderState {
     ReadHeader,
     ReadLength,
@@ -261,6 +263,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for ClientReader<R> {
 
 delegate_write_all!(ClientReader);
 
+#[derive(Debug)]
 struct ClientWriter<W> {
     inner: W,
     security: SecurityType,

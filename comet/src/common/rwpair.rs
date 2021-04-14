@@ -1,20 +1,23 @@
 use futures::ready;
+use std::fmt::Debug;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::ReadBuf;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-pub trait RWStream: AsyncRead + AsyncWrite + Send + Sync + Unpin {}
+pub trait RWStream: AsyncRead + AsyncWrite + Debug + Send + Sync + Unpin {}
+pub trait RStream: AsyncRead + Debug + Send + Sync + Unpin {}
+pub trait WStream: AsyncWrite + Debug + Send + Sync + Unpin {}
 
-impl<T: AsyncRead + AsyncWrite + Send + Sync + Unpin> RWStream for T {}
+impl<T: AsyncRead + AsyncWrite + Debug + Send + Sync + Unpin> RWStream for T {}
+impl<T: AsyncRead + Debug + Send + Sync + Unpin> RStream for T {}
+impl<T: AsyncWrite + Debug + Send + Sync + Unpin> WStream for T {}
 
+#[derive(Debug)]
 pub enum RWPair {
     Full(Box<dyn RWStream + 'static>),
-    Parts(
-        Box<dyn AsyncRead + Unpin + Send + Sync + 'static>,
-        Box<dyn AsyncWrite + Unpin + Send + Sync + 'static>,
-    ),
+    Parts(Box<dyn RStream + 'static>, Box<dyn WStream + 'static>),
 }
 
 impl RWPair {
@@ -22,22 +25,14 @@ impl RWPair {
         Self::Full(Box::new(inner))
     }
 
-    pub fn new_parts<
-        R: AsyncRead + Send + Unpin + Sync + 'static,
-        W: AsyncWrite + Send + Unpin + Sync + 'static,
-    >(
+    pub fn new_parts<R: RStream + 'static, W: WStream + 'static>(
         read_half: R,
         write_half: W,
     ) -> RWPair {
         Self::Parts(Box::new(read_half), Box::new(write_half))
     }
 
-    pub fn split(
-        self,
-    ) -> (
-        Box<dyn AsyncRead + Unpin + Send + Sync>,
-        Box<dyn AsyncWrite + Unpin + Send + Sync>,
-    ) {
+    pub fn split(self) -> (Box<dyn RStream>, Box<dyn WStream>) {
         match self {
             RWPair::Full(f) => {
                 let (r, w) = tokio::io::split(f);
@@ -86,11 +81,23 @@ impl AsyncWrite for RWPair {
             RWPair::Parts(_, ref mut w) => Pin::new(w).poll_shutdown(cx),
         }
     }
-}
 
-impl std::fmt::Debug for RWPair {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "RWPair")
+    fn poll_write_vectored(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[io::IoSlice<'_>],
+    ) -> Poll<Result<usize, io::Error>> {
+        match &mut *self {
+            RWPair::Full(ref mut inner) => Pin::new(inner).poll_write_vectored(cx, bufs),
+            RWPair::Parts(_, ref mut w) => Pin::new(w).poll_write_vectored(cx, bufs),
+        }
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        match &self {
+            RWPair::Full(ref inner) => inner.is_write_vectored(),
+            RWPair::Parts(_, ref w) => w.is_write_vectored(),
+        }
     }
 }
 

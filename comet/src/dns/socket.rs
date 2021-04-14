@@ -94,7 +94,7 @@ impl UdpSocket for DirectUdpSocket {
     type Time = TokioTime;
 
     async fn bind(addr: SocketAddr) -> IoResult<Self> {
-        let socket = net_wrapper::bind_udp(&addr).await?;
+        let socket = net_wrapper::bind_udp(addr).await?;
         Ok(Self(socket))
     }
 
@@ -171,7 +171,7 @@ impl DnsTcpStream for DirectTcpStream {
 #[async_trait]
 impl Connect for DirectTcpStream {
     async fn connect(addr: SocketAddr) -> IoResult<Self> {
-        let stream = net_wrapper::connect_tcp(&addr).await?;
+        let stream = net_wrapper::connect_tcp(addr).await?;
         Ok(Self(stream.compat()))
     }
 }

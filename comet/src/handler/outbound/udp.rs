@@ -37,7 +37,7 @@ impl OutboundHandler for UdpHandler {
             AddrType::V6 => IpAddr::from(Ipv6Addr::from(0u128)),
         };
 
-        let socket = crate::net_wrapper::bind_udp(&SocketAddr::new(bind_ip, 0)).await?;
+        let socket = crate::net_wrapper::bind_udp(SocketAddr::new(bind_ip, 0)).await?;
 
         let (read_sender, read_receiver) = channel::<UdpPacket>(10);
         let (write_sender, mut write_receiver) = channel::<UdpPacket>(10);

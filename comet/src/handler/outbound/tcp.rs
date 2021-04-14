@@ -4,7 +4,6 @@ use crate::utils::metered_stream::MeteredStream;
 use anyhow::anyhow;
 use std::net::IpAddr;
 use std::net::SocketAddr;
-use tokio::io::BufReader;
 
 pub struct TcpHandler {
     metering: bool,
@@ -18,11 +17,11 @@ impl TcpHandler {
         port: u16,
         ctx: &AppContextRef,
     ) -> Result<RWPair> {
-        let stream = crate::net_wrapper::connect_tcp(&SocketAddr::from((addr, port))).await?;
+        let stream = crate::net_wrapper::connect_tcp(SocketAddr::from((addr, port))).await?;
         Ok(if self.metering {
             RWPair::new(MeteredStream::new_outbound(stream, &tag, &ctx))
         } else {
-            RWPair::new(BufReader::new(stream))
+            RWPair::new(stream)
         })
     }
 }

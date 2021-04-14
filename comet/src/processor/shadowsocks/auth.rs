@@ -158,11 +158,13 @@ impl Processor for SsrClientAuthProcessor {
     }
 }
 
+#[derive(Debug)]
 enum WriteState {
     PreparingData,
     Writing { chunks: VecDeque<Bytes> },
 }
 
+#[derive(Debug)]
 enum ReadState {
     Size,
     Random { rnd_len: usize, payload_len: usize },
@@ -170,6 +172,7 @@ enum ReadState {
     Hmac,
 }
 
+#[derive(Debug)]
 struct AuthAes128ClientStream<RW> {
     inner: RW,
     // Writing

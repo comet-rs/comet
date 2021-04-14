@@ -1,6 +1,7 @@
 pub mod connector;
 pub mod io;
 pub mod metered_stream;
+pub mod prepend_io;
 
 use anyhow::Result;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

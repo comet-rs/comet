@@ -75,6 +75,8 @@ pub async fn handle_conn(
     // Bi-directional Copy
     match (stream, outbound) {
         (ProxyStream::Tcp(mut stream), ProxyStream::Tcp(mut outbound)) => {
+            debug!("Downlink: {:?} Uplink: {:?}", stream, outbound);
+
             let (uplink_sent, downlink_sent) =
                 tokio::io::copy_bidirectional(&mut stream, &mut outbound).await?;
 

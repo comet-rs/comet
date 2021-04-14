@@ -1,10 +1,10 @@
 use crate::prelude::*;
 use crate::utils::io::eof;
+use crate::utils::prepend_io::PrependReader;
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BytesMut};
 use std::net::IpAddr;
 use std::str::FromStr;
-use tokio_prepend_io::PrependReader;
 use url::{Host, Url};
 
 use httparse::{Request, Status};

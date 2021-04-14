@@ -304,7 +304,6 @@ dependencies = [
  "log 0.4.14",
  "lru-cache",
  "lz_fnv",
- "net2",
  "nix",
  "once_cell",
  "pin-project",
@@ -324,9 +323,8 @@ dependencies = [
  "sha3",
  "shadowsocks-crypto",
  "smol_str",
- "socket2 0.3.19",
+ "socket2 0.4.0",
  "tokio",
- "tokio-prepend-io",
  "tokio-rustls",
  "tokio-stream",
  "tokio-tungstenite",
@@ -1268,17 +1266,6 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "tempfile",
-]
-
-[[package]]
-name = "net2"
-version = "0.2.37"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "391630d12b68002ae1e25e8f974306474966550ad82dac6886fb8910c19568ae"
-dependencies = [
- "cfg-if 0.1.10",
- "libc",
- "winapi 0.3.9",
 ]
 
 [[package]]
@@ -2367,17 +2354,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7d995660bd2b7f8c1568414c1126076c13fbb725c40112dc0120b78eb9b717b"
 dependencies = [
  "native-tls",
- "tokio",
-]
-
-[[package]]
-name = "tokio-prepend-io"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd5d017f0c1d1057519d152f2406c93761a98533595d829c9db0ae5ae8ed59e4"
-dependencies = [
- "bytes",
- "futures",
  "tokio",
 ]
 

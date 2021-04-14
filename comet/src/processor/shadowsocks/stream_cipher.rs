@@ -108,6 +108,7 @@ impl Processor for ClientProcessor {
     }
 }
 
+#[derive(Debug)]
 struct ClientStream<RW> {
     inner: RW,
     // Writing
@@ -140,6 +141,7 @@ impl<RW> ClientStream<RW> {
     }
 }
 
+#[derive(Debug)]
 enum WriteState {
     Waiting,
     Writing { consumed: usize, written: usize },
@@ -203,6 +205,7 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for ClientStream<RW> {
     }
 }
 
+#[derive(Debug)]
 enum ReadState {
     ReadSalt {
         master_key: Bytes,

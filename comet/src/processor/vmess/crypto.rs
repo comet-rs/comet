@@ -10,6 +10,12 @@ use crate::crypto::{
 
 pub struct ShakeGenerator(Sha3XofReader);
 
+impl std::fmt::Debug for ShakeGenerator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ShakeGenerator")
+    }
+}
+
 impl ShakeGenerator {
     pub fn new(nonce: &[u8]) -> Self {
         let mut shake = Shake128::default();

@@ -1,8 +1,6 @@
-use tokio_prepend_io::PrependReader;
-
 use super::http::server::ServerProcessor as HttpProcessor;
-use super::socks5_proxy::Socks5ProxyServerProcessor as Socks5Processor;
-use crate::prelude::*;
+use super::socks5::Socks5ProxyServerProcessor as Socks5Processor;
+use crate::{prelude::*, utils::prepend_io::PrependReader};
 
 pub fn register(plumber: &mut Plumber) {
     plumber.register("any_server", |_, _| {

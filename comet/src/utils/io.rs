@@ -51,6 +51,28 @@ macro_rules! delegate_shutdown {
 }
 
 #[macro_export]
+macro_rules! delegate_write_vectored {
+    () => {
+        fn poll_write_vectored(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+            bufs: &[std::io::IoSlice<'_>],
+        ) -> Poll<std::io::Result<usize>> {
+            Pin::new(&mut self.inner).poll_write_vectored(cx, bufs)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! delegate_is_write_vectored {
+    () => {
+        fn is_write_vectored(&self) -> bool {
+            self.inner.is_write_vectored()
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! delegate_read {
     ($type:ident) => {
         impl<R: AsyncRead + Unpin> AsyncRead for $type<R> {
@@ -72,7 +94,19 @@ macro_rules! delegate_write_all {
             crate::delegate_write!();
             crate::delegate_flush!();
             crate::delegate_shutdown!();
+            crate::delegate_write_vectored!();
+            crate::delegate_is_write_vectored!();
         }
+    };
+}
+
+#[macro_export]
+macro_rules! delegate_write_misc {
+    () => {
+        crate::delegate_flush!();
+        crate::delegate_shutdown!();
+        crate::delegate_write_vectored!();
+        crate::delegate_is_write_vectored!();
     };
 }
 

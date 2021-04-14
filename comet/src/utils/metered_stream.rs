@@ -8,6 +8,7 @@ use std::pin::Pin;
 use tokio::io::ReadBuf;
 
 pin_project! {
+  #[derive(Debug)]
   pub struct MeteredStream<RW> {
     #[pin]
     inner: RW,

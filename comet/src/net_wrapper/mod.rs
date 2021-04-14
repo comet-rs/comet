@@ -6,7 +6,7 @@ use tokio::net::{TcpSocket, TcpStream, UdpSocket};
 #[cfg(target_os = "android")]
 mod protect;
 
-pub async fn connect_tcp(addr: &SocketAddr) -> IoResult<TcpStream> {
+pub async fn connect_tcp(addr: SocketAddr) -> IoResult<TcpStream> {
     let sock = match addr {
         SocketAddr::V4(_) => TcpSocket::new_v4(),
         SocketAddr::V6(_) => TcpSocket::new_v6(),
@@ -18,15 +18,12 @@ pub async fn connect_tcp(addr: &SocketAddr) -> IoResult<TcpStream> {
         let fd = sock.as_raw_fd();
         protect::protect_async(fd).await?;
     }
-    sock.connect(*addr).await
+    sock.connect(addr).await
 }
 
-pub async fn bind_udp(addr: &SocketAddr) -> IoResult<UdpSocket> {
-    let domain = match addr {
-        SocketAddr::V4(_) => Domain::ipv4(),
-        SocketAddr::V6(_) => Domain::ipv6(),
-    };
-    let sock = Socket::new(domain, Type::dgram(), Some(Protocol::udp()))?;
+pub async fn bind_udp(addr: SocketAddr) -> IoResult<UdpSocket> {
+    let domain = Domain::for_address(addr);
+    let sock = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
     sock.set_nonblocking(true)?;
 
     #[cfg(target_os = "android")]
@@ -35,6 +32,6 @@ pub async fn bind_udp(addr: &SocketAddr) -> IoResult<UdpSocket> {
         let fd = sock.as_raw_fd();
         protect::protect_async(fd).await?;
     }
-    sock.bind(&SockAddr::from(*addr))?;
-    UdpSocket::from_std(sock.into_udp_socket())
+    sock.bind(&SockAddr::from(addr))?;
+    UdpSocket::from_std(sock.into())
 }

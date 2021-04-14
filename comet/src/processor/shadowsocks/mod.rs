@@ -249,9 +249,3 @@ pub fn parse_url(url: &str) -> Result<SsrUrlItem> {
         extras,
     })
 }
-
-pub fn parse_subscription(content: &str) -> Result<Vec<SsrUrlItem>> {
-    let decoded = base64::decode(content)?;
-    let decoded_str = std::str::from_utf8(&decoded)?;
-    decoded_str.lines().map(parse_url).collect()
-}

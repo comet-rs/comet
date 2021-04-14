@@ -39,6 +39,7 @@ impl Processor for TimeoutProcessor {
 }
 
 pin_project! {
+  #[derive(Debug)]
   struct TimeoutReader<R> {
     #[pin]
     inner: R,

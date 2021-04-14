@@ -92,6 +92,12 @@ pub struct SsCrypter<N> {
     nonce: N,
 }
 
+impl<N> std::fmt::Debug for SsCrypter<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "AEADSsCrypter")
+    }
+}
+
 impl<N: NonceSeq> SsCrypter<N> {
     fn new(mode: CrypterMode, kind: AeadCipherKind, key: &[u8], nonce: N) -> Self {
         Self {

@@ -45,6 +45,12 @@ pub struct SsCrypter {
     mode: CrypterMode,
 }
 
+impl std::fmt::Debug for SsCrypter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SsCryper ({:?})", self.mode)
+    }
+}
+
 /// This is prefectly fine, they just forgot to have `+Sync`.
 unsafe impl Sync for SsCrypter {}
 

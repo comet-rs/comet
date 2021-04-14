@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::utils::io::eof;
 use crate::{check_eof, crypto::random::xor_rng};
-use crate::{delegate_flush, delegate_read, delegate_shutdown, delegate_write_all};
+use crate::{delegate_read, delegate_write_all, delegate_write_misc};
 use futures::ready;
 use lazy_static::lazy_static;
 use rand::{prelude::SliceRandom, thread_rng, Rng};
@@ -127,12 +127,14 @@ impl Processor for ClientProcessor {
     }
 }
 
+#[derive(Debug)]
 enum StripState {
     Stripping,
     WritingBuf,
     Done,
 }
 
+#[derive(Debug)]
 struct StripHttpHeaderStream<RW> {
     inner: RW,
     state: StripState,
@@ -203,12 +205,14 @@ enum ObfsHttpMethod {
     Post,
 }
 
+#[derive(Debug)]
 enum HttpWriterState {
     Prepare(ObfsHttpMethod, BytesMut),
     Writing(usize, BytesMut),
     Done,
 }
 
+#[derive(Debug)]
 struct SimpleHttpWriter<RW> {
     inner: RW,
     state: HttpWriterState,
@@ -270,8 +274,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for SimpleHttpWriter<W> {
         }
     }
 
-    delegate_flush!();
-    delegate_shutdown!();
+    delegate_write_misc!();
 }
 
 delegate_read!(SimpleHttpWriter);

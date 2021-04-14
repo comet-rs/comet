@@ -1,12 +1,11 @@
 mod http;
 mod tls;
-use crate::prelude::*;
+use crate::{prelude::*, utils::prepend_io::PrependReader};
 use bytes::{BufMut, BytesMut};
 use log::warn;
 use std::net::IpAddr;
 use std::str;
 use std::str::FromStr;
-use tokio_prepend_io::PrependReader;
 
 pub fn register(plumber: &mut Plumber) {
     plumber.register("sniffer", |conf, _| {

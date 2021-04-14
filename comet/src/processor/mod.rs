@@ -8,7 +8,7 @@ pub mod http;
 pub mod set_dest;
 pub mod shadowsocks;
 pub mod sniffer;
-pub mod socks5_proxy;
+pub mod socks5;
 pub mod timeout;
 pub mod tls;
 #[cfg(feature = "tls-mitm")]
@@ -25,7 +25,7 @@ pub fn do_register(plumber: &mut Plumber) {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     linux::register(plumber);
 
-    socks5_proxy::register(plumber);
+    socks5::register(plumber);
     sniffer::register(plumber);
     http::client::register(plumber);
     http::server::register(plumber);

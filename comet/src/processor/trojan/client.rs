@@ -1,8 +1,8 @@
 use crate::{
     crypto::hashing::{hash_bytes, HashKind},
     prelude::*,
+    utils::prepend_io::PrependWriter,
 };
-use tokio_prepend_io::PrependWriter;
 
 pub fn register(plumber: &mut Plumber) {
     plumber.register("trojan_client", |conf, _| {

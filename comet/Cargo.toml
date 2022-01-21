@@ -14,19 +14,23 @@ serde_json = "1.0"
 
 # DNS
 trust-dns-proto = "0.20"
-trust-dns-resolver = { version = "0.20" }
+trust-dns-resolver = { version = "0.20", features = ["dns-over-https-rustls", "dns-over-rustls"] }
 
 # Protocol
 httparse = "1.3"
 # http = "0.2.1"
 hyper = "0.14"
-tungstenite = { version = "0.13", default-features = false }
-tokio-tungstenite = "0.14"
+tungstenite = { version = "0.14", default-features = false }
+tokio-tungstenite = "0.15"
 warp = { version = "0.3", default-features = false, features = ["websocket"] }
 rcgen = { version = "0.8", features = ["x509-parser"], optional = true }
-tokio-rustls = { version = "0.22", optional = true }
-webpki-roots = "0.21.1"
+tokio-rustls = "0.22"
+webpki-roots = "0.22"
 ct-logs = "0.8.0"
+# gRPC
+prost = { version = "0.8", optional = true }
+tonic = { version = "0.5.0", features = ["tls"], optional = true }
+tower = { version = "0.4.8", optional = true }
 
 # Async
 tokio = { version = "1", features = ["full"] }
@@ -44,7 +48,6 @@ ipnetwork = "0.17"
 smol_str = { version = "0.1", features = ["serde"] }
 
 once_cell = "1.5"
-pin-project-lite = "0.2"
 pin-project = "1"
 flurry = "0.3.1"
 base64 = "0.13.0"
@@ -54,7 +57,7 @@ lru-cache = "0.1.2"
 socket2 = "0.4"
 rand = "0.8"
 url = { version = "2.2.0", features = ["serde"] }
-reqwest = { version = "0.11", default-features = false, features = ["json", "gzip"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "gzip", "rustls-tls-webpki-roots"] }
 regex = "1"
 quick-protobuf = "0.8.0"
 uuid = { version = "0.8", features = ["serde", "v4"] }
@@ -70,20 +73,12 @@ hex = "0.4.3"
 [target.'cfg(target_os = "android")'.dependencies]
 libc = "0.2"
 nix = "0.20"
-pnet = "0.27.2"
+pnet = "0.28"
+
+[build-dependencies]
+tonic-build = "0.5.1"
 
 [features]
-default = ["use-rustls", "tls-mitm"]
-use-rustls = [
-  "trust-dns-resolver/dns-over-tls",
-  "trust-dns-resolver/dns-over-https-rustls",
-  "trust-dns-resolver/dns-over-rustls",
-  "reqwest/rustls-tls-webpki-roots",
-  "tokio-rustls",
-]
-tls-mitm = ["tokio-rustls", "rcgen"]
-use-native-tls = [
-  "trust-dns-resolver/dns-over-tls",
-  "trust-dns-resolver/dns-over-native-tls",
-  "reqwest/native-tls",
-]
+default = ["tls-mitm", "gun-transport"]
+tls-mitm = ["rcgen"]
+gun-transport = ["prost", "tonic", "tower"]

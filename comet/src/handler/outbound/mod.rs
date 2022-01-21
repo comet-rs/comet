@@ -6,11 +6,17 @@ mod both;
 mod dashboard;
 mod tcp;
 mod udp;
+#[cfg(feature = "gun-transport")]
+mod gun;
 
 pub use both::TcpUdpHandler;
 pub use dashboard::DashboardHandler;
 pub use tcp::TcpHandler;
 pub use udp::UdpHandler;
+#[cfg(feature = "gun-transport")]
+pub use gun::GunHandler;
+#[cfg(feature = "gun-transport")]
+pub use gun::GunConfig;
 
 #[async_trait]
 pub trait OutboundHandler: Send + Sync + Unpin {

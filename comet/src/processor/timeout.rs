@@ -1,7 +1,7 @@
 use crate::delegate_write_all;
 use crate::prelude::*;
 use futures::Future;
-use pin_project_lite::pin_project;
+use pin_project::pin_project;
 use std::task::Context;
 use std::time::Duration;
 use tokio::io::ReadBuf;
@@ -37,15 +37,13 @@ impl Processor for TimeoutProcessor {
         Ok(RWPair::new(TimeoutReader::new(stream, self.idle)).into())
     }
 }
-
-pin_project! {
-  #[derive(Debug)]
-  struct TimeoutReader<R> {
+#[pin_project]
+#[derive(Debug)]
+struct TimeoutReader<R> {
     #[pin]
     inner: R,
     timer: Option<Pin<Box<Sleep>>>,
     timeout_idle: Option<Duration>,
-  }
 }
 
 impl<R> TimeoutReader<R> {

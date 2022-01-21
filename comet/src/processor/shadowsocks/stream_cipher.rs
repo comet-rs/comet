@@ -108,8 +108,10 @@ impl Processor for ClientProcessor {
     }
 }
 
+#[pin_project::pin_project]
 #[derive(Debug)]
 struct ClientStream<RW> {
+    #[pin]
     inner: RW,
     // Writing
     encrypter: stream::SsCrypter,
@@ -148,50 +150,47 @@ enum WriteState {
 }
 
 impl<RW: AsyncWrite + Unpin> AsyncWrite for ClientStream<RW> {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<IoResult<usize>> {
-        loop {
-            match self.write_state {
-                WriteState::Waiting => {
-                    let me = &mut *self;
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<IoResult<usize>> {
+        let mut this = self.project();
 
-                    let consumed = cmp::min(buf.len(), me.write_buf.remaining_mut());
+        loop {
+            match this.write_state {
+                WriteState::Waiting => {
+                    let consumed = cmp::min(buf.len(), this.write_buf.remaining_mut());
                     assert!(consumed > 0);
 
-                    let old_len = me.write_buf.len();
-                    me.write_buf.extend_from_slice(&buf[0..consumed]);
-                    let mut crypto_output = &mut me.write_buf[old_len..old_len + consumed];
+                    let old_len = this.write_buf.len();
+                    this.write_buf.extend_from_slice(&buf[0..consumed]);
+                    let mut crypto_output = &mut this.write_buf[old_len..old_len + consumed];
 
-                    let n = me
+                    let n = this
                         .encrypter
                         .update(&mut crypto_output)
                         .map_err(|_| crypto_error())?;
-                    me.write_buf.truncate(old_len + n);
+                    this.write_buf.truncate(old_len + n);
 
-                    self.write_state = WriteState::Writing {
+                    *this.write_state = WriteState::Writing {
                         consumed,
                         written: 0,
                     };
                 }
                 WriteState::Writing {
                     consumed,
-                    mut written,
+                    ref mut written,
                 } => {
-                    let me = &mut *self;
-                    let n =
-                        ready!(Pin::new(&mut me.inner).poll_write(cx, &me.write_buf[written..]))?;
+                    let n = ready!(this
+                        .inner
+                        .as_mut()
+                        .poll_write(cx, &this.write_buf[*written..]))?;
 
-                    written += n;
-                    if written >= me.write_buf.len() {
+                    *written += n;
+                    if *written >= this.write_buf.len() {
                         // Writing complete
-                        me.write_state = WriteState::Waiting;
-                        me.write_buf.clear();
-                        return Poll::Ready(Ok(consumed));
+                        let result = Poll::Ready(Ok(*consumed));
+                        *this.write_state = WriteState::Waiting;
+                        this.write_buf.clear();
+                        return result;
                     }
-                    self.write_state = WriteState::Writing { consumed, written };
                 }
             }
         }
@@ -217,38 +216,34 @@ enum ReadState {
 
 impl<RW: AsyncRead + Unpin> AsyncRead for ClientStream<RW> {
     fn poll_read(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         mut buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<IoResult<()>> {
-        let me = &mut *self;
+        let mut this = self.project();
 
         if buf.remaining() == 0 {
             return Poll::Ready(Ok(()));
         }
 
         loop {
-            match &mut me.read_state {
+            match this.read_state {
                 ReadState::ReadSalt {
                     master_key,
                     method,
                     salt_buf,
                 } => {
-                    check_eof!(ready!(poll_read_buf(
-                        Pin::new(&mut me.inner),
-                        cx,
-                        salt_buf
-                    ))?);
+                    check_eof!(ready!(poll_read_buf(this.inner.as_mut(), cx, salt_buf))?);
                     if !salt_buf.has_remaining_mut() {
                         let dec = method
                             .to_crypter(CrypterMode::Decrypt, &master_key, &salt_buf.get_ref())
                             .map_err(|_| crypto_error())?;
-                        me.read_state = ReadState::ReadData(dec);
+                        *this.read_state = ReadState::ReadData(dec);
                     }
                 }
                 ReadState::ReadData(dec) => {
                     let filled_orig = buf.filled().len();
-                    ready!(Pin::new(&mut me.inner).poll_read(cx, &mut buf))?;
+                    ready!(this.inner.as_mut().poll_read(cx, &mut buf))?;
 
                     if buf.filled().len() == filled_orig {
                         // EOF

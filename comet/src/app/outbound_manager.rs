@@ -29,6 +29,8 @@ impl OutboundManager {
                     OutboundTransportType::Udp => Box::new(UdpHandler::new(outbound)),
                     OutboundTransportType::Dashboard => Box::new(DashboardHandler::new(outbound)),
                     OutboundTransportType::TcpUdp => Box::new(TcpUdpHandler::new(outbound)),
+                    #[cfg(feature = "gun-transport")]
+                    OutboundTransportType::Gun { .. } => Box::new(GunHandler::new(outbound)),
                 };
                 let instance = OutboundInstance {
                     pipeline: outbound.pipeline.clone(),

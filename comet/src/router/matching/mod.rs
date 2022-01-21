@@ -69,13 +69,13 @@ impl MatchCondition {
                 MatchCondition::Any(conds) => {
                     tokio_stream::iter(conds.iter())
                         .then(|cond| cond.is_match(conn, mode, ctx))
-                        .any(|x| x)
+                        .any(|x| futures::future::ready(x))
                         .await
                 }
                 MatchCondition::All(conds) => {
                     tokio_stream::iter(conds.iter())
                         .then(|cond| cond.is_match(conn, mode, ctx))
-                        .all(|x| x)
+                        .all(|x| futures::future::ready(x))
                         .await
                 }
 
@@ -122,13 +122,13 @@ impl MatchCondition {
                 MatchCondition::Any(conds) => {
                     tokio_stream::iter(conds.iter())
                         .then(|cond| cond.is_match_dest(dest, mode, ctx))
-                        .any(|x| x)
+                        .any(|x| futures::future::ready(x))
                         .await
                 }
                 MatchCondition::All(conds) => {
                     tokio_stream::iter(conds.iter())
                         .then(|cond| cond.is_match_dest(dest, mode, ctx))
-                        .all(|x| x)
+                        .all(|x| futures::future::ready(x))
                         .await
                 }
 

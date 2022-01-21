@@ -3,18 +3,17 @@ use crate::prelude::*;
 use futures::ready;
 use futures::task::Context;
 use futures::task::Poll;
-use pin_project_lite::pin_project;
+use pin_project::pin_project;
 use std::pin::Pin;
 use tokio::io::ReadBuf;
 
-pin_project! {
-  #[derive(Debug)]
-  pub struct MeteredStream<RW> {
+#[pin_project]
+#[derive(Debug)]
+pub struct MeteredStream<RW> {
     #[pin]
     inner: RW,
     conn_handle: Arc<()>,
-    values: Arc<MetricsValues>
-  }
+    values: Arc<MetricsValues>,
 }
 
 impl<RW> MeteredStream<RW> {

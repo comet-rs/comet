@@ -14,7 +14,7 @@ pub struct Outbound {
     pub typ: OutboundTransportType,
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum OutboundTransportType {
     Tcp,
@@ -22,6 +22,10 @@ pub enum OutboundTransportType {
     #[serde(rename = "tcp+udp")]
     TcpUdp,
     Dashboard,
+    #[cfg(feature = "gun-transport")]
+    Gun {
+        config: crate::handler::outbound::GunConfig,
+    },
 }
 
 impl Default for OutboundTransportType {

@@ -4,6 +4,7 @@ use crate::utils::io::*;
 use crate::{check_eof, crypto::*};
 use bytes::buf::Limit;
 use futures::ready;
+use shadowsocks_crypto::v1::openssl_bytes_to_key;
 use std::cmp;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -41,11 +42,9 @@ impl Into<StreamCipherKind> for SsStreamCipherKind {
 impl SsStreamCipherKind {
     fn derive_key(&self, password: &str) -> Bytes {
         let cipher_kind: StreamCipherKind = (*self).into();
-        hashing::evp_bytes_to_key(
-            hashing::HashKind::Md5,
-            password.as_ref(),
-            cipher_kind.key_len(),
-        )
+        let mut key = vec![0u8; cipher_kind.key_len()];
+        openssl_bytes_to_key(password.as_bytes(), &mut key);
+        Bytes::from(key)
     }
 
     fn generate_salt(&self) -> Result<Bytes> {

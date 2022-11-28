@@ -9,6 +9,7 @@ use anyhow::anyhow;
 use base64::encode_config_buf;
 use futures::ready;
 use rand::{thread_rng, Rng};
+use shadowsocks_crypto::v1::openssl_bytes_to_key;
 use std::collections::VecDeque;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -279,11 +280,8 @@ impl<RW> AuthAes128ClientStream<RW> {
                 hashing::HashKind::Sha1 => "auth_aes128_sha1",
                 _ => unimplemented!(),
             });
-            let part2_enc_key = hashing::evp_bytes_to_key(
-                hashing::HashKind::Md5,
-                &part2_enc_key_raw.as_ref(),
-                cipher_kind.key_len(),
-            );
+            let mut part2_enc_key = vec![0u8; cipher_kind.key_len()];
+            openssl_bytes_to_key(part2_enc_key_raw.as_bytes(), &mut part2_enc_key);
 
             let enc_n = cipher_kind
                 .to_crypter(CrypterMode::Encrypt, &part2_enc_key, &[0u8; 16], false)?

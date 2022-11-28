@@ -7,30 +7,30 @@ edition = "2018"
 [dependencies]
 # Serde
 serde_regex = "1.1"
-serde_with = "1.6"
+serde_with = "2.1"
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.8"
+serde_yaml = "0.9"
 serde_json = "1.0"
 
 # DNS
-trust-dns-proto = "0.20"
-trust-dns-resolver = { version = "0.20", features = ["dns-over-https-rustls", "dns-over-rustls"] }
+trust-dns-proto = "0.22"
+trust-dns-resolver = { version = "0.22", features = [
+    "dns-over-https-rustls",
+    "dns-over-rustls",
+] }
 
 # Protocol
 httparse = "1.3"
 # http = "0.2.1"
 hyper = "0.14"
-tungstenite = { version = "0.14", default-features = false }
-tokio-tungstenite = "0.15"
+tokio-tungstenite = "0.17"
 warp = { version = "0.3", default-features = false, features = ["websocket"] }
-rcgen = { version = "0.8", features = ["x509-parser"], optional = true }
-tokio-rustls = "0.22"
+rcgen = { version = "0.10", features = ["x509-parser"], optional = true }
+tokio-rustls = "0.23"
 webpki-roots = "0.22"
-ct-logs = "0.8.0"
+ct-logs = "0.9.0"
 # gRPC
-prost = { version = "0.8", optional = true }
-tonic = { version = "0.5.0", features = ["tls"], optional = true }
-tower = { version = "0.4.8", optional = true }
+prost = { version = "0.8" }
 
 # Async
 tokio = { version = "1", features = ["full"] }
@@ -38,18 +38,18 @@ futures = "0.3"
 futures-io = "0.3"
 async-trait = "0.1"
 tokio-stream = "0.1"
-tokio-util = { version = "0.6", features = ["compat"] }
+tokio-util = { version = "0.7", features = ["compat", "io"] }
 
 # --
 anyhow = "1.0"
 log = "0.4"
 bytes = "1"
-ipnetwork = "0.17"
+ipnetwork = "0.20"
 smol_str = { version = "0.1", features = ["serde"] }
 
 once_cell = "1.5"
 pin-project = "1"
-flurry = "0.3.1"
+flurry = "0.4.0"
 base64 = "0.13.0"
 rand_xorshift = "0.3.0"
 lazy_static = "1.4.0"
@@ -57,28 +57,38 @@ lru-cache = "0.1.2"
 socket2 = "0.4"
 rand = "0.8"
 url = { version = "2.2.0", features = ["serde"] }
-reqwest = { version = "0.11", default-features = false, features = ["json", "gzip", "rustls-tls-webpki-roots"] }
+reqwest = { version = "0.11", default-features = false, features = [
+    "json",
+    "gzip",
+    "rustls-tls-webpki-roots",
+] }
 regex = "1"
 quick-protobuf = "0.8.0"
 uuid = { version = "0.8", features = ["serde", "v4"] }
 lz_fnv = "0.1"
 
-crypto2 = "0.1.2"
+crypto2 = { version = "0.2", git = "https://github.com/shadowsocks/crypto2.git" }
 sha3 = "0.9.1"
-shadowsocks-crypto = { version = "0.2.4", features = ["v1-stream"] }
 enum-utils = "0.1"
 itertools = "0.10.0"
 hex = "0.4.3"
+aes = "0.8.2"
+cfb-mode = "0.8.2"
+
+[target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
+shadowsocks-crypto = { version = "0.4", features = ["v1-stream", "ring"] }
+
+[target.'cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))'.dependencies]
+shadowsocks-crypto = { version = "0.4", features = ["v1-stream"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 libc = "0.2"
-nix = "0.20"
-pnet = "0.28"
+nix = "0.25"
+pnet = "0.31"
 
 [build-dependencies]
 tonic-build = "0.5.1"
 
 [features]
-default = ["tls-mitm", "gun-transport"]
+default = ["tls-mitm"]
 tls-mitm = ["rcgen"]
-gun-transport = ["prost", "tonic", "tower"]

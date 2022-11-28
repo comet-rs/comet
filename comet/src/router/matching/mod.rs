@@ -1,10 +1,10 @@
 use crate::prelude::*;
 use anyhow::bail;
-use futures::{Future, StreamExt};
+use futures::Future;
 use ipnetwork::IpNetwork;
 use serde_with::DeserializeFromStr;
 use std::{net::IpAddr, str::FromStr};
-use tokio_stream::StreamExt as TokioStreamExt;
+use tokio_stream::StreamExt;
 
 mod domain;
 use domain::DomainCondition;
@@ -69,13 +69,13 @@ impl MatchCondition {
                 MatchCondition::Any(conds) => {
                     tokio_stream::iter(conds.iter())
                         .then(|cond| cond.is_match(conn, mode, ctx))
-                        .any(|x| futures::future::ready(x))
+                        .any(|x| x)
                         .await
                 }
                 MatchCondition::All(conds) => {
                     tokio_stream::iter(conds.iter())
                         .then(|cond| cond.is_match(conn, mode, ctx))
-                        .all(|x| futures::future::ready(x))
+                        .all(|x| x)
                         .await
                 }
 
@@ -122,13 +122,13 @@ impl MatchCondition {
                 MatchCondition::Any(conds) => {
                     tokio_stream::iter(conds.iter())
                         .then(|cond| cond.is_match_dest(dest, mode, ctx))
-                        .any(|x| futures::future::ready(x))
+                        .any(|x| x)
                         .await
                 }
                 MatchCondition::All(conds) => {
                     tokio_stream::iter(conds.iter())
                         .then(|cond| cond.is_match_dest(dest, mode, ctx))
-                        .all(|x| futures::future::ready(x))
+                        .all(|x| x)
                         .await
                 }
 

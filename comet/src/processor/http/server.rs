@@ -55,7 +55,7 @@ impl Processor for ServerProcessor {
                                 let domain = split.next().unwrap();
                                 conn.dest_addr.port =
                                     Some(split.next().and_then(|p| p.parse().ok()).unwrap_or(80));
-                                if let Ok(ip) = IpAddr::from_str(&domain) {
+                                if let Ok(ip) = IpAddr::from_str(domain) {
                                     conn.dest_addr.ip = Some(ip)
                                 } else {
                                     conn.dest_addr.domain = Some(domain.into());
@@ -73,7 +73,7 @@ impl Processor for ServerProcessor {
                         // Doing CONNECTs, drop headers
                         buffer.advance(len);
                         let response = "HTTP/1.1 200 Connection Established\r\n\r\n";
-                        stream.write(response.as_bytes()).await?;
+                        stream.write_all(response.as_bytes()).await?;
                     }
                     return Ok(RWPair::new(PrependReader::new(stream, buffer)).into());
                 }

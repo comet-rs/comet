@@ -1,6 +1,7 @@
 use crate::crypto::*;
 use crate::prelude::*;
 use aead::AeadCipherKind;
+use shadowsocks_crypto::v1::openssl_bytes_to_key;
 
 #[derive(Deserialize, Debug, Clone, Copy)]
 pub enum SsAeadCipherKind {
@@ -22,11 +23,9 @@ impl Into<AeadCipherKind> for SsAeadCipherKind {
 impl SsAeadCipherKind {
     fn derive_key(&self, password: &str) -> Bytes {
         let cipher_kind: AeadCipherKind = (*self).into();
-        hashing::evp_bytes_to_key(
-            hashing::HashKind::Md5,
-            password.as_ref(),
-            cipher_kind.key_len(),
-        )
+        let mut key = vec![0u8; cipher_kind.key_len()];
+        openssl_bytes_to_key(password.as_bytes(), &mut key);
+        Bytes::from(key)
     }
 
     fn generate_salt(&self) -> Result<Bytes> {

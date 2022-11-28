@@ -39,7 +39,7 @@ impl Plumber {
         if self.processors.contains_key(name) {
             panic!("Duplicate processor {}", name);
         }
-        info!("Registering {}", name);
+        debug!("Registering {}", name);
         self.processors.insert(name, Box::new(new_fn));
     }
 

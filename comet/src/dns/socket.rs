@@ -85,6 +85,14 @@ impl UdpSocket for InternalUdpSocket {
             .map_err(io_other_error);
         Poll::Ready(res)
     }
+
+    async fn connect(_addr: SocketAddr) -> IoResult<Self> {
+        Self::bind(SocketAddr::from(([0, 0, 0, 0], 0))).await
+    }
+
+    async fn connect_with_bind(addr: SocketAddr, _bind_addr: SocketAddr) -> IoResult<Self> {
+        Self::bind(addr).await
+    }
 }
 
 pub struct DirectUdpSocket(tokio::net::UdpSocket);
@@ -114,6 +122,14 @@ impl UdpSocket for DirectUdpSocket {
     ) -> Poll<IoResult<usize>> {
         UdpSocket::poll_send_to(&self.0, cx, buf, target)
     }
+
+    async fn connect(addr: SocketAddr) -> IoResult<Self> {
+        Ok(Self(UdpSocket::connect(addr).await?))
+    }
+
+    async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> IoResult<Self> {
+        Ok(Self(UdpSocket::connect_with_bind(addr, bind_addr).await?))
+    }
 }
 
 impl DnsTcpStream for RWPair {
@@ -131,6 +147,10 @@ impl Connect for RWPair {
             .map_err(io_other_error);
 
         Ok(stream?)
+    }
+
+    async fn connect_with_bind(addr: SocketAddr, _bind_addr: Option<SocketAddr>) -> IoResult<Self> {
+        Self::connect(addr).await
     }
 }
 
@@ -173,6 +193,10 @@ impl Connect for DirectTcpStream {
     async fn connect(addr: SocketAddr) -> IoResult<Self> {
         let stream = net_wrapper::connect_tcp(addr).await?;
         Ok(Self(stream.compat()))
+    }
+
+    async fn connect_with_bind(addr: SocketAddr, _bind_addr: Option<SocketAddr>) -> IoResult<Self> {
+        Self::connect(addr).await
     }
 }
 

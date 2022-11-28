@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::Clap;
+use clap::Parser;
 use comet::{run_bin, CONN_ID};
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{info, LevelFilter};
@@ -46,22 +46,14 @@ fn setup_logger(level: LevelFilter) -> Result<(), fern::InitError> {
     Ok(())
 }
 
-#[derive(Clap)]
+#[derive(Parser, Debug)]
 #[clap(name = "Comet Tunneling Service")]
 struct Opts {
-    #[clap(
-        short,
-        long,
-        default_value = "./config.yml",
-        about = "Path to configuration file (YAML)"
-    )]
+    /// Path to configuration file (YAML)
+    #[clap(short, long, default_value = "./config.yml")]
     config: String,
-    #[clap(
-        short,
-        long,
-        default_value = "info",
-        about = "Log level (off, error, warn, info, debug, trace)"
-    )]
+    /// Log level (off, error, warn, info, debug, trace)
+    #[clap(short, long, default_value = "info")]
     level: LevelFilter,
 }
 

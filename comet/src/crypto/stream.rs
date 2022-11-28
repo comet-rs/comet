@@ -1,6 +1,6 @@
 use super::CrypterMode;
 use crate::prelude::*;
-use shadowsocks_crypto::v1::{Cipher, CipherKind as SsCipherKind};
+use shadowsocks_crypto::{v1::Cipher, CipherKind as SsCipherKind};
 
 pub trait StreamCrypter: Send + Sync {
     fn update(&mut self, in_out: &mut [u8]) -> Result<usize>;

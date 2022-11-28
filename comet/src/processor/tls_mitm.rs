@@ -11,9 +11,9 @@ use once_cell::sync::OnceCell;
 use rcgen::{BasicConstraints, Certificate, CertificateParams, DnType, IsCa, KeyPair};
 use tokio_rustls::{
     rustls::{
+        server::{ResolvesServerCert, ResolvesServerCertUsingSni},
         sign::{any_supported_type, CertifiedKey},
-        Certificate as RustlsCert, NoClientAuth, PrivateKey, ResolvesServerCert,
-        ResolvesServerCertUsingSNI, ServerConfig,
+        Certificate as RustlsCert, PrivateKey, ServerConfig,
     },
     TlsAcceptor,
 };
@@ -34,14 +34,14 @@ fn new_cert(san: &str) -> Result<Certificate> {
 
 struct CertResolverInner {
     generated: HashSet<SmolStr>,
-    resolver: ResolvesServerCertUsingSNI,
+    resolver: ResolvesServerCertUsingSni,
 }
 
 impl CertResolverInner {
     fn new() -> Self {
         Self {
             generated: HashSet::new(),
-            resolver: ResolvesServerCertUsingSNI::new(),
+            resolver: ResolvesServerCertUsingSni::new(),
         }
     }
 }
@@ -106,8 +106,8 @@ impl CertResolver {
 impl ResolvesServerCert for CertResolver {
     fn resolve(
         &self,
-        client_hello: tokio_rustls::rustls::ClientHello<'_>,
-    ) -> Option<tokio_rustls::rustls::sign::CertifiedKey> {
+        client_hello: tokio_rustls::rustls::server::ClientHello<'_>,
+    ) -> Option<Arc<CertifiedKey>> {
         let server_name: &str = client_hello.server_name()?.into();
 
         {
@@ -121,8 +121,7 @@ impl ResolvesServerCert for CertResolver {
         let cert_priv = any_supported_type(&PrivateKey(cert.serialize_private_key_der())).unwrap();
         let cert_pub = RustlsCert(cert.serialize_der_with_signer(&self.ca).unwrap());
 
-        let cert_key =
-            CertifiedKey::new(vec![cert_pub, self.ca_rustls.clone()], Arc::new(cert_priv));
+        let cert_key = CertifiedKey::new(vec![cert_pub, self.ca_rustls.clone()], cert_priv);
 
         let mut inner = self.inner.write().unwrap();
         inner
@@ -151,8 +150,10 @@ impl TlsMitmProcessor {
 
     pub fn acceptor(&self, ctx: AppContextRef) -> Result<&TlsAcceptor> {
         self.acceptor.get_or_try_init(|| {
-            let mut cfg = ServerConfig::new(NoClientAuth::new());
-            cfg.cert_resolver = Arc::new(CertResolver::new(&self.pipe_tag, ctx)?);
+            let mut cfg = ServerConfig::builder()
+                .with_safe_defaults()
+                .with_no_client_auth()
+                .with_cert_resolver(Arc::new(CertResolver::new(&self.pipe_tag, ctx)?));
 
             Ok(TlsAcceptor::from(Arc::new(cfg)))
         })

@@ -1,7 +1,8 @@
 use futures::{future, ready, Sink, StreamExt};
 use tokio_tungstenite::client_async_with_config;
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+use tokio_tungstenite::tungstenite::Message;
 use tokio_util::io::StreamReader;
-use tungstenite::{protocol::WebSocketConfig, Message};
 use url::Url;
 
 use crate::prelude::*;

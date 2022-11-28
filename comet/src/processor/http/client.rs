@@ -28,7 +28,7 @@ impl Processor for ClientProcessor {
             dest_addr,
             conn.dest_addr.port_or_error()?
         );
-        stream.write(request.as_bytes()).await?;
+        stream.write_all(request.as_bytes()).await?;
         let mut buffer = BytesMut::with_capacity(512);
         loop {
             let mut headers = [httparse::EMPTY_HEADER; 16];

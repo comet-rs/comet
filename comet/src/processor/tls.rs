@@ -1,6 +1,8 @@
+use std::convert::TryFrom;
+
 use tokio_rustls::{
-    rustls,
-    webpki::{DNSName, DNSNameRef},
+    rustls::{self, ServerName},
+    webpki::{DnsName, DnsNameRef},
     TlsConnector,
 };
 
@@ -19,24 +21,34 @@ pub struct ClientConfig {
 }
 pub struct ClientProcessor {
     connector: TlsConnector,
-    sni: DNSName,
+    sni: DnsName,
+    server_name: ServerName,
     config: ClientConfig,
 }
 
 impl ClientProcessor {
     fn new(config: ClientConfig) -> Result<Self> {
-        let mut rustls_config = rustls::ClientConfig::new();
+        let mut root_store = rustls::RootCertStore::empty();
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
+        let mut rustls_config = rustls::ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
         rustls_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-        rustls_config.ct_logs = Some(&ct_logs::LOGS);
-        rustls_config
-            .root_store
-            .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
 
-        let sni = DNSNameRef::try_from_ascii_str(&config.sni)?;
+        let sni = DnsNameRef::try_from_ascii_str(&config.sni)?;
+        let server_name = ServerName::try_from(config.sni.as_str())?;
 
         Ok(Self {
             connector: Arc::new(rustls_config).into(),
             sni: sni.to_owned(),
+            server_name,
             config,
         })
     }
@@ -55,7 +67,7 @@ impl Processor for ClientProcessor {
         _ctx: AppContextRef,
     ) -> Result<ProxyStream> {
         let stream = stream.into_tcp()?;
-        let tls_stream = self.connector.connect(self.sni.as_ref(), stream).await?;
+        let tls_stream = self.connector.connect(self.server_name.clone(), stream).await?;
         Ok(RWPair::new(tls_stream).into())
     }
 }

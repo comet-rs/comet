@@ -3,7 +3,7 @@ use crate::prelude::*;
 use aeadcipher::AeadCipher;
 use anyhow::anyhow;
 use crypto2::aeadcipher;
-use shadowsocks_crypto::v1::CipherKind as SsCipherKind;
+use shadowsocks_crypto::CipherKind as SsCipherKind;
 
 pub trait AeadCrypter: Send + Sync {
     fn update(&mut self, in_out: &mut [u8]) -> Result<usize>;

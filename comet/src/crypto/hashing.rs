@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use crypto2::hash as ss_hash;
 use crypto2::mac as ss_mac;
-use std::cmp::min;
 
 #[derive(Debug, Copy, Clone)]
 pub enum HashKind {
@@ -153,35 +152,3 @@ pub fn sign_bytes(kind: HashKind, key: &[u8], input: &[u8]) -> Bytes {
     signer.finish()
 }
 
-pub fn evp_bytes_to_key(kind: HashKind, input: &[u8], len: usize) -> Bytes {
-    let mut buf = BytesMut::with_capacity(len);
-    let mut last_hash: Option<Bytes> = None;
-
-    while buf.len() < len {
-        let mut hasher = new_hasher(kind);
-        if let Some(last_hash) = last_hash {
-            hasher.update(&last_hash);
-        }
-        hasher.update(input);
-        let hash = hasher.finish();
-        let write_len = min(hash.len(), len - buf.len());
-        buf.put_slice(&hash[0..write_len]);
-        last_hash = Some(hash);
-    }
-
-    buf.freeze()
-}
-
-#[cfg(test)]
-mod test {
-    use super::{evp_bytes_to_key, HashKind};
-
-    #[test]
-    fn bytes_to_key() {
-        let key = evp_bytes_to_key(HashKind::Md5, b"abc", 32);
-        assert_eq!(
-            &b"\x90\x01P\x98<\xd2O\xb0\xd6\x96?}(\xe1\x7fr\xea\x0b1\xe1\x08z\"\xbcS\x94\xa6cnn\xd3K"[..],
-            &key[..]
-        );
-    }
-}

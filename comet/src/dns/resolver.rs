@@ -44,15 +44,13 @@ impl Resolver {
     pub fn from_config(item: &DnsConfigItem) -> Result<Self> {
         use trust_dns_resolver::config::Protocol;
 
-        let resolver_opts = ResolverOpts {
-            timeout: item.timeout,
-            positive_min_ttl: Some(Duration::from_secs(300)),
-            cache_size: if item.cache_size == 0 {
-                128
-            } else {
-                item.cache_size
-            },
-            ..Default::default()
+        let mut resolver_opts = ResolverOpts::default();
+        resolver_opts.timeout = item.timeout;
+        resolver_opts.positive_min_ttl = Some(Duration::from_secs(300));
+        resolver_opts.cache_size = if item.cache_size == 0 {
+            128
+        } else {
+            item.cache_size
         };
 
         let mut name_servers = Vec::with_capacity(item.servers.len());
@@ -102,6 +100,7 @@ impl Resolver {
                 tls_dns_name: tls_name.map(|s| s.clone().into_owned()),
                 trust_nx_responses: true,
                 tls_config: None,
+                bind_addr: None,
             });
         }
 

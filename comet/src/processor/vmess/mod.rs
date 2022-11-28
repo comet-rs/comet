@@ -335,12 +335,9 @@ impl<W: AsyncWrite + Unpin> ClientWriter<W> {
                         self.write_buf.advance_mut(tag_len + padding);
                     }
 
-                    let mut crypto_output =
+                    let crypto_output =
                         &mut self.write_buf[payload_start..payload_start + consumed + tag_len];
-                    let n = self
-                        .crypter
-                        .update(&mut crypto_output)
-                        .map_err(io_other_error)?;
+                    let n = self.crypter.update(crypto_output).map_err(io_other_error)?;
                     debug_assert_eq!(n, consumed + tag_len);
 
                     self.state = ClientWriterState::Writing {

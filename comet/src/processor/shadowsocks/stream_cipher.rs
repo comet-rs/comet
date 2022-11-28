@@ -29,9 +29,9 @@ pub enum SsStreamCipherKind {
     Aes256Cfb,
 }
 
-impl Into<StreamCipherKind> for SsStreamCipherKind {
-    fn into(self) -> StreamCipherKind {
-        match self {
+impl From<SsStreamCipherKind> for StreamCipherKind {
+    fn from(val: SsStreamCipherKind) -> Self {
+        match val {
             SsStreamCipherKind::Aes128Cfb => StreamCipherKind::Aes128Cfb,
             SsStreamCipherKind::Aes192Cfb => StreamCipherKind::Aes192Cfb,
             SsStreamCipherKind::Aes256Cfb => StreamCipherKind::Aes256Cfb,
@@ -122,9 +122,9 @@ struct ClientStream<RW> {
 
 impl<RW> ClientStream<RW> {
     fn new(inner: RW, method: SsStreamCipherKind, master_key: &[u8], salt: &[u8]) -> Result<Self> {
-        let encrypter = method.to_crypter(CrypterMode::Encrypt, master_key, &salt)?;
+        let encrypter = method.to_crypter(CrypterMode::Encrypt, master_key, salt)?;
         let mut buf = BytesMut::with_capacity(8192);
-        buf.put_slice(&salt);
+        buf.put_slice(salt);
 
         Ok(Self {
             inner,
@@ -160,11 +160,11 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for ClientStream<RW> {
 
                     let old_len = this.write_buf.len();
                     this.write_buf.extend_from_slice(&buf[0..consumed]);
-                    let mut crypto_output = &mut this.write_buf[old_len..old_len + consumed];
+                    let crypto_output = &mut this.write_buf[old_len..old_len + consumed];
 
                     let n = this
                         .encrypter
-                        .update(&mut crypto_output)
+                        .update(crypto_output)
                         .map_err(|_| crypto_error())?;
                     this.write_buf.truncate(old_len + n);
 
@@ -210,14 +210,14 @@ enum ReadState {
         method: SsStreamCipherKind,
         salt_buf: Limit<BytesMut>,
     },
-    ReadData(stream::SsCrypter),
+    ReadData(Box<stream::SsCrypter>),
 }
 
 impl<RW: AsyncRead + Unpin> AsyncRead for ClientStream<RW> {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-        mut buf: &mut tokio::io::ReadBuf<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<IoResult<()>> {
         let mut this = self.project();
 
@@ -235,14 +235,14 @@ impl<RW: AsyncRead + Unpin> AsyncRead for ClientStream<RW> {
                     check_eof!(ready!(poll_read_buf(this.inner.as_mut(), cx, salt_buf))?);
                     if !salt_buf.has_remaining_mut() {
                         let dec = method
-                            .to_crypter(CrypterMode::Decrypt, &master_key, &salt_buf.get_ref())
+                            .to_crypter(CrypterMode::Decrypt, master_key, salt_buf.get_ref())
                             .map_err(|_| crypto_error())?;
-                        *this.read_state = ReadState::ReadData(dec);
+                        *this.read_state = ReadState::ReadData(Box::new(dec));
                     }
                 }
                 ReadState::ReadData(dec) => {
                     let filled_orig = buf.filled().len();
-                    ready!(this.inner.as_mut().poll_read(cx, &mut buf))?;
+                    ready!(this.inner.as_mut().poll_read(cx, buf))?;
 
                     if buf.filled().len() == filled_orig {
                         // EOF

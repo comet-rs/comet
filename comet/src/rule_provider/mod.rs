@@ -1,4 +1,4 @@
-#![allow(clippy::clippy::new_ret_no_self)]
+#![allow(clippy::new_ret_no_self)]
 
 use std::{
     convert::TryFrom,

@@ -48,7 +48,7 @@ pub async fn handle_conn(
     let dest_ori = conn.dest_addr.clone();
     if let Some(outbound_pipeline) = ctx.outbound_manager.get_pipeline(&outbound_tag)? {
         ctx.clone_plumber()
-            .prepare(&outbound_pipeline, conn, ctx.clone())
+            .prepare(outbound_pipeline, conn, ctx.clone())
             .await
             .with_context(|| format!("preparing outbound pipeline {}", outbound_pipeline))?;
     }
@@ -67,7 +67,7 @@ pub async fn handle_conn(
     if let Some(outbound_pipeline) = ctx.outbound_manager.get_pipeline(&outbound_tag)? {
         outbound = ctx
             .clone_plumber()
-            .process(&outbound_pipeline, conn, outbound, ctx.clone())
+            .process(outbound_pipeline, conn, outbound, ctx.clone())
             .await
             .with_context(|| format!("running outbound pipeline {}", outbound_pipeline))?;
     }

@@ -111,7 +111,7 @@ impl Processor for ClientProcessor {
 
                 if headers.is_empty() {
                     header_buf.put_slice(b"User-Agent: ");
-                    header_buf.put_slice(&USER_AGENTS.choose(&mut rng).unwrap().as_bytes());
+                    header_buf.put_slice(USER_AGENTS.choose(&mut rng).unwrap().as_bytes());
                     header_buf.put_slice(b"\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nDNT: 1\r\nConnection: keep-alive\r\n");
                 } else {
                     for (name, value) in headers {
@@ -252,7 +252,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for SimpleHttpWriter<W> {
                         full_header_buf.put_slice(s.as_bytes());
                     }
                     full_header_buf.put_slice(b" HTTP/1.1\r\n");
-                    full_header_buf.extend_from_slice(&header_buf);
+                    full_header_buf.extend_from_slice(header_buf);
                     me.state = HttpWriterState::Writing(encode_len, full_header_buf);
                 }
                 HttpWriterState::Writing(encode_len, full_header_buf) => {

@@ -308,7 +308,7 @@ impl<RW> AuthAes128ClientStream<RW> {
             }
             random::rand_bytes(&mut ret[cur_len..rnd_end])?;
         }
-        ret.put_slice(&buf);
+        ret.put_slice(buf);
         let part3_hmac = hashing::sign_bytes(self.hash_kind, &self.user_key, &ret);
         ret.put_slice(&part3_hmac[0..4]);
         assert_eq!(ret.len(), pack_len as usize);
@@ -387,7 +387,7 @@ impl<RW> AuthAes128ClientStream<RW> {
             buf.advance(PACK_UNIT_SIZE);
         }
         if !buf.is_empty() {
-            chunks.push_back(self.pack_chunk(&buf, full_len)?);
+            chunks.push_back(self.pack_chunk(buf, full_len)?);
         }
         Ok(chunks)
     }
@@ -423,7 +423,7 @@ impl<RW: AsyncWrite + Unpin> AsyncWrite for AuthAes128ClientStream<RW> {
                 }
                 WriteState::Writing { chunks } => {
                     let chunk = chunks.front_mut().unwrap();
-                    let n = ready!(Pin::new(&mut me.inner).poll_write(cx, &chunk))?;
+                    let n = ready!(Pin::new(&mut me.inner).poll_write(cx, chunk))?;
                     if n == 0 {
                         return Poll::Ready(Err(eof()));
                     }

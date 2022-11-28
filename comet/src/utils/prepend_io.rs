@@ -94,7 +94,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for PrependWriter<W> {
                     prepend_buf.extend_from_slice(buf); // Append our buffer with input data
                 }
 
-                let n = ready!(Pin::new(&mut me.inner).poll_write(cx, &prepend_buf))?;
+                let n = ready!(Pin::new(&mut me.inner).poll_write(cx, prepend_buf))?;
                 me.written += n;
 
                 if me.written > me.len_before_concat.unwrap() {

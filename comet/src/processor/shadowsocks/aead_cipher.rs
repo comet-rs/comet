@@ -11,9 +11,9 @@ pub enum SsAeadCipherKind {
     Aes256Gcm,
 }
 
-impl Into<AeadCipherKind> for SsAeadCipherKind {
-    fn into(self) -> AeadCipherKind {
-        match self {
+impl From<SsAeadCipherKind> for AeadCipherKind {
+    fn from(val: SsAeadCipherKind) -> Self {
+        match val {
             SsAeadCipherKind::Aes128Gcm => AeadCipherKind::Aes128Gcm,
             SsAeadCipherKind::Aes256Gcm => AeadCipherKind::Aes256Gcm,
         }

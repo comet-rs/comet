@@ -67,7 +67,7 @@ impl Plumber {
         stream: ProxyStream,
         ctx: AppContextRef,
     ) -> Result<ProxyStream> {
-        Ok(self.get_pipeline(tag)?.process(stream, conn, ctx).await?)
+        self.get_pipeline(tag)?.process(stream, conn, ctx).await
     }
 
     pub async fn prepare(
@@ -76,7 +76,7 @@ impl Plumber {
         conn: &mut Connection,
         ctx: AppContextRef,
     ) -> Result<()> {
-        Ok(self.get_pipeline(tag)?.prepare(conn, ctx).await?)
+        self.get_pipeline(tag)?.prepare(conn, ctx).await
     }
 
     pub fn get_pipeline(&self, tag: &str) -> Result<&Pipeline> {

@@ -197,7 +197,7 @@ pub fn parse_url(url: &str) -> Result<SsrUrlItem> {
 
     let mut extras = if let Some(qs) = split.next() {
         let parsed_qs = url::form_urlencoded::parse(qs.as_bytes()).map(|(k, v)| {
-            let v = urlsafe_base64_decode_string(&v.as_bytes())?;
+            let v = urlsafe_base64_decode_string(v.as_bytes())?;
             Ok((SmolStr::from(k), v))
         });
         parsed_qs.collect::<Result<HashMap<_, _>>>()?

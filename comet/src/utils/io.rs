@@ -91,11 +91,11 @@ macro_rules! delegate_read {
 macro_rules! delegate_write_all {
     ($type:ident) => {
         impl<W: AsyncWrite + Unpin> AsyncWrite for $type<W> {
-            crate::delegate_write!();
-            crate::delegate_flush!();
-            crate::delegate_shutdown!();
-            crate::delegate_write_vectored!();
-            crate::delegate_is_write_vectored!();
+            $crate::delegate_write!();
+            $crate::delegate_flush!();
+            $crate::delegate_shutdown!();
+            $crate::delegate_write_vectored!();
+            $crate::delegate_is_write_vectored!();
         }
     };
 }
@@ -103,10 +103,10 @@ macro_rules! delegate_write_all {
 #[macro_export]
 macro_rules! delegate_write_misc {
     () => {
-        crate::delegate_flush!();
-        crate::delegate_shutdown!();
-        crate::delegate_write_vectored!();
-        crate::delegate_is_write_vectored!();
+        $crate::delegate_flush!();
+        $crate::delegate_shutdown!();
+        $crate::delegate_write_vectored!();
+        $crate::delegate_is_write_vectored!();
     };
 }
 

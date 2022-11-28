@@ -36,17 +36,17 @@ pub struct AppContext {
 impl AppContext {
     pub async fn new(config: &Config) -> Result<Self> {
         Ok(AppContext {
-            plumber: Arc::new(Plumber::new(&config).with_context(|| "When creating plumber")?),
-            inbound_manager: Arc::new(InboundManager::new(&config)),
-            outbound_manager: OutboundManager::new(&config),
-            metrics: Metrics::new(&config),
-            router: Router::new(&config).with_context(|| "When creating router")?,
+            plumber: Arc::new(Plumber::new(config).with_context(|| "When creating plumber")?),
+            inbound_manager: Arc::new(InboundManager::new(config)),
+            outbound_manager: OutboundManager::new(config),
+            metrics: Metrics::new(config),
+            router: Router::new(config).with_context(|| "When creating router")?,
             #[cfg(target_os = "android")]
             nat_manager: NatManager::new(&config),
-            dns: DnsService::new(&config).with_context(|| "When creating DNS server")?,
-            rule_provider: RuleProviderServer::new(&config)
+            dns: DnsService::new(config).with_context(|| "When creating DNS server")?,
+            rule_provider: RuleProviderServer::new(config)
                 .with_context(|| "When creating rule provider")?,
-            server_provider: server_provider::ManagerServer::new(&config)
+            server_provider: server_provider::ManagerServer::new(config)
                 .with_context(|| "When creating server provider")?,
             data_dir: config.data_dir.clone(),
         })

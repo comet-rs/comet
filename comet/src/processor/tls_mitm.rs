@@ -108,7 +108,7 @@ impl ResolvesServerCert for CertResolver {
         &self,
         client_hello: tokio_rustls::rustls::server::ClientHello<'_>,
     ) -> Option<Arc<CertifiedKey>> {
-        let server_name: &str = client_hello.server_name()?.into();
+        let server_name: &str = client_hello.server_name()?;
 
         {
             let inner = self.inner.read().unwrap();
@@ -150,7 +150,7 @@ impl TlsMitmProcessor {
 
     pub fn acceptor(&self, ctx: AppContextRef) -> Result<&TlsAcceptor> {
         self.acceptor.get_or_try_init(|| {
-            let mut cfg = ServerConfig::builder()
+            let cfg = ServerConfig::builder()
                 .with_safe_defaults()
                 .with_no_client_auth()
                 .with_cert_resolver(Arc::new(CertResolver::new(&self.pipe_tag, ctx)?));
